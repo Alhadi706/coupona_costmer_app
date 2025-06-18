@@ -1,0 +1,10 @@
+lib/screens/home_screen.dart
+lib/screens/offers_screen.dart
+lib/screens/offer_detail_screen.dart
+lib/screens/community_screen.dart
+lib/screens/my_rewards_screen.dart
+lib/screens/notifications_screen.dart
+lib/screens/add_manual_coupon_screen.dart
+lib/screens/points_conversion_screen.dart
+lib/screens/reward_qr_code_screen.dart
+lib/screens/settings_screen.dart

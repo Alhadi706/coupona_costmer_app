@@ -1,0 +1,189 @@
+import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+class OfferDetailScreen extends StatelessWidget {
+  final Map<String, dynamic> offer;
+  const OfferDetailScreen({Key? key, required this.offer}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('تفاصيل العرض'),
+        backgroundColor: Colors.deepPurple.shade700,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          if (offer['image'] != null && offer['image'] != '')
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                offer['image'],
+                height: 220,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 220,
+                  color: Colors.grey.shade200,
+                  child: Icon(Icons.image_not_supported, color: Colors.grey, size: 60),
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
+          Text(offer['storeName'] ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              if (offer['offerType'] != null && offer['offerType'] != '')
+                Chip(label: Text(offer['offerType'])),
+              if (offer['percent'] != null && offer['percent'] != '') ...[
+                const SizedBox(width: 8),
+                Chip(label: Text(offer['percent'])),
+              ],
+              const SizedBox(width: 8),
+              if (offer['endDate'] != null && offer['endDate'] != '')
+                Text('ينتهي: ${offer['endDate']}', style: const TextStyle(color: Colors.red)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (offer['description'] != null && offer['description'] != '') ...[
+            Text('الوصف:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(offer['description']),
+            const SizedBox(height: 12),
+          ],
+          if (offer['conditions'] != null && offer['conditions'] != '') ...[
+            Text('الشروط:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(offer['conditions']),
+            const SizedBox(height: 12),
+          ],
+          if (offer['location'] != null && offer['location'] != '') ...[
+            Text('الموقع:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(offer['location']),
+            const SizedBox(height: 12),
+          ],
+          if (offer['phone'] != null && offer['phone'].toString().isNotEmpty) ...[
+            Text('رقم الهاتف:', style: TextStyle(fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                Text(offer['phone']),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final phone = offer['phone'].toString();
+                    final url = 'tel:$phone';
+                    if (await canLaunchUrl(Uri.parse(url))) {
+                      await launchUrl(Uri.parse(url));
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('تعذر فتح الاتصال')),
+                      );
+                    }
+                  },
+                  icon: Icon(Icons.phone),
+                  label: Text('اتصال'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    textStyle: TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                    ),
+                    builder: (context) => _ShareOptions(offer: offer),
+                  );
+                },
+                icon: const Icon(Icons.share),
+                label: const Text('مشاركة العرض'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  textStyle: TextStyle(fontSize: 15),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShareOptions extends StatelessWidget {
+  final Map<String, dynamic> offer;
+  const _ShareOptions({Key? key, required this.offer}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final shareText = 'عرض من كوبونا:\n${offer['storeName']}\n${offer['description']}\n${offer['location']}';
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('مشاركة عبر:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chat, color: Colors.green, size: 32), // بديل واتساب
+                onPressed: () async {
+                  final url = 'https://wa.me/?text=${Uri.encodeComponent(shareText)}';
+                  if (await canLaunchUrl(Uri.parse(url))) {
+                    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                  } else {
+                    Share.share(shareText);
+                  }
+                },
+                tooltip: 'واتساب',
+              ),
+              IconButton(
+                icon: const Icon(Icons.facebook, color: Colors.blue, size: 32),
+                onPressed: () {
+                  Share.share(shareText);
+                },
+                tooltip: 'فيسبوك',
+              ),
+              IconButton(
+                icon: const Icon(Icons.telegram, color: Colors.blueAccent, size: 32),
+                onPressed: () {
+                  Share.share(shareText);
+                },
+                tooltip: 'تليجرام',
+              ),
+              IconButton(
+                icon: const Icon(Icons.groups, color: Colors.deepPurple, size: 32),
+                onPressed: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('تمت المشاركة في مجتمع كوبونا!')),
+                  );
+                },
+                tooltip: 'مجتمع كوبونا',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
