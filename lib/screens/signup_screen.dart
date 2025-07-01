@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coupona_app/services/supabase_user_service.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:coupona_app/screens/home_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
@@ -15,16 +17,91 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   bool _loading = false;
+  String? _selectedGender;
+  Position? _userPosition;
+  String? _locationError;
+  DateTime? _selectedBirthDate;
+  int? _calculatedAge;
+
+  Future<void> _getLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() => _locationError = 'خدمة الموقع غير مفعلة.');
+        return;
+      }
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() => _locationError = 'تم رفض إذن الموقع.');
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        setState(() => _locationError = 'إذن الموقع مرفوض نهائيًا.');
+        return;
+      }
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        _userPosition = position;
+        _locationError = null;
+      });
+    } catch (e) {
+      setState(() => _locationError = 'تعذر جلب الموقع: $e');
+    }
+  }
+
+  void _pickBirthDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 18),
+      firstDate: DateTime(now.year - 100),
+      lastDate: now,
+      helpText: 'اختر تاريخ الميلاد',
+      locale: const Locale('ar'),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedBirthDate = picked;
+        _calculatedAge = now.year - picked.year - ((now.month < picked.month || (now.month == picked.month && now.day < picked.day)) ? 1 : 0);
+      });
+    }
+  }
 
   Future<void> _signUp() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
+    final gender = _selectedGender;
+    final age = _calculatedAge;
     if (password != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('كلمتا المرور غير متطابقتين!')),
       );
       return;
+    }
+    if (_selectedBirthDate == null || age == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى اختيار تاريخ الميلاد.')),
+      );
+      return;
+    }
+    if (gender == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى اختيار الجنس.')),
+      );
+      return;
+    }
+    if (_userPosition == null) {
+      await _getLocation();
+      if (_userPosition == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_locationError ?? 'تعذر جلب الموقع.')),
+        );
+        return;
+      }
     }
     setState(() => _loading = true);
     try {
@@ -39,11 +116,33 @@ class _SignUpScreenState extends State<SignUpScreen> {
         'email': email,
         'role': 'customer',
         'createdAt': DateTime.now().toIso8601String(),
+        'age': age,
+        'gender': gender,
+        'latitude': _userPosition!.latitude,
+        'longitude': _userPosition!.longitude,
+        'birthDate': _selectedBirthDate!.toIso8601String(),
       });
       // إضافة المستخدم في Supabase (اختياري)
-      await SupabaseUserService.addUser(email: email, role: 'customer');
+      await SupabaseUserService.addUser(
+        email: email,
+        role: 'customer',
+        age: age,
+        gender: gender,
+        latitude: _userPosition!.latitude,
+        longitude: _userPosition!.longitude,
+      );
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HomeScreen(
+              phone: user.email ?? '',
+              age: age.toString(),
+              gender: gender,
+            ),
+          ),
+          (route) => false,
+        );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -92,6 +191,52 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: _pickBirthDate,
+              child: AbsorbPointer(
+                child: TextField(
+                  decoration: InputDecoration(
+                    labelText: 'تاريخ الميلاد',
+                    prefixIcon: const Icon(Icons.cake),
+                    border: const OutlineInputBorder(),
+                    hintText: _selectedBirthDate != null
+                        ? '${_selectedBirthDate!.year}-${_selectedBirthDate!.month.toString().padLeft(2, '0')}-${_selectedBirthDate!.day.toString().padLeft(2, '0')}'
+                        : 'اختر تاريخ الميلاد',
+                  ),
+                  controller: TextEditingController(
+                    text: _selectedBirthDate != null
+                        ? '${_selectedBirthDate!.year}-${_selectedBirthDate!.month.toString().padLeft(2, '0')}-${_selectedBirthDate!.day.toString().padLeft(2, '0')}'
+                        : '',
+                  ),
+                  readOnly: true,
+                ),
+              ),
+            ),
+            if (_calculatedAge != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text('العمر: $_calculatedAge سنة', style: const TextStyle(color: Colors.deepPurple)),
+              ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedGender,
+              items: const [
+                DropdownMenuItem(value: 'ذكر', child: Text('ذكر')),
+                DropdownMenuItem(value: 'أنثى', child: Text('أنثى')),
+              ],
+              onChanged: (val) => setState(() => _selectedGender = val),
+              decoration: const InputDecoration(
+                labelText: 'الجنس',
+                prefixIcon: Icon(Icons.person),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            if (_locationError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(_locationError!, style: const TextStyle(color: Colors.red)),
+              ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _loading ? null : _signUp,

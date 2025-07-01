@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart' as cs;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../widgets/category_bar.dart'; // استيراد صحيح حسب هيكل المشروع
 import '../widgets/map_bar.dart'; // استيراد صحيح حسب هيكل المشروع
+import 'category_offers_screen.dart';
 
 class HomeContentScreen extends StatefulWidget {
   final List<Map<String, dynamic>> categories;
@@ -53,7 +55,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                   borderRadius: BorderRadius.circular(30),
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: 'ابحث عن كوبونات، متاجر...',
+                      hintText: 'search_hint'.tr(),
                       prefixIcon: Icon(Icons.search, color: Colors.blue.shade700),
                       filled: true,
                       fillColor: Colors.white,
@@ -197,7 +199,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('التقدم نحو الجائزة التالية:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('progress_to_next_reward'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         const SizedBox(height: 8),
                         LinearProgressIndicator(
                           value: 0.6, // نسبة التقدم (مثال)
@@ -206,7 +208,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                           valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade700),
                         ),
                         const SizedBox(height: 8),
-                        Text('تبقّى 12 نقطة للحصول على قسيمة خصم 30 دينار', style: TextStyle(color: Colors.blueGrey)),
+                        Text('points_left_to_reward'.tr(), style: TextStyle(color: Colors.blueGrey)),
                       ],
                     ),
                   ),
@@ -221,13 +223,13 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('جوائز يمكنك الحصول عليها الآن:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('available_rewards_now'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
                           children: [
-                            Chip(label: Text('قسيمة خصم 10 دينار'), backgroundColor: Colors.blue.shade50),
-                            Chip(label: Text('هدية مجانية'), backgroundColor: Colors.blue.shade50),
+                            Chip(label: Text('reward_coupon_10'.tr()), backgroundColor: Colors.blue.shade50),
+                            Chip(label: Text('reward_gift_free'.tr()), backgroundColor: Colors.blue.shade50),
                           ],
                         ),
                       ],
@@ -244,19 +246,19 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('طرق ذكية لزيادة نقاطك:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('smart_ways_to_increase_points'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         const SizedBox(height: 8),
                         ListTile(
                           leading: Icon(Icons.receipt_long, color: Colors.blue.shade700),
-                          title: const Text('مسح فواتير من محلات مشاركة'),
+                          title: Text('tip_scan_invoices'.tr()),
                         ),
                         ListTile(
                           leading: Icon(Icons.group_add, color: Colors.blue.shade700),
-                          title: const Text('دعوة أصدقاء للتطبيق'),
+                          title: Text('tip_invite_friends'.tr()),
                         ),
                         ListTile(
                           leading: Icon(Icons.card_giftcard, color: Colors.blue.shade700),
-                          title: const Text('استخدم كوبونات عامة من زبائن آخرين'),
+                          title: Text('tip_use_public_coupons'.tr()),
                         ),
                       ],
                     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class AddInvoiceIcon extends StatelessWidget {
   final VoidCallback? onTap;
@@ -20,7 +21,7 @@ class AddInvoiceIcon extends StatelessWidget {
           children: [
             Icon(Icons.add_box, color: Colors.blue, size: iconSize),
             SizedBox(height: 4),
-            Text('إضافة عرض', style: TextStyle(color: Colors.blue, fontSize: 12)),
+            Text('add_invoice_icon'.tr(), style: TextStyle(color: Colors.blue, fontSize: 12)),
           ],
         ),
       ),

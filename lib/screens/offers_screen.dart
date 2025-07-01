@@ -1,6 +1,7 @@
 // filepath: lib/screens/offers_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'offer_detail_screen.dart';
 import 'home_screen.dart';
 
@@ -11,7 +12,7 @@ class OffersScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('العروض المتوفرة حاليًا'),
+        title: Text('offers_title'.tr()),
         backgroundColor: Colors.deepPurple.shade700,
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -21,7 +22,7 @@ class OffersScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('لا توجد عروض متاحة حالياً'));
+            return Center(child: Text('offers_no_offers'.tr()));
           }
           final offers = snapshot.data!.docs;
           return ListView.builder(
@@ -70,7 +71,7 @@ class OffersScreen extends StatelessWidget {
                                 Chip(label: Text(offer['percent'] ?? '')),
                               ],
                               const SizedBox(width: 8),
-                              Text('ينتهي: ${offer['endDate'] ?? ''}', style: const TextStyle(color: Colors.red)),
+                              Text('offers_expires'.tr(namedArgs: {'date': offer['endDate'] ?? ''}), style: const TextStyle(color: Colors.red)),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -84,7 +85,7 @@ class OffersScreen extends StatelessWidget {
                                   ),
                                 );
                               },
-                              child: const Text('عرض التفاصيل'),
+                              child: Text('offers_details_btn'.tr()),
                             ),
                           ),
                         ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class CategoryBar extends StatelessWidget {
   final List<Map<String, dynamic>> categories;
@@ -44,7 +45,9 @@ class CategoryBar extends StatelessWidget {
                 SizedBox(
                   width: iconSize * 2,
                   child: Text(
-                    cat['label'],
+                    (cat is String
+                        ? cat.toString().tr()
+                        : (cat['label'] is String ? cat['label'].toString().tr() : cat['label'].toString())),
                     style: TextStyle(fontSize: fontSize, color: Colors.deepPurple),
                     textAlign: TextAlign.center,
                     maxLines: 2,

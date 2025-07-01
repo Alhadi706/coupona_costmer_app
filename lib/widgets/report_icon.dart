@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class ReportIcon extends StatelessWidget {
   final VoidCallback? onTap;
@@ -20,7 +21,7 @@ class ReportIcon extends StatelessWidget {
           children: [
             Icon(Icons.report_problem, color: Colors.orange, size: iconSize),
             SizedBox(height: 4),
-            Text('البلاغات', style: TextStyle(color: Colors.orange, fontSize: 12)),
+            Text('report_icon'.tr(), style: TextStyle(color: Colors.orange, fontSize: 12)),
           ],
         ),
       ),

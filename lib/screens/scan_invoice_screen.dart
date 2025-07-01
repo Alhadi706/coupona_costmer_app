@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:easy_localization/easy_localization.dart';
 
 class ScanInvoiceScreen extends StatefulWidget {
   const ScanInvoiceScreen({Key? key}) : super(key: key);
@@ -78,7 +79,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('مسح الفاتورة'),
+        title: Text('scan_invoice_icon'.tr()),
         backgroundColor: Colors.deepPurple.shade700,
       ),
       body: Padding(
@@ -96,8 +97,8 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                           border: Border.all(color: Colors.deepPurple, width: 2),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: const Center(
-                          child: Text('ضع الفاتورة داخل الإطار', style: TextStyle(fontSize: 18)),
+                        child: Center(
+                          child: Text('scan_invoice_place_inside_frame'.tr(), style: TextStyle(fontSize: 18)),
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -107,13 +108,13 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                           ElevatedButton.icon(
                             onPressed: () => _captureImage(isPanorama: false),
                             icon: const Icon(Icons.camera_alt),
-                            label: const Text('التقاط صورة'),
+                            label: Text('scan_invoice_capture'.tr()),
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, textStyle: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                           ElevatedButton.icon(
                             onPressed: () => _captureImage(isPanorama: true),
                             icon: const Icon(Icons.panorama),
-                            label: const Text('التقاط فاتورة طويلة'),
+                            label: Text('scan_invoice_capture_long'.tr()),
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple.shade200),
                           ),
                         ],
@@ -157,18 +158,18 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                             showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
-                                title: const Text('تمت قراءة الفاتورة بنجاح!'),
-                                content: const Text('نقاطك أُضيفت.'),
+                                title: Text('scan_invoice_success'.tr()),
+                                content: Text('scan_invoice_points_added'.tr()),
                                 actions: [
                                   TextButton(
                                     onPressed: () => Navigator.of(context).pop(),
-                                    child: const Text('حسنًا'),
+                                    child: Text('ok'.tr()),
                                   ),
                                 ],
                               ),
                             );
                           },
-                          child: const Text('متابعة'),
+                          child: Text('continue'.tr()),
                         ),
                       ]
                     ],

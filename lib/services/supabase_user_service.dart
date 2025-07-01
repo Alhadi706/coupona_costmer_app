@@ -9,12 +9,20 @@ class SupabaseUserService {
     required String email,
     required String role,
     int points = 0,
+    int? age,
+    String? gender,
+    double? latitude,
+    double? longitude,
   }) async {
     final response = await _client.from('users').insert({
       'email': email,
       'role': role,
       'points': points,
       'created_at': DateTime.now().toIso8601String(),
+      if (age != null) 'age': age,
+      if (gender != null) 'gender': gender,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
     });
     // يمكنك معالجة response أو إرجاعه إذا أردت
   }

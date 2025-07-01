@@ -1,6 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:ui' as ui;
+import 'map_picker_screen.dart';
+import 'package:latlong2/latlong.dart';
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({Key? key}) : super(key: key);
@@ -16,6 +21,35 @@ class _ReportScreenState extends State<ReportScreen> {
   String? _description;
   XFile? _pickedImage;
 
+  final List<String> merchants = [
+    'كوكاكولا',
+    'بيبسي',
+    'مطعم الشاطئ',
+    'صيدلية الحياة',
+    'سوبرماركت المدينة',
+  ];
+  final List<String> products = [
+    'كوكاكولا زيرو',
+    'بيبسي دايت',
+    'مياه معدنية',
+    'شيبس',
+    'عصير برتقال',
+  ];
+  final List<String> issueTypes = [
+    'صلاحية',
+    'جودة',
+    'سعر',
+    'خدمة',
+    'أخرى',
+  ];
+
+  String? selectedMerchant;
+  String? selectedProduct;
+  String? selectedIssueType;
+  String? location;
+  String? reportText;
+  String? _storeId; // لتخزين ID المحل المختار
+
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
@@ -26,9 +60,20 @@ class _ReportScreenState extends State<ReportScreen> {
     }
   }
 
-  void _submitReport() {
+  void _submitReport() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
+      // حفظ البلاغ في Firestore
+      await FirebaseFirestore.instance.collection('reports').add({
+        'type': _selectedType,
+        'storeName': _storeName,
+        'description': _description,
+        'createdAt': DateTime.now().toIso8601String(),
+        // يمكنك إضافة بيانات المستخدم أو الصورة إذا أردت
+        // 'userId': ...
+        // 'imageUrl': ...
+        'status': 'new', // جديد
+      });
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -42,100 +87,180 @@ class _ReportScreenState extends State<ReportScreen> {
           ],
         ),
       );
-      // هنا يمكن إضافة منطق إرسال البلاغ للسيرفر لاحقًا
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final List<String> _reportTypes = [
-      'expired',
-      'bad_service',
-      'inappropriate_treatment',
-      'price_not_matching_offer',
-      'misleading_advertisement',
-      'other_report',
-    ];
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    setState(() {}); // لإجبار الشاشة على إعادة البناء عند تغيير اللغة
+  }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('report_product_or_service'.tr()),
-        backgroundColor: Colors.deepPurple.shade700,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            children: [
-              DropdownButtonFormField<String>(
-                decoration: InputDecoration(
-                  labelText: 'report_type'.tr(),
-                  border: OutlineInputBorder(),
-                ),
-                value: _selectedType,
-                items: _reportTypes.map((type) => DropdownMenuItem(
-                  value: type,
-                  child: Text(type.tr()),
-                )).toList(),
-                onChanged: (val) => setState(() => _selectedType = val),
-                validator: (val) => val == null ? 'please_select_report_type'.tr() : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                decoration: InputDecoration(
-                  labelText: 'store_name_or_entity'.tr(),
-                  hintText: 'example_supermarket_rabea'.tr(),
-                  border: OutlineInputBorder(),
-                ),
-                onSaved: (val) => _storeName = val,
-                validator: (val) => (val == null || val.isEmpty) ? 'please_enter_store_name'.tr() : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                decoration: InputDecoration(
-                  labelText: 'report_description'.tr(),
-                  hintText: 'write_details_here'.tr(),
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 4,
-                onSaved: (val) => _description = val,
-                validator: (val) => (val == null || val.isEmpty) ? 'please_write_report_description'.tr() : null,
-              ),
-              const SizedBox(height: 16),
-              Row(
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: context.locale.languageCode == 'ar' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: Scaffold(
+        key: ValueKey(context.locale.languageCode),
+        appBar: AppBar(
+          title: Text('report_product_or_service'.tr()),
+          backgroundColor: Colors.deepPurple.shade700,
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: _pickImage,
-                    icon: const Icon(Icons.attach_file),
-                    label: Text('attach_image_or_invoice'.tr()),
+                  // اسم المحل أو العلامة التجارية
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('stores').snapshots(),
+                    builder: (context, snapshot) {
+                      List<Map<String, dynamic>> stores = [];
+                      if (snapshot.hasData) {
+                        stores = snapshot.data!.docs.map((doc) {
+                          final data = doc.data() as Map<String, dynamic>;
+                          return {
+                            'id': doc.id,
+                            'name': data['name'] ?? '',
+                          };
+                        }).where((store) => (store['name'] as String).isNotEmpty).toList();
+                      }
+                      return Autocomplete<Map<String, dynamic>>(
+                        optionsBuilder: (TextEditingValue textEditingValue) {
+                          if (textEditingValue.text == '') {
+                            return const Iterable<Map<String, dynamic>>.empty();
+                          }
+                          return stores.where((store) {
+                            return (store['name'] as String).toLowerCase().contains(textEditingValue.text.toLowerCase());
+                          });
+                        },
+                        displayStringForOption: (store) => store['name'] ?? '',
+                        onSelected: (Map<String, dynamic> selection) {
+                          setState(() {
+                            selectedMerchant = selection['name'];
+                            _storeId = selection['id'];
+                          });
+                        },
+                        fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                          return TextField(
+                            controller: controller,
+                            focusNode: focusNode,
+                            decoration: InputDecoration(
+                              labelText: tr('store_name_or_entity'),
+                              border: const OutlineInputBorder(),
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
-                  const SizedBox(width: 12),
-                  if (_pickedImage != null)
-                    Expanded(
-                      child: Text(
-                        'image_selected_report'.tr(),
-                        style: TextStyle(color: Colors.green.shade700),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  const SizedBox(height: 16),
+                  // اسم المنتج
+                  Autocomplete<String>(
+                    optionsBuilder: (TextEditingValue textEditingValue) {
+                      if (textEditingValue.text == '') {
+                        return const Iterable<String>.empty();
+                      }
+                      return products.where((String option) {
+                        return option.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                      });
+                    },
+                    onSelected: (String selection) {
+                      setState(() {
+                        selectedProduct = selection;
+                      });
+                    },
+                    fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                      return TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        decoration: InputDecoration(
+                          labelText: tr('product_name'),
+                          border: const OutlineInputBorder(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // نوع المشكلة
+                  DropdownButtonFormField<String>(
+                    decoration: InputDecoration(
+                      labelText: tr('issue_type'),
+                      border: const OutlineInputBorder(),
                     ),
+                    items: issueTypes.map((type) => DropdownMenuItem(
+                      value: type,
+                      child: Text(tr(type)),
+                    )).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedIssueType = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  // تحديد الموقع
+                  if (selectedMerchant == null || selectedMerchant!.isEmpty) ...[
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.location_on),
+                      label: Text(tr('pick_store_location_on_map_optional')),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white,
+                      ),
+                      onPressed: () async {
+                        final LatLng? result = await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => MapPickerScreen(
+                              initialLocation: location != null ? LatLng(double.parse(location!.split(',')[0]), double.parse(location!.split(',')[1])) : null,
+                            ),
+                          ),
+                        );
+                        if (result != null) {
+                          setState(() {
+                            location = "${result.latitude},${result.longitude}";
+                          });
+                        }
+                      },
+                    ),
+                    if (location != null) ...[
+                      const SizedBox(height: 8),
+                      Text('الموقع المختار: $location', style: const TextStyle(color: Colors.green)),
+                    ],
+                  ],
+                  const SizedBox(height: 16),
+                  // نص البلاغ
+                  TextField(
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      labelText: tr('report_description_optional'),
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      reportText = value;
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      _submitReport();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: Text(
+                      tr('send_report'),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submitReport,
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.white, // لون النص
-                    textStyle: TextStyle(fontWeight: FontWeight.bold),
-                    backgroundColor: Colors.deepPurple,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: Text('send_report'.tr(), style: TextStyle(fontSize: 18)),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

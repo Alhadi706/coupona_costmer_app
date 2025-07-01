@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class FullMapScreen extends StatefulWidget {
   const FullMapScreen({Key? key}) : super(key: key);
@@ -149,7 +150,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
                           child: TextField(
                             autofocus: false,
                             decoration: InputDecoration(
-                              hintText: 'ابحث عن محل أو فئة...',
+                              hintText: 'search_hint'.tr(),
                               border: InputBorder.none,
                             ),
                             onChanged: (val) => setState(() => searchText = val),
@@ -182,7 +183,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 4),
                               child: FilterChip(
-                                label: Text(cat),
+                                label: Text(cat.tr()),
                                 selected: selectedCategory == cat,
                                 onSelected: (_) => setState(() => selectedCategory == cat ? selectedCategory = '' : selectedCategory = cat),
                               ),

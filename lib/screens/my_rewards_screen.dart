@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class MyRewardsScreen extends StatefulWidget {
   const MyRewardsScreen({super.key});
@@ -57,7 +58,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     double progress = totalPoints / nextPrizePoints;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('مكافآتي', style: TextStyle(color: Colors.white)),
+        title: Text('my_rewards_title'.tr(), style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.deepPurple.shade700,
       ),
       body: SingleChildScrollView(
@@ -69,7 +70,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
             Center(
               child: Column(
                 children: [
-                  const Text('رصيد نقاطك', style: TextStyle(fontSize: 20, color: Colors.deepPurple)),
+                  Text('my_rewards_points_balance'.tr(), style: TextStyle(fontSize: 20, color: Colors.deepPurple)),
                   Text('$totalPoints', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
                   const SizedBox(height: 8),
                   LinearProgressIndicator(
@@ -79,7 +80,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
                   ),
                   const SizedBox(height: 4),
-                  Text('تحتاج ${nextPrizePoints - totalPoints} نقطة لتحصل على الجائزة القادمة', style: const TextStyle(fontSize: 14)),
+                  Text('my_rewards_points_needed'.tr(namedArgs: {'points': (nextPrizePoints - totalPoints).toString()}), style: const TextStyle(fontSize: 14)),
                 ],
               ),
             ),
@@ -98,21 +99,21 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text('كيف تزيد نقاطك؟', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        children: [
+                          Text('my_rewards_how_to_increase'.tr(), style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                           SizedBox(height: 12),
-                          Text('1. الشراء من المحلات المشاركة: كل فاتورة تمنحك نقاط حسب سياسة المحل.'),
+                          Text('my_rewards_tip1'.tr()),
                           SizedBox(height: 8),
-                          Text('2. استخدام كوبونات: عند استخدام كوبونك من قبل مستخدم آخر تحصل على نقاط.'),
+                          Text('my_rewards_tip2'.tr()),
                           SizedBox(height: 8),
-                          Text('3. تحميل عروض من المحلات غير النشيطة: تحصل على نقاط رمزية كمكافأة.'),
+                          Text('my_rewards_tip3'.tr()),
                         ],
                       ),
                     ),
                   );
                 },
                 icon: const Icon(Icons.trending_up, color: Colors.white),
-                label: const Text('زيد أرباحي', style: TextStyle(color: Colors.white)),
+                label: Text('my_rewards_increase_btn'.tr(), style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
                   padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
@@ -124,7 +125,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
             ),
             const SizedBox(height: 24),
             // الجوائز القريبة والممكنة
-            const Text('الجوائز المتاحة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('my_rewards_available_prizes'.tr(), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             SizedBox(
               height: 180, // زيادة الارتفاع لحل مشكلة overflow
               child: ListView.separated(
@@ -147,7 +148,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                           const SizedBox(height: 8),
                           Text(prize['name'], style: const TextStyle(fontSize: 14), textAlign: TextAlign.center),
                           const SizedBox(height: 4),
-                          Text('النقاط: ${prize['requiredPoints']}', style: const TextStyle(fontSize: 12, color: Colors.deepPurple)),
+                          Text('my_rewards_points'.tr(namedArgs: {'points': prize['requiredPoints'].toString()}), style: const TextStyle(fontSize: 12, color: Colors.deepPurple)),
                           const Spacer(),
                           if (prize['earned'])
                             ElevatedButton(
@@ -155,12 +156,12 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                                 showDialog(
                                   context: context,
                                   builder: (_) => AlertDialog(
-                                    title: Text('استلام الجائزة'),
+                                    title: Text('my_rewards_receive_prize'.tr()),
                                     content: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
-                                        Text('يرجى إبراز رمز QR للكاشير لمسحه واستلام جائزتك'),
+                                        Text('my_rewards_show_qr'.tr()),
                                         const SizedBox(height: 16),
                                         Container(
                                           width: 160,
@@ -170,19 +171,19 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                                           child: Text('QR CODE\n#${prize['name']}', textAlign: TextAlign.center),
                                         ),
                                         const SizedBox(height: 12),
-                                        Text('بعد المسح سيتم خصم النقاط واستلام الجائزة تلقائياً'),
+                                        Text('my_rewards_after_scan'.tr()),
                                       ],
                                     ),
                                     actions: [
                                       TextButton(
                                         onPressed: () => Navigator.pop(context),
-                                        child: const Text('إغلاق'),
+                                        child: Text('my_rewards_close'.tr()),
                                       ),
                                     ],
                                   ),
                                 );
                               },
-                              child: const Text('استلم الجائزة', style: TextStyle(color: Colors.white)),
+                              child: Text('my_rewards_receive_btn'.tr(), style: TextStyle(color: Colors.white)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.deepPurple,
                                 minimumSize: Size(90, 32),
@@ -196,27 +197,27 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                                 showDialog(
                                   context: context,
                                   builder: (_) => AlertDialog(
-                                    title: Text('تفاصيل الجائزة'),
+                                    title: Text('my_rewards_prize_details'.tr()),
                                     content: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text('اسم الجائزة: ${prize['name']}'),
-                                        Text('النقاط المطلوبة: ${prize['requiredPoints']}'),
-                                        const SizedBox(height: 8),
-                                        Text('اجمع المزيد من النقاط للحصول على هذه الجائزة!'),
+                                        Text('my_rewards_prize_name'.tr(namedArgs: {'name': prize['name']})),
+                                        Text('my_rewards_prize_required_points'.tr(namedArgs: {'points': prize['requiredPoints'].toString()})),
+                                        SizedBox(height: 8),
+                                        Text('my_rewards_collect_more'.tr()),
                                       ],
                                     ),
                                     actions: [
                                       TextButton(
                                         onPressed: () => Navigator.pop(context),
-                                        child: const Text('إغلاق'),
+                                        child: Text('my_rewards_close'.tr()),
                                       ),
                                     ],
                                   ),
                                 );
                               },
-                              child: const Text('تفاصيل'),
+                              child: Text('my_rewards_details_btn'.tr()),
                               style: OutlinedButton.styleFrom(minimumSize: Size(90, 32)),
                             ),
                         ],
@@ -228,13 +229,13 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
             ),
             const SizedBox(height: 24),
             // سجل النقاط
-            const Text('سجل النقاط', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('my_rewards_points_history'.tr(), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             DataTable(
-              columns: const [
-                DataColumn(label: Text('التاريخ')),
-                DataColumn(label: Text('الكمية')),
-                DataColumn(label: Text('المصدر')),
-                DataColumn(label: Text('الرصيد')),
+              columns: [
+                DataColumn(label: Text('my_rewards_date'.tr())),
+                DataColumn(label: Text('my_rewards_amount'.tr())),
+                DataColumn(label: Text('my_rewards_source'.tr())),
+                DataColumn(label: Text('my_rewards_balance'.tr())),
               ],
               rows: pointsHistory.map((row) => DataRow(cells: [
                 DataCell(Text(row['date'])),
@@ -253,10 +254,10 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
-                  children: const [
+                  children: [
                     Icon(Icons.warning, color: Colors.orange),
                     SizedBox(width: 8),
-                    Expanded(child: Text('تنبيه: بعض نقاطك ستنتهي صلاحيتها قريباً!')),
+                    Expanded(child: Text('my_rewards_expiry_alert'.tr())),
                   ],
                 ),
               ),
@@ -268,7 +269,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                 color: Colors.deepPurple.shade50,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Center(child: Text('خريطة المحلات المشاركة (تجريبية)')),
+              child: Center(child: Text('my_rewards_shops_map'.tr())),
             ),
             const SizedBox(height: 24),
             // رسم بياني مبسط (تجريبي)
@@ -278,7 +279,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                 color: Colors.deepPurple.shade50,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Center(child: Text('رسم بياني لتطور النقاط (تجريبي)')),
+              child: Center(child: Text('my_rewards_points_chart'.tr())),
             ),
           ],
         ),

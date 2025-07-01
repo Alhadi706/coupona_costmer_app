@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class CommunityScreen extends StatefulWidget {
   const CommunityScreen({super.key});
@@ -27,7 +28,7 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('مجتمع كوبونا'),
+        title: Text('community_title'.tr()),
         backgroundColor: Colors.deepPurple.shade700,
       ),
       body: Stack(
@@ -56,9 +57,9 @@ class _CommunityScreenState extends State<CommunityScreen> with SingleTickerProv
                   color: Colors.amber.shade100,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                tabs: const [
-                  Tab(text: 'القروبات', icon: Icon(Icons.groups)),
-                  Tab(text: 'الرسائل الخاصة', icon: Icon(Icons.chat)),
+                tabs: [
+                  Tab(text: 'community_groups_tab'.tr(), icon: Icon(Icons.groups)),
+                  Tab(text: 'community_private_tab'.tr(), icon: Icon(Icons.chat)),
                 ],
               ),
             ),
@@ -79,12 +80,12 @@ class _GroupsTab extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Text('لا توجد قروبات متاحة'));
+          return Center(child: Text('community_no_groups'.tr()));
         }
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('قروبات المجتمع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text('community_groups_title'.tr(), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 10),
             ...snapshot.data!.docs.map((groupDoc) {
               final group = groupDoc.data() as Map<String, dynamic>;
@@ -120,11 +121,11 @@ class _GroupsTab extends StatelessWidget {
                     context: context,
                     builder: (_) => StatefulBuilder(
                       builder: (context, setState) => AlertDialog(
-                        title: const Text('طلب إنشاء قروب جديد'),
+                        title: Text('community_create_group_title'.tr()),
                         content: TextField(
                           autofocus: true,
-                          decoration: const InputDecoration(
-                            labelText: 'اسم القروب',
+                          decoration: InputDecoration(
+                            labelText: 'community_group_name'.tr(),
                             border: OutlineInputBorder(),
                           ),
                           onChanged: (val) => groupName = val,
@@ -132,7 +133,7 @@ class _GroupsTab extends StatelessWidget {
                         actions: [
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('إلغاء'),
+                            child: Text('cancel'.tr()),
                           ),
                           ElevatedButton(
                             onPressed: () {
@@ -141,19 +142,19 @@ class _GroupsTab extends StatelessWidget {
                                 showDialog(
                                   context: context,
                                   builder: (_) => AlertDialog(
-                                    title: const Text('تم الإرسال'),
-                                    content: const Text('تم إرسال طلب إنشاء القروب وبانتظار الموافقة من الإدارة.'),
+                                    title: Text('community_sent'.tr()),
+                                    content: Text('community_sent_waiting'.tr()),
                                     actions: [
                                       TextButton(
                                         onPressed: () => Navigator.pop(context),
-                                        child: const Text('حسنًا'),
+                                        child: Text('ok'.tr()),
                                       ),
                                     ],
                                   ),
                                 );
                               }
                             },
-                            child: const Text('إنشاء'),
+                            child: Text('community_create'.tr()),
                           ),
                         ],
                       ),
@@ -161,10 +162,7 @@ class _GroupsTab extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.add),
-                label: const Text(
-                  'طلب إنشاء قروب جديد',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
+                label: Text('community_create_group_btn'.tr(), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
               ),
             ),
@@ -202,7 +200,7 @@ class _GroupChatScreen extends StatelessWidget {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('لا توجد رسائل بعد'));
+                  return Center(child: Text('community_no_messages'.tr()));
                 }
                 final messages = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
                 return ListView.builder(
@@ -240,8 +238,8 @@ class _GroupChatScreen extends StatelessWidget {
               children: [
                 Expanded(
                   child: TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'اكتب رسالة...',
+                    decoration: InputDecoration(
+                      hintText: 'community_write_message'.tr(),
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -251,7 +249,7 @@ class _GroupChatScreen extends StatelessWidget {
                   onPressed: () {
                     // منطق إرسال الرسالة (تجريبي)
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('تم إرسال الرسالة (تجريبي)')),
+                      SnackBar(content: Text('community_message_sent'.tr())),
                     );
                   },
                   child: const Icon(Icons.send),
@@ -277,8 +275,8 @@ class _PrivateChatsTab extends StatelessWidget {
           color: Colors.blue.shade50,
           child: ListTile(
             leading: const Icon(Icons.person, color: Colors.blue),
-            title: const Text('محادثة مع التاجر أحمد'),
-            subtitle: const Text('مرحباً، كيف أستفيد من العرض؟'),
+            title: Text('community_chat_with_ahmed'.tr()),
+            subtitle: Text('community_chat_ahmed_msg'.tr()),
             onTap: () {},
           ),
         ),
@@ -286,8 +284,8 @@ class _PrivateChatsTab extends StatelessWidget {
           color: Colors.green.shade50,
           child: ListTile(
             leading: const Icon(Icons.person, color: Colors.green),
-            title: const Text('محادثة مع الزبون محمد'),
-            subtitle: const Text('تم استلام الكوبون بنجاح!'),
+            title: Text('community_chat_with_mohamed'.tr()),
+            subtitle: Text('community_chat_mohamed_msg'.tr()),
             onTap: () {},
           ),
         ),

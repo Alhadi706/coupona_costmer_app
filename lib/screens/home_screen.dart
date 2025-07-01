@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:badges/badges.dart' as badges;
@@ -42,292 +43,11 @@ class HomeScreen extends StatefulWidget {
 
   // قائمة الفئات (لإعادة الاستخدام)
   static final List<Map<String, dynamic>> categoriesStatic = [
-    {
-      'icon': Icons.restaurant,
-      'label': 'مطاعم',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'مطعم الذواقة',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 20%',
-          'endDate': '2025-06-10',
-          'description': 'تخفيض 20% على جميع الوجبات.',
-          'conditions': 'يسري العرض على الطلبات الداخلية فقط.',
-          'location': 'الرياض - حي العليا',
-          'phone': '0500000001',
-        },
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'مطعم البيت الشامي',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': '2025-06-15',
-          'description': 'هدية مجانية مع كل وجبة عائلية.',
-          'conditions': 'يسري العرض على الطلبات الداخلية فقط.',
-          'location': 'جدة - شارع فلسطين',
-          'phone': '0500000002',
-        },
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'مطعم برجر تايم',
-          'offerType': 'نقاط مضاعفة',
-          'percent': '',
-          'endDate': '2025-06-20',
-          'description': 'نقاط مضاعفة على كل طلب برجر.',
-          'conditions': 'يسري العرض على الطلبات الخارجية فقط.',
-          'location': 'الدمام - حي الشاطئ',
-          'phone': '0500000003',
-        },
-      ]
-    },
-    {
-      'icon': Icons.directions_car,
-      'label': 'سيارات',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'مغسلة سيارات النخبة',
-          'offerType': 'نقاط مضاعفة',
-          'percent': '',
-          'endDate': '2025-06-15',
-          'description': 'احصل على نقاط مضاعفة عند كل غسيل.',
-          'conditions': 'يسري العرض على غسيل السيارات الصغيرة فقط.',
-          'location': 'جدة - شارع التحلية',
-          'phone': '0500000004',
-        },
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'تبديل زيوت السريع',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 10%',
-          'endDate': '2025-06-18',
-          'description': 'خصم 10% على جميع أنواع الزيوت.',
-          'conditions': 'يسري العرض على الزيوت المستوردة فقط.',
-          'location': 'الرياض - حي المروج',
-          'phone': '0500000005',
-        },
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'قطع غيار الخليج',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': '2025-06-25',
-          'description': 'هدية مجانية مع كل عملية شراء فوق 500 ريال.',
-          'conditions': 'حتى نفاد الكمية.',
-          'location': 'الدمام - طريق الخليج',
-          'phone': '0500000006',
-        },
-      ]
-    },
-    {
-      'icon': Icons.diamond,
-      'label': 'مجوهرات',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'مجوهرات الألماس',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': 'دائم',
-          'description': 'هدية مجانية مع كل عملية شراء فوق 1000 ريال.',
-          'conditions': 'حتى نفاد الكمية.',
-          'location': 'الدمام - طريق الخليج',
-          'phone': '0500000007',
-        },
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'مجوهرات الفخامة',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 25%',
-          'endDate': '2025-06-30',
-          'description': 'خصم 25% على أطقم الذهب.',
-          'conditions': 'يسري العرض على الأطقم الكاملة فقط.',
-          'location': 'الرياض - حي العليا',
-          'phone': '0500000008',
-        },
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'ساعات النخبة',
-          'offerType': 'نقاط مضاعفة',
-          'percent': '',
-          'endDate': '2025-07-01',
-          'description': 'نقاط مضاعفة على جميع الساعات.',
-          'conditions': 'يسري العرض على الساعات السويسرية فقط.',
-          'location': 'جدة - شارع الأمير سلطان',
-          'phone': '0500000009',
-        },
-      ]
-    },
-    {
-      'icon': Icons.hotel,
-      'label': 'إقامة',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'فندق الراحة',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 15%',
-          'endDate': '2025-06-20',
-          'description': 'خصم 15% على جميع الغرف.',
-          'conditions': 'يشترط الحجز المسبق.',
-          'location': 'مكة - العزيزية',
-          'phone': '0500000010',
-        },
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'شقق النور',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 10%',
-          'endDate': '2025-07-05',
-          'description': 'خصم 10% على الشقق الفندقية.',
-          'conditions': 'يسري العرض على الإقامة لأسبوع أو أكثر.',
-          'location': 'الرياض - حي النرجس',
-          'phone': '0500000011',
-        },
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'منتجع الشاطئ',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': '2025-07-10',
-          'description': 'هدية مجانية مع كل حجز فيلا.',
-          'conditions': 'حتى نفاد الكمية.',
-          'location': 'جدة - حي الشاطئ',
-          'phone': '0500000012',
-        },
-      ]
-    },
-    {
-      'icon': Icons.apartment,
-      'label': 'عقارات',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'مكتب عقار الشرق',
-          'offerType': 'بيع',
-          'percent': '',
-          'endDate': '2025-07-01',
-          'description': 'شقة للبيع بسعر مميز.',
-          'conditions': 'السعر قابل للتفاوض.',
-          'location': 'الرياض - حي النرجس',
-          'phone': '0500000013',
-        },
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'مكتب عقارات الخليج',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 5%',
-          'endDate': '2025-07-15',
-          'description': 'خصم 5% على عمولات البيع.',
-          'conditions': 'يسري العرض على العقارات السكنية فقط.',
-          'location': 'جدة - حي الروضة',
-          'phone': '0500000014',
-        },
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'مكتب إيجار الشرق',
-          'offerType': 'إيجار',
-          'percent': '',
-          'endDate': '2025-07-20',
-          'description': 'عروض إيجار شقق بأسعار منافسة.',
-          'conditions': 'يشترط عقد سنوي.',
-          'location': 'الدمام - حي الفيصلية',
-          'phone': '0500000015',
-        },
-      ]
-    },
-    {
-      'icon': Icons.self_improvement,
-      'label': 'أنشطة',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'نادي اللياقة',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 10%',
-          'endDate': '2025-06-30',
-          'description': 'خصم 10% على الاشتراكات السنوية.',
-          'conditions': 'يسري العرض على الاشتراك الجديد فقط.',
-          'location': 'جدة - حي الروضة',
-          'phone': '0500000016',
-        },
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'مركز الأنشطة الصيفية',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': '2025-07-10',
-          'description': 'هدية مجانية لكل مشترك جديد.',
-          'conditions': 'حتى نفاد الكمية.',
-          'location': 'الرياض - حي الربيع',
-          'phone': '0500000017',
-        },
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'مخيم المغامرات',
-          'offerType': 'نقاط مضاعفة',
-          'percent': '',
-          'endDate': '2025-07-15',
-          'description': 'نقاط مضاعفة على كل اشتراك.',
-          'conditions': 'يسري العرض على المخيمات الصيفية فقط.',
-          'location': 'مكة - حي الشوقية',
-          'phone': '0500000018',
-        },
-      ]
-    },
-    {
-      'icon': Icons.local_hospital,
-      'label': 'صحة',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'صيدلية الشفاء',
-          'offerType': 'نقاط مضاعفة',
-          'percent': '',
-          'endDate': '2025-06-12',
-          'description': 'نقاط مضاعفة على جميع المشتريات.',
-          'conditions': 'يسري العرض على المنتجات غير المخفضة.',
-          'location': 'الرياض - حي الملك فهد',
-          'phone': '0500000019',
-        },
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'مركز الصحة الشاملة',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 8%',
-          'endDate': '2025-07-05',
-          'description': 'خصم 8% على جميع الخدمات الطبية.',
-          'conditions': 'يسري العرض على الخدمات غير التأمينية.',
-          'location': 'جدة - حي الصفا',
-          'phone': '0500000020',
-        },
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'مركز العلاج الطبيعي',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': '2025-07-15',
-          'description': 'هدية مجانية مع كل جلسة علاجية.',
-          'conditions': 'حتى نفاد الكمية.',
-          'location': 'مكة - حي العزيزية',
-          'phone': '0500000021',
-        },
-      ]
-    },
-    {
-      'icon': Icons.category,
-      'label': 'جميع الفئات',
-      'width': 90.0,
-      'offers': [],
-    },
+    {'icon': Icons.restaurant, 'label': 'restaurants', 'width': 80.0},
+    {'icon': Icons.directions_car, 'label': 'cars', 'width': 80.0},
+    {'icon': Icons.diamond, 'label': 'jewelry', 'width': 80.0},
+    {'icon': Icons.hotel, 'label': 'hotels', 'width': 80.0},
+    {'icon': Icons.apartment, 'label': 'real_estate', 'width': 80.0},
   ];
 
   @override
@@ -357,14 +77,14 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _onItemTapped(int index) {
+  void _onItemTapped(int index, {int? offersCount}) async {
     setState(() {
       _selectedIndex = index;
     });
     // تصفير العداد عند فتح الشاشة
-    if (index == 1) {
-      BadgeHelper.setLastCount(BadgeHelper.offersKey, 0);
-      setState(() => offersUnread = 0);
+    if (index == 1 && offersCount != null) {
+      await BadgeHelper.setLastCount(BadgeHelper.offersKey, offersCount);
+      setState(() => offersUnread = offersCount);
     } else if (index == 2) {
       BadgeHelper.setLastCount(BadgeHelper.communityKey, 0);
       setState(() => communityUnread = 0);
@@ -376,6 +96,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final langKey = ValueKey(context.locale.languageCode);
     final List<Widget> widgetOptions = <Widget>[
       HomeContentScreen(
         categories: HomeScreen.categoriesStatic,
@@ -400,116 +121,107 @@ class _HomeScreenState extends State<HomeScreen> {
       MyRewardsScreen(),
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('كوبونا', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.deepPurple.shade700,
-        elevation: 0,
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+    return Directionality(
+      textDirection: context.locale.languageCode == 'ar' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      child: Scaffold(
+        key: langKey,
+        appBar: AppBar(
+          title: Text('app_title'.tr(), style: TextStyle(color: Colors.white)),
+          backgroundColor: Colors.deepPurple.shade700,
+          elevation: 0,
+          leading: Builder(
+            builder: (context) => IconButton(
+              icon: Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
           ),
+          actions: [
+            // يمكنك إضافة أيقونات أخرى هنا إذا أردت
+          ],
         ),
-        actions: [
-          // يمكنك إضافة أيقونات أخرى هنا إذا أردت
-        ],
-      ),
-      drawer: AppDrawer(),
-      body: widgetOptions[_selectedIndex],
-      bottomNavigationBar: StreamBuilder(
-        stream: FirebaseFirestore.instance.collection('offers').snapshots(),
-        builder: (context, offersSnapshot) {
-          int offersBadgeCount = 0;
-          if (offersSnapshot.hasData) {
-            offersBadgeCount = offersSnapshot.data!.docs.length;
-            // تحديث عداد العروض غير المقروءة
-            if (offersBadgeCount > offersUnread) {
-              BadgeHelper.setLastCount(BadgeHelper.offersKey, offersBadgeCount);
-              setState(() => offersUnread = offersBadgeCount);
+        drawer: AppDrawer(),
+        body: widgetOptions[_selectedIndex],
+        bottomNavigationBar: StreamBuilder(
+          stream: FirebaseFirestore.instance.collection('offers').snapshots(),
+          builder: (context, offersSnapshot) {
+            int offersBadgeCount = 0;
+            if (offersSnapshot.hasData) {
+              offersBadgeCount = offersSnapshot.data!.docs.length;
             }
-          }
-          return StreamBuilder(
-            stream: FirebaseFirestore.instance.collection('groups').snapshots(),
-            builder: (context, groupsSnapshot) {
-              int communityBadgeCount = 0;
-              if (groupsSnapshot.hasData) {
-                communityBadgeCount = groupsSnapshot.data!.docs.length;
-                if (communityBadgeCount > communityUnread) {
-                  BadgeHelper.setLastCount(BadgeHelper.communityKey, communityBadgeCount);
-                  setState(() => communityUnread = communityBadgeCount);
+            return StreamBuilder(
+              stream: FirebaseFirestore.instance.collection('groups').snapshots(),
+              builder: (context, groupsSnapshot) {
+                int communityBadgeCount = 0;
+                if (groupsSnapshot.hasData) {
+                  communityBadgeCount = groupsSnapshot.data!.docs.length;
                 }
-              }
-              return StreamBuilder(
-                stream: FirebaseFirestore.instance
-                    .collection('user_rewards')
-                    .where('userPhone', isEqualTo: widget.phone)
-                    .snapshots(),
-                builder: (context, rewardsSnapshot) {
-                  int rewardsBadgeCount = 0;
-                  if (rewardsSnapshot.hasData) {
-                    rewardsBadgeCount = rewardsSnapshot.data!.docs.length;
-                    if (rewardsBadgeCount > rewardsUnread) {
-                      BadgeHelper.setLastCount(BadgeHelper.rewardsKey, rewardsBadgeCount);
-                      setState(() => rewardsUnread = rewardsBadgeCount);
+                return StreamBuilder(
+                  stream: FirebaseFirestore.instance
+                      .collection('user_rewards')
+                      .where('userPhone', isEqualTo: widget.phone)
+                      .snapshots(),
+                  builder: (context, rewardsSnapshot) {
+                    int rewardsBadgeCount = 0;
+                    if (rewardsSnapshot.hasData) {
+                      rewardsBadgeCount = rewardsSnapshot.data!.docs.length;
                     }
-                  }
-                  return BottomNavigationBar(
-                    items: [
-                      const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
-                      BottomNavigationBarItem(
-                        icon: badges.Badge(
-                          showBadge: offersUnread > 0,
-                          badgeContent: Text('$offersUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                          badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                          child: const Icon(Icons.card_giftcard),
+                    return BottomNavigationBar(
+                      items: [
+                        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'home_nav'.tr()),
+                        BottomNavigationBarItem(
+                          icon: badges.Badge(
+                            showBadge: offersBadgeCount - offersUnread > 0,
+                            badgeContent: Text('${offersBadgeCount - offersUnread}', style: const TextStyle(color: Colors.white, fontSize: 10)),
+                            badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
+                            child: const Icon(Icons.card_giftcard),
+                          ),
+                          label: 'offers_nav'.tr(),
                         ),
-                        label: 'العروض',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: badges.Badge(
-                          showBadge: communityUnread > 0,
-                          badgeContent: Text('$communityUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                          badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                          child: const Icon(Icons.groups),
+                        BottomNavigationBarItem(
+                          icon: badges.Badge(
+                            showBadge: communityBadgeCount > 0,
+                            badgeContent: Text('$communityBadgeCount', style: const TextStyle(color: Colors.white, fontSize: 10)),
+                            badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
+                            child: const Icon(Icons.groups),
+                          ),
+                          label: 'community_nav'.tr(),
                         ),
-                        label: 'المجتمع',
-                      ),
-                      // تم حذف أيقونة الضبط من البار السفلي
-                      BottomNavigationBarItem(
-                        icon: badges.Badge(
-                          showBadge: rewardsUnread > 0,
-                          badgeContent: Text('$rewardsUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                          badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                          child: const Icon(Icons.emoji_events),
+                        BottomNavigationBarItem(
+                          icon: badges.Badge(
+                            showBadge: rewardsBadgeCount > 0,
+                            badgeContent: Text('$rewardsBadgeCount', style: const TextStyle(color: Colors.white, fontSize: 10)),
+                            badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
+                            child: const Icon(Icons.emoji_events),
+                          ),
+                          label: 'rewards_nav'.tr(),
                         ),
-                        label: 'جوائزي',
-                      ),
-                    ],
-                    currentIndex: _selectedIndex > 2 ? _selectedIndex - 1 : _selectedIndex,
-                    onTap: (index) {
-                      // إذا ضغط المستخدم على العنصر الأخير (جوائزي) أو قبله، عدل الفهرس
-                      if (index == 3) {
-                        _onItemTapped(4);
-                      } else {
-                        _onItemTapped(index);
-                      }
-                    },
-                    selectedItemColor: Colors.deepPurple,
-                    unselectedItemColor: Colors.grey,
-                    backgroundColor: Colors.white,
-                    type: BottomNavigationBarType.fixed,
-                  );
-                },
-              );
-            },
-          );
-        },
+                      ],
+                      currentIndex: _selectedIndex > 2 ? _selectedIndex - 1 : _selectedIndex,
+                      onTap: (index) {
+                        if (index == 1) {
+                          _onItemTapped(1, offersCount: offersBadgeCount);
+                        } else if (index == 3) {
+                          _onItemTapped(4);
+                        } else {
+                          _onItemTapped(index);
+                        }
+                      },
+                      selectedItemColor: Colors.deepPurple,
+                      unselectedItemColor: Colors.grey,
+                      backgroundColor: Colors.white,
+                      type: BottomNavigationBarType.fixed,
+                    );
+                  },
+                );
+              },
+            );
+          },
+        ),
+        floatingActionButton: _selectedIndex == 0
+            ? _buildSpeedDial()
+            : null,
+        floatingActionButtonLocation: context.locale.languageCode == 'ar' ? FloatingActionButtonLocation.startFloat : FloatingActionButtonLocation.endFloat,
       ),
-      floatingActionButton: _selectedIndex == 0
-          ? _buildSpeedDial()
-          : null,
-      floatingActionButtonLocation: context.locale.languageCode == 'ar' ? FloatingActionButtonLocation.startFloat : FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -592,4 +304,3 @@ class CategoryShortcut extends StatelessWidget {
     );
   }
 }
-

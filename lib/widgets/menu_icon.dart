@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class MenuIcon extends StatelessWidget {
   final VoidCallback? onTap;
@@ -20,7 +21,7 @@ class MenuIcon extends StatelessWidget {
           children: [
             Icon(Icons.menu, color: Colors.deepPurple, size: iconSize),
             SizedBox(height: 4),
-            Text('القائمة', style: TextStyle(color: Colors.deepPurple, fontSize: 12)),
+            Text('menu_icon'.tr(), style: TextStyle(color: Colors.deepPurple, fontSize: 12)),
           ],
         ),
       ),

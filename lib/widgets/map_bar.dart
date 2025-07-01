@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart';
 import '../../screens/full_map_screen.dart';
 
 class MapBar extends StatefulWidget {
@@ -89,18 +90,18 @@ class _MapBarState extends State<MapBar> {
           final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
           return matchesSearch && matchesCategory;
         }).toList();
-        // قائمة التصنيفات المخصصة
+        // قائمة التصنيفات المخصصة (مفاتيح ترجمة)
         final List<String> categories = [
-          'غذائية',
-          'عيادات',
-          'ملابس',
-          'مجوهرات',
-          'مطاعم',
-          'إلكترونيات',
-          'استراحات',
-          'صحة',
-          'أنشطة',
-          'أخرى',
+          'restaurants',
+          'cars',
+          'jewelry',
+          'hotels',
+          'real_estate',
+          'clothing',
+          'clinics',
+          'electronics',
+          'activities',
+          'other',
         ];
         return Stack(
           clipBehavior: Clip.none,
@@ -182,13 +183,13 @@ class _MapBarState extends State<MapBar> {
                                         Padding(
                                           padding: const EdgeInsets.symmetric(horizontal: 4),
                                           child: FilterChip(
-                                            label: Text(cat),
+                                            label: Text(cat.tr()),
                                             selected: selectedCategory == cat,
                                             onSelected: (_) => setState(() => selectedCategory = selectedCategory == cat ? '' : cat),
                                           ),
                                         ),
                                       FilterChip(
-                                        label: const Text('جميع الفئات'),
+                                        label: Text('all_categories'.tr()),
                                         selected: selectedCategory == '',
                                         onSelected: (_) => setState(() => selectedCategory = ''),
                                       ),
