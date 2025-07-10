@@ -57,6 +57,9 @@ dependencies:
   fl_chart: ^0.66.2
   geolocator: ^11.0.0
   flutter_typeahead: ^5.2.0
+  logger: ^2.0.2
+  flutter_map_cancellable_tile_provider: ^1.0.0
+  geocoding: ^4.0.0
   # أضف أي حزم أخرى تستخدمها هنا
 
 dev_dependencies:

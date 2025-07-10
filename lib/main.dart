@@ -10,6 +10,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart'; // استيراد الشاشة الرئيسية
 import 'firebase_options.dart';
 import 'services/supabase_service.dart';
+import 'services/supabase_invoice_service.dart'; // استيراد خدمة Supabase لحذف العروض
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +44,36 @@ class _MyAppState extends State<MyApp> {
     return !(prefs.getBool('onboarding_done') ?? false);
   }
 
+  // زر مؤقت لإضافة فاتورة وهمية
+  void _addTestInvoice() async {
+    await SupabaseInvoiceService.addInvoice(
+      invoiceNumber: 'INV-2025-TEST-002',
+      storeName: 'الشعاب',
+      date: DateTime.parse('2025-07-09'),
+      products: [
+        {'name': 'لميس', 'quantity': 2, 'unit_price': 8, 'total_price': 16},
+        {'name': 'توري', 'quantity': 1, 'unit_price': 5, 'total_price': 5},
+        {'name': 'زبادي النسيم', 'quantity': 3, 'unit_price': 2, 'total_price': 6},
+        {'name': 'حفاظات ليلاس', 'quantity': 1, 'unit_price': 25, 'total_price': 25},
+        {'name': 'تن الجيد', 'quantity': 2, 'unit_price': 7, 'total_price': 14},
+        {'name': 'عصير الريحان', 'quantity': 4, 'unit_price': 1.5, 'total_price': 6},
+        {'name': 'عصير المزرعة', 'quantity': 2, 'unit_price': 2, 'total_price': 4},
+        {'name': 'مكرونة اللمة', 'quantity': 5, 'unit_price': 1, 'total_price': 5},
+        {'name': 'أزر المبروك', 'quantity': 1, 'unit_price': 18, 'total_price': 18},
+        {'name': 'طماطم الصفوة', 'quantity': 3, 'unit_price': 3, 'total_price': 9},
+      ],
+      total: 108,
+      userId: 'user_test_1', // ضع هنا user_id حقيقي أو تجريبي
+      merchantId: 'your-merchant-uuid-here',
+      uniqueHash: 'test-hash-002',
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تمت إضافة الفاتورة التجريبية بنجاح!')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -66,21 +97,32 @@ class _MyAppState extends State<MyApp> {
         textTheme: const TextTheme(bodyMedium: TextStyle(color: Colors.white)),
       ),
       themeMode: ThemeMode.system, // دعم الوضع الليلي تلقائي
-      home: FutureBuilder<bool>(
-        future: _shouldShowOnboarding(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.data == true) {
-            return OnboardingScreen(
-              onFinish: () => Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => LoginPage()),
-              ),
-            );
-          }
-          return MainAppWithFeatures();
-        },
+      home: Stack(
+        children: [
+          FutureBuilder<bool>(
+            future: _shouldShowOnboarding(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox.shrink();
+              }
+              if (snapshot.data == true) {
+                return OnboardingScreen(onFinish: () {});
+              } else {
+                return HomeScreen(phone: '000000000'); // رقم هاتف تجريبي
+              }
+            },
+          ),
+          Positioned(
+            bottom: 40,
+            right: 20,
+            child: FloatingActionButton.extended(
+              onPressed: _addTestInvoice,
+              label: const Text('فاتورة تجريبية'),
+              icon: const Icon(Icons.receipt_long),
+              backgroundColor: Colors.deepPurple,
+            ),
+          ),
+        ],
       ),
     );
   }

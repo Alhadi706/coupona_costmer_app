@@ -199,5 +199,8 @@
   "tip_use_public_coupons": "使用其他用户的公共优惠券",
   "cars": "汽车",
   "jewelry": "珠宝",
-  "hotels": "酒店"
+  "hotels": "酒店",
+  "clothing": "服装",
+  "clinics": "诊所",
+  "all_categories": "所有类别"
 }

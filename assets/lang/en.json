@@ -386,5 +386,8 @@
   "search_hint": "Search for coupons, stores...",
   "cars": "Cars",
   "jewelry": "Jewelry",
-  "hotels": "Hotels"
+  "hotels": "Hotels",
+  "clothing": "Clothing",
+  "clinics": "Clinics",
+  "all_categories": "All Categories"
 }

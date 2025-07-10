@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -17,6 +18,26 @@ class _MapBarState extends State<MapBar> {
   String searchText = '';
   String selectedCategory = '';
   Map<String, dynamic>? selectedStore;
+  List<Map<String, dynamic>> stores = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchStores();
+  }
+
+  Future<void> fetchStores() async {
+    final snapshot = await FirebaseFirestore.instance.collection('stores').get();
+    setState(() {
+      stores = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+      isLoading = false;
+    });
+  }
 
   void _expandMap() {
     Navigator.of(context).push(
@@ -70,145 +91,133 @@ class _MapBarState extends State<MapBar> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('stores').snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData) {
-          return const Center(child: Text('لا توجد بيانات متاحة'));
-        }
-        List<Map<String, dynamic>> stores = snapshot.data!.docs.map((doc) {
-          final data = doc.data() as Map<String, dynamic>;
-          data['id'] = doc.id;
-          return data;
-        }).toList();
-        // فلترة حسب البحث والتصنيف
-        final filteredStores = stores.where((store) {
-          final matchesSearch = searchText.isEmpty || (store['name']?.toString().contains(searchText) ?? false);
-          final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
-          return matchesSearch && matchesCategory;
-        }).toList();
-        // قائمة التصنيفات المخصصة (مفاتيح ترجمة)
-        final List<String> categories = [
-          'restaurants',
-          'cars',
-          'jewelry',
-          'hotels',
-          'real_estate',
-          'clothing',
-          'clinics',
-          'electronics',
-          'activities',
-          'other',
-        ];
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            GestureDetector(
-              onTap: _expandMap,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  height: MediaQuery.of(context).size.height * 0.28,
-                  width: double.infinity,
-                  child: Stack(
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    // فلترة حسب البحث والتصنيف
+    final filteredStores = stores.where((store) {
+      final matchesSearch = searchText.isEmpty || (store['name']?.toString().contains(searchText) ?? false);
+      final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
+      return matchesSearch && matchesCategory;
+    }).toList();
+    // قائمة التصنيفات المخصصة (مفاتيح ترجمة)
+    final List<String> categories = [
+      'restaurants',
+      'cars',
+      'jewelry',
+      'hotels',
+      'real_estate',
+      'clothing',
+      'clinics',
+      'electronics',
+      'activities',
+      'other',
+    ];
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        GestureDetector(
+          onTap: _expandMap,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.28,
+              width: double.infinity,
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    options: MapOptions(
+                      center: filteredStores.isNotEmpty
+                          ? LatLng(filteredStores[0]['lat'], filteredStores[0]['lng'])
+                          : LatLng(24.7136, 46.6753),
+                      zoom: 12.0,
+                      interactiveFlags: InteractiveFlag.none,
+                    ),
                     children: [
-                      FlutterMap(
-                        options: MapOptions(
-                          center: filteredStores.isNotEmpty
-                              ? LatLng(filteredStores[0]['lat'], filteredStores[0]['lng'])
-                              : LatLng(24.7136, 46.6753),
-                          zoom: 12.0,
-                          interactiveFlags: InteractiveFlag.none,
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.example.coupona_app',
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              for (final store in filteredStores)
-                                Marker(
-                                  width: 40,
-                                  height: 40,
-                                  point: LatLng(store['lat'], store['lng']),
-                                  child: GestureDetector(
-                                    onTap: () => _showStoreDetails(store),
-                                    child: Icon(Icons.location_on, color: Colors.red, size: 36),
-                                  ),
-                                ),
-                            ],
-                          ),
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'com.example.coupona_app',
+                        tileProvider: CancellableNetworkTileProvider(),
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          for (final store in filteredStores)
+                            Marker(
+                              width: 40,
+                              height: 40,
+                              point: LatLng(store['lat'], store['lng']),
+                              child: GestureDetector(
+                                onTap: () => _showStoreDetails(store),
+                                child: Icon(Icons.location_on, color: Colors.red, size: 36),
+                              ),
+                            ),
                         ],
                       ),
-                      Positioned(
-                        bottom: 12,
-                        right: 12,
-                        child: CircleAvatar(
-                          backgroundColor: Colors.white,
-                          child: IconButton(
-                            icon: Icon(Icons.fullscreen, color: Colors.deepPurple),
-                            onPressed: _expandMap,
-                            tooltip: 'تكبير الخريطة',
-                          ),
-                        ),
+                    ],
+                  ),
+                  Positioned(
+                    bottom: 12,
+                    right: 12,
+                    child: CircleAvatar(
+                      backgroundColor: Colors.white,
+                      child: IconButton(
+                        icon: Icon(Icons.fullscreen, color: Colors.deepPurple),
+                        onPressed: _expandMap,
+                        tooltip: 'تكبير الخريطة',
                       ),
-                      // شريط التصنيفات
-                      Positioned(
-                        top: 95,
-                        left: 24,
-                        right: 24,
-                        child: IgnorePointer(
-                          ignoring: false,
-                          child: AnimatedOpacity(
-                            opacity: true ? 1.0 : 0.0,
-                            duration: Duration(milliseconds: 200),
-                            child: Material(
-                              elevation: 4,
+                    ),
+                  ),
+                  // شريط التصنيفات
+                  Positioned(
+                    top: 95,
+                    left: 24,
+                    right: 24,
+                    child: IgnorePointer(
+                      ignoring: false,
+                      child: AnimatedOpacity(
+                        opacity: true ? 1.0 : 0.0,
+                        duration: Duration(milliseconds: 200),
+                        child: Material(
+                          elevation: 4,
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.98),
                               borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.98),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children: [
-                                      for (final cat in categories)
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                                          child: FilterChip(
-                                            label: Text(cat.tr()),
-                                            selected: selectedCategory == cat,
-                                            onSelected: (_) => setState(() => selectedCategory = selectedCategory == cat ? '' : cat),
-                                          ),
-                                        ),
-                                      FilterChip(
-                                        label: Text('all_categories'.tr()),
-                                        selected: selectedCategory == '',
-                                        onSelected: (_) => setState(() => selectedCategory = ''),
+                            ),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  for (final cat in categories)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                                      child: FilterChip(
+                                        label: Text(cat.tr()),
+                                        selected: selectedCategory == cat,
+                                        onSelected: (_) => setState(() => selectedCategory = selectedCategory == cat ? '' : cat),
                                       ),
-                                    ],
+                                    ),
+                                  FilterChip(
+                                    label: Text('all_categories'.tr()),
+                                    selected: selectedCategory == '',
+                                    onSelected: (_) => setState(() => selectedCategory = ''),
                                   ),
-                                ),
+                                ],
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 }

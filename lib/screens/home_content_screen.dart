@@ -30,6 +30,22 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   ];
 
   int _currentCarouselIndex = 0;
+  List<Map<String, dynamic>> offers = [];
+  bool isLoadingOffers = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchOffers();
+  }
+
+  Future<void> fetchOffers() async {
+    final snapshot = await FirebaseFirestore.instance.collection('offers').orderBy('createdAt', descending: true).get();
+    setState(() {
+      offers = snapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+      isLoadingOffers = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,37 +165,30 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                 ),
                 const SizedBox(height: 20),
                 // نص القائمة
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance.collection('offers').orderBy('createdAt', descending: true).snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return const Center(child: Text('لا توجد عروض متاحة حالياً'));
-                    }
-                    final offers = snapshot.data!.docs;
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      physics: NeverScrollableScrollPhysics(),
-                      itemCount: offers.length,
-                      separatorBuilder: (context, i) => const Divider(),
-                      itemBuilder: (context, i) {
-                        final offer = offers[i].data() as Map<String, dynamic>;
-                        return Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                          child: ListTile(
-                            leading: const Icon(Icons.local_offer, color: Colors.deepPurple),
-                            title: Text(offer['description'] ?? 'بدون وصف'),
-                            subtitle: Text('الفئة: ${offer['category'] ?? ''}'),
-                            trailing: Text(offer['discountValue']?.toString() ?? ''),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
+                if (isLoadingOffers) 
+                  const Center(child: CircularProgressIndicator())
+                else if (offers.isEmpty) 
+                  const Center(child: Text('لا توجد عروض متاحة حالياً'))
+                else 
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                    itemCount: offers.length,
+                    separatorBuilder: (context, i) => const Divider(),
+                    itemBuilder: (context, i) {
+                      final offer = offers[i];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: ListTile(
+                          leading: const Icon(Icons.local_offer, color: Colors.deepPurple),
+                          title: Text(offer['description'] ?? 'بدون وصف'),
+                          subtitle: Text('الفئة: ${offer['category'] ?? ''}'),
+                          trailing: Text(offer['discountValue']?.toString() ?? ''),
+                        ),
+                      );
+                    },
+                  ),
                 const SizedBox(height: 24),
                 // -----------------------------
                 // تنبيه بانتهاء النقاط قريبًا

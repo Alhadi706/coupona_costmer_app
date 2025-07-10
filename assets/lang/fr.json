@@ -174,5 +174,8 @@
   "tip_use_public_coupons": "Utiliser des coupons publics d'autres clients",
   "cars": "Voitures",
   "jewelry": "Bijoux",
-  "hotels": "Hôtels"
+  "hotels": "Hôtels",
+  "clothing": "Vêtements",
+  "clinics": "Cliniques",
+  "all_categories": "Toutes les catégories"
 }

@@ -1,13 +1,85 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
-class OfferDetailScreen extends StatelessWidget {
+class OfferDetailScreen extends StatefulWidget {
   final Map<String, dynamic> offer;
   const OfferDetailScreen({Key? key, required this.offer}) : super(key: key);
 
   @override
+  State<OfferDetailScreen> createState() => _OfferDetailScreenState();
+}
+
+class _OfferDetailScreenState extends State<OfferDetailScreen> {
+  String? address;
+  bool isLoadingAddress = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _getAddressFromLatLng();
+  }
+
+  Future<void> _getAddressFromLatLng() async {
+    final locationStr = widget.offer['location'];
+    if (locationStr != null && locationStr.contains(',')) {
+      final parts = locationStr.split(',');
+      final lat = double.tryParse(parts[0].trim());
+      final lng = double.tryParse(parts[1].trim());
+      if (lat != null && lng != null) {
+        setState(() => isLoadingAddress = true);
+        try {
+          // استخدم Nominatim (OpenStreetMap) API المجاني
+          final url = Uri.parse(
+            'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lng&format=json&accept-language=ar',
+          );
+          final response = await http.get(url, headers: {
+            'User-Agent': 'coupona-app/1.0 (your@email.com)'
+          });
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            final displayName = data['display_name'];
+            if (displayName != null && displayName.isNotEmpty) {
+              setState(() {
+                address = displayName;
+              });
+            }
+          }
+        } catch (e) {
+          setState(() => address = null);
+        } finally {
+          setState(() => isLoadingAddress = false);
+        }
+      }
+    }
+  }
+
+  String getEndDateText(String? endDate) {
+    if (endDate == null || endDate.isEmpty) return '';
+    try {
+      // محاولة استخراج التاريخ فقط من النص
+      final dateStr = endDate.split('T').first;
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final diff = date.difference(now).inDays;
+      if (diff < 0) return 'انتهى';
+      if (diff == 0) return 'ينتهي اليوم';
+      if (diff == 1) return 'ينتهي غدًا';
+      if (diff < 7) return 'ينتهي بعد $diff أيام';
+      if (diff < 30) return 'ينتهي بعد $diff يومًا';
+      if (diff < 365) return 'ينتهي بعد ${(diff / 30).floor()} شهر';
+      return 'ينتهي بعد ${(diff / 365).floor()} سنة';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final offer = widget.offer;
     return Scaffold(
       appBar: AppBar(
         title: Text('تفاصيل العرض'),
@@ -44,7 +116,7 @@ class OfferDetailScreen extends StatelessWidget {
               ],
               const SizedBox(width: 8),
               if (offer['endDate'] != null && offer['endDate'] != '')
-                Text('ينتهي: ${offer['endDate']}', style: const TextStyle(color: Colors.red)),
+                Text(getEndDateText(offer['endDate']), style: const TextStyle(color: Colors.red)),
             ],
           ),
           const SizedBox(height: 16),
@@ -60,7 +132,15 @@ class OfferDetailScreen extends StatelessWidget {
           ],
           if (offer['location'] != null && offer['location'] != '') ...[
             Text('الموقع:', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text(offer['location']),
+            if (isLoadingAddress)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 4),
+                child: SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else if (address != null && address!.isNotEmpty)
+              Text(address!, style: const TextStyle(color: Colors.blue))
+            else
+              Text(offer['location']),
             const SizedBox(height: 12),
           ],
           if (offer['phone'] != null && offer['phone'].toString().isNotEmpty) ...[
@@ -72,7 +152,7 @@ class OfferDetailScreen extends StatelessWidget {
                 ElevatedButton.icon(
                   onPressed: () async {
                     final phone = offer['phone'].toString();
-                    final url = 'tel:$phone';
+                    final url = 'tel:$phone';
                     if (await canLaunchUrl(Uri.parse(url))) {
                       await launchUrl(Uri.parse(url));
                     } else {
