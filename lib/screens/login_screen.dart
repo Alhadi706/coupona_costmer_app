@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'home_screen.dart';
@@ -11,8 +12,6 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  String? _selectedGender;
-  DateTime? _selectedBirthDate;
   bool _loading = false;
 
   Future<void> _signIn() async {
@@ -37,13 +36,22 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
       if (userCredential.user != null) {
+        // جلب بيانات المستخدم من Firestore
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .get();
+        final userData = userDoc.data();
+        final age = userData?['age']?.toString();
+        final gender = userData?['gender'] as String?;
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => HomeScreen(
               phone: phoneOrEmail,
-              age: _selectedBirthDate?.toIso8601String() ?? '',
-              gender: _selectedGender ?? '',
+              age: age,
+              gender: gender,
             ),
           ),
         );

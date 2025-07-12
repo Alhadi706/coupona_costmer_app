@@ -27,8 +27,8 @@ import 'package:easy_localization/easy_localization.dart';
 
 class HomeScreen extends StatefulWidget {
   final String phone;
-  final String age;
-  final String gender;
+  final String? age;
+  final String? gender;
 
   // أضف متغير لتبديل نمط شريط الفئات
   final int categoryBarType; // 1: ListView صف واحد، 2: GridView صفين
@@ -36,8 +36,8 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({
     super.key,
     required this.phone,
-    required this.age,
-    required this.gender,
+    this.age,
+    this.gender,
     this.categoryBarType = 2, // الافتراضي GridView صفين
   });
 

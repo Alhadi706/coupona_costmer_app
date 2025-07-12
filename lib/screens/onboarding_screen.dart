@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,17 +31,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   void _playClickSound() {
-    FlutterRingtonePlayer().playNotification();
+    if (!kIsWeb) {
+      FlutterRingtonePlayer().playNotification();
+    }
   }
 
   void _playSuccessSound() {
-    FlutterRingtonePlayer().play(
-      android: AndroidSounds.notification,
-      ios: IosSounds.triTone,
-      volume: 0.8,
-      looping: false,
-      asAlarm: false,
-    );
+    if (!kIsWeb) {
+      FlutterRingtonePlayer().play(
+        android: AndroidSounds.notification,
+        ios: IosSounds.triTone,
+        volume: 0.8,
+        looping: false,
+        asAlarm: false,
+      );
+    }
   }
 
   void _finishOnboarding() async {

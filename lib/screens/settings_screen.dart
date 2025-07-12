@@ -1,9 +1,9 @@
+import 'package:coupona_app/screens/profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:coupona_app/screens/add_coupon_screen.dart';
 import 'package:coupona_app/screens/scan_invoice_screen.dart';
 import 'package:coupona_app/screens/report_screen.dart';
 import 'package:coupona_app/screens/offers_list_screen.dart';
-import 'users_screen.dart';
 import 'package:coupona_app/screens/login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -91,7 +91,7 @@ class _AccountSection extends StatelessWidget {
           title: Text('profile'.tr()),
           onTap: () {
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => UsersScreen()),
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
             );
           },
         ),
@@ -111,7 +111,9 @@ class _AccountSection extends StatelessWidget {
             // تسجيل الخروج من Firebase
             await FirebaseAuth.instance.signOut();
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => LoginPage()),
+              MaterialPageRoute(
+                builder: (_) => LoginPage(),
+              ),
               (route) => false,
             );
           },

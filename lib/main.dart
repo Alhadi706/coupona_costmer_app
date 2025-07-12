@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -31,53 +33,13 @@ void main() async {
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  Future<bool> _shouldShowOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    return !(prefs.getBool('onboarding_done') ?? false);
-  }
-
-  // زر مؤقت لإضافة فاتورة وهمية
-  void _addTestInvoice() async {
-    await SupabaseInvoiceService.addInvoice(
-      invoiceNumber: 'INV-2025-TEST-002',
-      storeName: 'الشعاب',
-      date: DateTime.parse('2025-07-09'),
-      products: [
-        {'name': 'لميس', 'quantity': 2, 'unit_price': 8, 'total_price': 16},
-        {'name': 'توري', 'quantity': 1, 'unit_price': 5, 'total_price': 5},
-        {'name': 'زبادي النسيم', 'quantity': 3, 'unit_price': 2, 'total_price': 6},
-        {'name': 'حفاظات ليلاس', 'quantity': 1, 'unit_price': 25, 'total_price': 25},
-        {'name': 'تن الجيد', 'quantity': 2, 'unit_price': 7, 'total_price': 14},
-        {'name': 'عصير الريحان', 'quantity': 4, 'unit_price': 1.5, 'total_price': 6},
-        {'name': 'عصير المزرعة', 'quantity': 2, 'unit_price': 2, 'total_price': 4},
-        {'name': 'مكرونة اللمة', 'quantity': 5, 'unit_price': 1, 'total_price': 5},
-        {'name': 'أزر المبروك', 'quantity': 1, 'unit_price': 18, 'total_price': 18},
-        {'name': 'طماطم الصفوة', 'quantity': 3, 'unit_price': 3, 'total_price': 9},
-      ],
-      total: 108,
-      userId: 'user_test_1', // ضع هنا user_id حقيقي أو تجريبي
-      merchantId: 'your-merchant-uuid-here',
-      uniqueHash: 'test-hash-002',
-    );
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تمت إضافة الفاتورة التجريبية بنجاح!')),
-      );
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      locale: context.locale, // استخدم locale من easy_localization
+      locale: context.locale,
       supportedLocales: context.supportedLocales,
       localizationsDelegates: context.localizationDelegates,
       navigatorKey: navigatorKey,
@@ -96,81 +58,67 @@ class _MyAppState extends State<MyApp> {
         appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF23242B)),
         textTheme: const TextTheme(bodyMedium: TextStyle(color: Colors.white)),
       ),
-      themeMode: ThemeMode.system, // دعم الوضع الليلي تلقائي
-      home: Stack(
-        children: [
-          FutureBuilder<bool>(
-            future: _shouldShowOnboarding(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox.shrink();
-              }
-              if (snapshot.data == true) {
-                return OnboardingScreen(onFinish: () {});
-              } else {
-                return HomeScreen(phone: '000000000'); // رقم هاتف تجريبي
-              }
-            },
-          ),
-          Positioned(
-            bottom: 40,
-            right: 20,
-            child: FloatingActionButton.extended(
-              onPressed: _addTestInvoice,
-              label: const Text('فاتورة تجريبية'),
-              icon: const Icon(Icons.receipt_long),
-              backgroundColor: Colors.deepPurple,
-            ),
-          ),
-        ],
-      ),
+      themeMode: ThemeMode.system,
+      home: const AuthWrapper(),
     );
   }
 }
 
-class MainAppWithFeatures extends StatefulWidget {
+class AuthWrapper extends StatefulWidget {
+  const AuthWrapper({super.key});
+
   @override
-  State<MainAppWithFeatures> createState() => _MainAppWithFeaturesState();
+  State<AuthWrapper> createState() => _AuthWrapperState();
 }
 
-class _MainAppWithFeaturesState extends State<MainAppWithFeatures> {
-  bool _isOffline = false;
+class _AuthWrapperState extends State<AuthWrapper> {
+  Future<Widget> _getInitialScreen() async {
+    final prefs = await SharedPreferences.getInstance();
+    final bool onboardingDone = prefs.getBool('onboarding_done') ?? false;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkConnection();
-    });
-  }
+    if (!onboardingDone) {
+      return OnboardingScreen(onFinish: () async {
+        await prefs.setBool('onboarding_done', true);
+        // Re-run the check to navigate to the correct screen
+        setState(() {});
+      });
+    }
 
-  Future<void> _checkConnection() async {
-    setState(() => _isOffline = false); // اجعلها true لتجربة الشريط
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return LoginPage();
+    }
+
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final userData = userDoc.data();
+      return HomeScreen(
+        phone: user.email ?? user.phoneNumber ?? '',
+        age: userData?['age']?.toString(),
+        gender: userData?['gender'] as String?,
+      );
+    } catch (e) {
+      // If there's an error fetching data, fallback to login
+      return LoginPage();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        HomeScreen(
-          phone: '0500000000', // مرر بيانات المستخدم الحقيقية هنا
-          age: '25',
-          gender: 'ذكر',
-        ),
-        if (_isOffline)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              color: Colors.red,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: const Center(
-                child: Text('لا يوجد اتصال بالإنترنت', style: TextStyle(color: Colors.white)),
-              ),
-            ),
-          ),
-      ],
+    return FutureBuilder<Widget>(
+      future: _getInitialScreen(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasData) {
+          return snapshot.data!;
+        }
+        // Fallback to login page in case of error
+        return LoginPage();
+      },
     );
   }
 }

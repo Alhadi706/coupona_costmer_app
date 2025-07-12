@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coupona_app/services/supabase_user_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart'; // إضافة استيراد geocoding
 import 'package:coupona_app/screens/home_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -22,6 +23,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String? _locationError;
   DateTime? _selectedBirthDate;
   int? _calculatedAge;
+  String? _city; // إضافة متغير للمدينة
+  String? _country; // إضافة متغير للدولة
+
+  @override
+  void initState() {
+    super.initState();
+    _getLocation(); // استدعاء جلب الموقع عند بدء الشاشة
+  }
 
   Future<void> _getLocation() async {
     try {
@@ -43,10 +52,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
         return;
       }
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      setState(() {
-        _userPosition = position;
-        _locationError = null;
-      });
+      List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+      
+      if (placemarks.isNotEmpty) {
+        final placemark = placemarks.first;
+        setState(() {
+          _userPosition = position;
+          _city = placemark.locality; // جلب المدينة
+          _country = placemark.country; // جلب الدولة
+          _locationError = null;
+        });
+      } else {
+         setState(() {
+          _userPosition = position;
+          _locationError = 'لم يتم العثور على معلومات العنوان.';
+        });
+      }
+
     } catch (e) {
       setState(() => _locationError = 'تعذر جلب الموقع: $e');
     }
@@ -95,10 +117,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
     if (_userPosition == null) {
-      await _getLocation();
-      if (_userPosition == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_locationError ?? 'تعذر جلب الموقع.')),
+      // لا داعي للانتظار هنا لأنه يتم جلبه في initState
+      if (_locationError != null) {
+         ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_locationError!)),
         );
         return;
       }
@@ -121,6 +143,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
         'latitude': _userPosition!.latitude,
         'longitude': _userPosition!.longitude,
         'birthDate': _selectedBirthDate!.toIso8601String(),
+        'city': _city, // حفظ المدينة
+        'country': _country, // حفظ الدولة
       });
       // إضافة المستخدم في Supabase (اختياري)
       await SupabaseUserService.addUser(
@@ -130,6 +154,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
         gender: gender,
         latitude: _userPosition!.latitude,
         longitude: _userPosition!.longitude,
+        city: _city, // إضافة المدينة لـ Supabase
+        country: _country, // إضافة الدولة لـ Supabase
       );
       if (mounted) {
         Navigator.pushAndRemoveUntil(
@@ -192,6 +218,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            // حقول المدينة والدولة (للعرض فقط)
+            if (_city != null && _country != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  'الموقع: $_city, $_country',
+                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+                ),
+              ),
             GestureDetector(
               onTap: _pickBirthDate,
               child: AbsorbPointer(
