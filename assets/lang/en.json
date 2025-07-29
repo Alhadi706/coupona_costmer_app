@@ -389,5 +389,16 @@
   "hotels": "Hotels",
   "clothing": "Clothing",
   "clinics": "Clinics",
-  "all_categories": "All Categories"
+  "all_categories": "All Categories",
+  "offer_details_title": "Offer Details",
+  "offer_description": "Description",
+  "offer_conditions": "Conditions",
+  "offer_location": "Location",
+  "offer_phone": "Phone Number",
+  "offer_expired": "Expired",
+  "offer_expires_today": "Expires today",
+  "offer_expires_tomorrow": "Expires tomorrow",
+  "offer_expires_in_days": "Expires in {days} days",
+  "offer_expires_in_months": "Expires in {months} months",
+  "offer_expires_in_years": "Expires in {years} years"
 }

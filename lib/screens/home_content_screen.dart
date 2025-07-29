@@ -5,6 +5,7 @@ import 'package:easy_localization/easy_localization.dart';
 import '../widgets/category_bar.dart'; // استيراد صحيح حسب هيكل المشروع
 import '../widgets/map_bar.dart'; // استيراد صحيح حسب هيكل المشروع
 import 'category_offers_screen.dart';
+import 'offer_detail_screen.dart';
 
 class HomeContentScreen extends StatefulWidget {
   final List<Map<String, dynamic>> categories;
@@ -180,11 +181,62 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                       return Card(
                         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        child: ListTile(
-                          leading: const Icon(Icons.local_offer, color: Colors.deepPurple),
-                          title: Text(offer['description'] ?? 'بدون وصف'),
-                          subtitle: Text('الفئة: ${offer['category'] ?? ''}'),
-                          trailing: Text(offer['discountValue']?.toString() ?? ''),
+                        color: Colors.black,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (offer['imageUrl'] != null && offer['imageUrl'] != '')
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Image.network(
+                                    offer['imageUrl'],
+                                    height: 140,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => Container(
+                                      height: 140,
+                                      color: Colors.grey.shade200,
+                                      child: Icon(Icons.image_not_supported, color: Colors.grey, size: 60),
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  if (offer['endDate'] != null && offer['endDate'] != '')
+                                    Text(_getEndDateText(offer['endDate']), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 8),
+                                  if (offer['offerType'] != null && offer['offerType'] != '')
+                                    Chip(
+                                      label: Text(
+                                        (offer['offerType']?.toString().trim() ?? '').tr(),
+                                        style: const TextStyle(color: Colors.white),
+                                      ),
+                                      backgroundColor: Colors.deepPurple,
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(offer['description'] ?? 'بدون وصف', style: const TextStyle(color: Colors.white)),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    // انتقل إلى التفاصيل
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => OfferDetailScreen(offer: offer),
+                                      ),
+                                    );
+                                  },
+                                  child: Text('عرض التفاصيل'),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -280,5 +332,29 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
         ),
       ),
     );
+  }
+
+  // أضف دالة لحساب صلاحية العرض
+  String _getEndDateText(String? endDate) {
+    if (endDate == null || endDate.isEmpty) return '';
+    try {
+      String dateStr = endDate;
+      if (dateStr.contains('T')) {
+        dateStr = dateStr.split('T').first;
+      }
+      dateStr = dateStr.replaceAll(RegExp(r'[^0-9\-]'), '');
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final diff = date.difference(now).inDays;
+      if (diff < 0) return 'offer_expired'.tr();
+      if (diff == 0) return 'offer_expires_today'.tr();
+      if (diff == 1) return 'offer_expires_tomorrow'.tr();
+      if (diff < 7) return 'offer_expires_in_days'.tr(namedArgs: {'days': diff.toString()});
+      if (diff < 30) return 'offer_expires_in_days'.tr(namedArgs: {'days': diff.toString()});
+      if (diff < 365) return 'offer_expires_in_months'.tr(namedArgs: {'months': (diff ~/ 30).toString()});
+      return 'offer_expires_in_years'.tr(namedArgs: {'years': (diff ~/ 365).toString()});
+    } catch (e) {
+      return '';
+    }
   }
 }

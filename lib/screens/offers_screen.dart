@@ -65,13 +65,16 @@ class OffersScreen extends StatelessWidget {
                           const SizedBox(height: 6),
                           Row(
                             children: [
-                              Chip(label: Text(offer['offerType'] ?? '')),
+                              Chip(label: Text((offer['offerType']?.toString().trim() ?? '').tr())),
                               if ((offer['percent'] ?? '').isNotEmpty) ...[
                                 const SizedBox(width: 8),
                                 Chip(label: Text(offer['percent'] ?? '')),
                               ],
                               const SizedBox(width: 8),
-                              Text('offers_expires'.tr(namedArgs: {'date': offer['endDate'] ?? ''}), style: const TextStyle(color: Colors.red)),
+                              Text(
+                                _getEndDateText(offer['endDate']),
+                                style: const TextStyle(color: Colors.red),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -99,6 +102,30 @@ class OffersScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  // أضف دالة لحساب صلاحية العرض
+  String _getEndDateText(String? endDate) {
+    if (endDate == null || endDate.isEmpty) return '';
+    try {
+      String dateStr = endDate;
+      if (dateStr.contains('T')) {
+        dateStr = dateStr.split('T').first;
+      }
+      dateStr = dateStr.replaceAll(RegExp(r'[^0-9\-]'), '');
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final diff = date.difference(now).inDays;
+      if (diff < 0) return 'offer_expired'.tr();
+      if (diff == 0) return 'offer_expires_today'.tr();
+      if (diff == 1) return 'offer_expires_tomorrow'.tr();
+      if (diff < 7) return 'offer_expires_in_days'.tr(namedArgs: {'days': diff.toString()});
+      if (diff < 30) return 'offer_expires_in_days'.tr(namedArgs: {'days': diff.toString()});
+      if (diff < 365) return 'offer_expires_in_months'.tr(namedArgs: {'months': (diff ~/ 30).toString()});
+      return 'offer_expires_in_years'.tr(namedArgs: {'years': (diff ~/ 365).toString()});
+    } catch (e) {
+      return '';
+    }
   }
 }
 

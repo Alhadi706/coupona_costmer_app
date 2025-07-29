@@ -58,8 +58,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
         final placemark = placemarks.first;
         setState(() {
           _userPosition = position;
-          _city = placemark.locality; // جلب المدينة
-          _country = placemark.country; // جلب الدولة
+          _city = placemark.locality ?? 'غير محدد'; // التعامل مع القيمة الفارغة
+          _country = placemark.country ?? 'غير محدد'; // التعامل مع القيمة الفارغة
           _locationError = null;
         });
       } else {
@@ -116,15 +116,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       return;
     }
-    if (_userPosition == null) {
-      // لا داعي للانتظار هنا لأنه يتم جلبه في initState
-      if (_locationError != null) {
-         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_locationError!)),
-        );
-        return;
-      }
-    }
+    // إزالة التحقق الإجباري من الموقع
+    // if (_userPosition == null) {
+    //   if (_locationError != null) {
+    //      ScaffoldMessenger.of(context).showSnackBar(
+    //       SnackBar(content: Text(_locationError!)),
+    //     );
+    //     return;
+    //   }
+    // }
     setState(() => _loading = true);
     try {
       // إنشاء مستخدم في Firebase Auth
@@ -133,29 +133,38 @@ class _SignUpScreenState extends State<SignUpScreen> {
         password: password,
       );
       final user = userCredential.user;
-      // حفظ بيانات المستخدم في Firestore
-      await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
+
+      // تحضير بيانات المستخدم
+      final userData = {
         'email': email,
         'role': 'customer',
         'createdAt': DateTime.now().toIso8601String(),
         'age': age,
         'gender': gender,
-        'latitude': _userPosition!.latitude,
-        'longitude': _userPosition!.longitude,
         'birthDate': _selectedBirthDate!.toIso8601String(),
-        'city': _city, // حفظ المدينة
-        'country': _country, // حفظ الدولة
-      });
-      // إضافة المستخدم في Supabase (اختياري)
+      };
+
+      // إضافة بيانات الموقع إذا كانت متوفرة فقط
+      if (_userPosition != null) {
+        userData['latitude'] = _userPosition!.latitude;
+        userData['longitude'] = _userPosition!.longitude;
+        if (_city != null) userData['city'] = _city!;
+        if (_country != null) userData['country'] = _country!;
+      }
+
+      // حفظ بيانات المستخدم في Firestore
+      await FirebaseFirestore.instance.collection('users').doc(user!.uid).set(userData);
+      
+      // إضافة المستخدم في Supabase (اختياري) مع التحقق من الموقع
       await SupabaseUserService.addUser(
         email: email,
         role: 'customer',
         age: age,
         gender: gender,
-        latitude: _userPosition!.latitude,
-        longitude: _userPosition!.longitude,
-        city: _city, // إضافة المدينة لـ Supabase
-        country: _country, // إضافة الدولة لـ Supabase
+        latitude: _userPosition?.latitude,
+        longitude: _userPosition?.longitude,
+        city: _city,
+        country: _country,
       );
       if (mounted) {
         Navigator.pushAndRemoveUntil(

@@ -40,7 +40,7 @@ dependencies:
   flutter_rating_bar: ^4.0.1
   qr_flutter: ^4.1.0
   shared_preferences: ^2.2.3
-  image_picker: ^1.0.7
+  image_picker: ^1.1.2
   permission_handler: ^11.3.1
   carousel_slider: ^5.0.0
   flutter_speed_dial: ^7.0.0
@@ -60,6 +60,7 @@ dependencies:
   logger: ^2.0.2
   flutter_map_cancellable_tile_provider: ^1.0.0
   geocoding: ^4.0.0
+  google_mlkit_text_recognition: ^0.15.0
   # أضف أي حزم أخرى تستخدمها هنا
 
 dev_dependencies:

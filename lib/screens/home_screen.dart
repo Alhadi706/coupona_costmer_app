@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:badges/badges.dart' as badges;
@@ -23,7 +22,7 @@ import 'home_content_screen.dart'; // استيراد الشاشة الجديدة
 import 'my_rewards_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/badge_helper.dart';
-import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 
 class HomeScreen extends StatefulWidget {
   final String phone;
@@ -48,6 +47,12 @@ class HomeScreen extends StatefulWidget {
     {'icon': Icons.diamond, 'label': 'jewelry', 'width': 80.0},
     {'icon': Icons.hotel, 'label': 'hotels', 'width': 80.0},
     {'icon': Icons.apartment, 'label': 'real_estate', 'width': 80.0},
+    {'icon': Icons.cottage, 'label': 'resthouses', 'width': 80.0},
+    {'icon': Icons.checkroom, 'label': 'clothing', 'width': 80.0},
+    {'icon': Icons.local_hospital, 'label': 'clinics', 'width': 80.0},
+    {'icon': Icons.electrical_services, 'label': 'electronics', 'width': 80.0},
+    {'icon': Icons.sports_soccer, 'label': 'activities', 'width': 80.0},
+    {'icon': Icons.category, 'label': 'other', 'width': 80.0},
   ];
 
   @override
@@ -122,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Directionality(
-      textDirection: context.locale.languageCode == 'ar' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
+      textDirection: context.locale.languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
         key: langKey,
         appBar: AppBar(

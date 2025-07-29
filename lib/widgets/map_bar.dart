@@ -4,6 +4,7 @@ import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_ti
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../screens/full_map_screen.dart';
 
 class MapBar extends StatefulWidget {
@@ -19,22 +20,22 @@ class _MapBarState extends State<MapBar> {
   String selectedCategory = '';
   Map<String, dynamic>? selectedStore;
   List<Map<String, dynamic>> stores = [];
+  List<Map<String, dynamic>> offers = [];
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchStores();
+    fetchOffers();
   }
 
-  Future<void> fetchStores() async {
-    final snapshot = await FirebaseFirestore.instance.collection('stores').get();
+  Future<void> fetchOffers() async {
+    final supabase = Supabase.instance.client;
+    final response = await supabase
+        .from('offers')
+        .select('id, latitude, longitude, name, category, description, phone, location');
     setState(() {
-      stores = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id;
-        return data;
-      }).toList();
+      offers = List<Map<String, dynamic>>.from(response);
       isLoading = false;
     });
   }
@@ -95,9 +96,9 @@ class _MapBarState extends State<MapBar> {
       return const Center(child: CircularProgressIndicator());
     }
     // فلترة حسب البحث والتصنيف
-    final filteredStores = stores.where((store) {
-      final matchesSearch = searchText.isEmpty || (store['name']?.toString().contains(searchText) ?? false);
-      final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
+    final filteredOffers = offers.where((offer) {
+      final matchesSearch = searchText.isEmpty || (offer['name']?.toString().contains(searchText) ?? false);
+      final matchesCategory = selectedCategory.isEmpty || (offer['category'] == selectedCategory);
       return matchesSearch && matchesCategory;
     }).toList();
     // قائمة التصنيفات المخصصة (مفاتيح ترجمة)
@@ -107,6 +108,7 @@ class _MapBarState extends State<MapBar> {
       'jewelry',
       'hotels',
       'real_estate',
+      'resthouses',
       'clothing',
       'clinics',
       'electronics',
@@ -127,8 +129,8 @@ class _MapBarState extends State<MapBar> {
                 children: [
                   FlutterMap(
                     options: MapOptions(
-                      center: filteredStores.isNotEmpty
-                          ? LatLng(filteredStores[0]['lat'], filteredStores[0]['lng'])
+                      center: filteredOffers.isNotEmpty && filteredOffers[0]['latitude'] != null && filteredOffers[0]['longitude'] != null
+                          ? LatLng(filteredOffers[0]['latitude'], filteredOffers[0]['longitude'])
                           : LatLng(24.7136, 46.6753),
                       zoom: 12.0,
                       interactiveFlags: InteractiveFlag.none,
@@ -141,16 +143,17 @@ class _MapBarState extends State<MapBar> {
                       ),
                       MarkerLayer(
                         markers: [
-                          for (final store in filteredStores)
-                            Marker(
-                              width: 40,
-                              height: 40,
-                              point: LatLng(store['lat'], store['lng']),
-                              child: GestureDetector(
-                                onTap: () => _showStoreDetails(store),
-                                child: Icon(Icons.location_on, color: Colors.red, size: 36),
+                          for (final offer in filteredOffers)
+                            if (offer['latitude'] != null && offer['longitude'] != null)
+                              Marker(
+                                width: 40,
+                                height: 40,
+                                point: LatLng(offer['latitude'], offer['longitude']),
+                                child: GestureDetector(
+                                  onTap: () => _showStoreDetails(offer),
+                                  child: Icon(Icons.location_on, color: Colors.red, size: 36),
+                                ),
                               ),
-                            ),
                         ],
                       ),
                     ],

@@ -1,5 +1,6 @@
 // filepath: lib/screens/scan_invoice_screen.dart
 import 'package:flutter/material.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
@@ -17,17 +18,29 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   String? _ocrResult;
   String? _error;
   bool _didAutoOpenCamera = false;
+  final TextRecognizer _textRecognizer = TextRecognizer();
+
+  @override
+  void dispose() {
+    _textRecognizer.close();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_didAutoOpenCamera && _capturedImage == null) {
       _didAutoOpenCamera = true;
-      Future.delayed(Duration.zero, () => _captureImage(isPanorama: false));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _captureImage();
+        }
+      });
     }
   }
 
-  Future<void> _captureImage({bool isPanorama = false}) async {
+  Future<void> _captureImage() async {
+    if (!mounted) return;
     setState(() {
       _isProcessing = true;
       _error = null;
@@ -37,144 +50,173 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
     try {
       final XFile? image = await picker.pickImage(source: ImageSource.camera);
       if (image != null) {
+        if (!mounted) return;
         setState(() {
           _capturedImage = image;
         });
-        // هنا منطق دمج الصور إذا كان isPanorama = true
-        // ثم منطق قراءة الفاتورة (OCR)
         await _processInvoice(image);
       } else {
+        if (!mounted) return;
         setState(() {
           _isProcessing = false;
         });
+        if (Navigator.canPop(context)) {
+          Navigator.of(context).pop();
+        }
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isProcessing = false;
-        _error = 'حدث خطأ أثناء التقاط الصورة';
+        _error = 'error_capturing_image'.tr();
       });
     }
   }
 
   Future<void> _processInvoice(XFile image) async {
-    // محاكاة معالجة OCR واستخراج البيانات
-    await Future.delayed(const Duration(seconds: 2));
-    // هنا تضع منطق OCR الحقيقي لاحقًا
-    // مثال نتيجة وهمية:
+    if (!mounted) return;
     setState(() {
-      _isProcessing = false;
-      _ocrResult = '''\nرقم الفاتورة: 123456\nاسم المحل: سوبر ماركت ربيع\nالتاريخ: 2025-06-03\nالمنتجات:\n- عصير برتقال ×2 = 10 ريال\n- خبز ×1 = 3 ريال\nالمجموع: 13 ريال\n''';
+      _isProcessing = true;
+      _error = null;
+      _ocrResult = null;
     });
+    try {
+      final inputImage = InputImage.fromFilePath(image.path);
+      final RecognizedText recognizedText =
+          await _textRecognizer.processImage(inputImage);
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _ocrResult = recognizedText.text;
+        if (_ocrResult!.isEmpty) {
+          _ocrResult = 'no_text_found'.tr();
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _error = 'error_processing_image'.tr();
+      });
+    }
   }
 
   void _reset() {
     setState(() {
       _capturedImage = null;
+      _isProcessing = false;
       _ocrResult = null;
       _error = null;
+      _didAutoOpenCamera = false;
     });
+    didChangeDependencies();
+  }
+
+  Widget _buildResultView() {
+    if (_isProcessing) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 20),
+            Text('processing_invoice'.tr()),
+          ],
+        ),
+      );
+    }
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(_error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 16),
+                  textAlign: TextAlign.center),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _reset,
+              child: Text('try_again'.tr()),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_ocrResult != null) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_capturedImage != null)
+              Image.file(
+                File(_capturedImage!.path),
+                fit: BoxFit.contain,
+                height: 200,
+              ),
+            const SizedBox(height: 16),
+            Text(
+              'invoice_text'.tr(),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: SelectableText(
+                  _ocrResult!,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _reset,
+              child: Text('scan_another_invoice'.tr()),
+            ),
+          ],
+        ),
+      );
+    }
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.camera_alt, size: 100, color: Colors.grey),
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'scan_invoice_to_get_text'.tr(),
+              style: const TextStyle(fontSize: 18, color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('scan_invoice_icon'.tr()),
-        backgroundColor: Colors.deepPurple.shade700,
+        title: Text('scan_invoice'.tr()),
+        actions: [
+          if (_capturedImage != null)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _reset,
+              tooltip: 'reset'.tr(),
+            ),
+        ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: _isProcessing
-            ? const Center(child: CircularProgressIndicator())
-            : _capturedImage == null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        height: 220,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.deepPurple, width: 2),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Center(
-                          child: Text('scan_invoice_place_inside_frame'.tr(), style: TextStyle(fontSize: 18)),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () => _captureImage(isPanorama: false),
-                            icon: const Icon(Icons.camera_alt),
-                            label: Text('scan_invoice_capture'.tr()),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, textStyle: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                          ElevatedButton.icon(
-                            onPressed: () => _captureImage(isPanorama: true),
-                            icon: const Icon(Icons.panorama),
-                            label: Text('scan_invoice_capture_long'.tr()),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple.shade200),
-                          ),
-                        ],
-                      ),
-                      if (_error != null) ...[
-                        const SizedBox(height: 16),
-                        Text(_error!, style: const TextStyle(color: Colors.red)),
-                      ]
-                    ],
-                  )
-                : Column(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.file(
-                          File(_capturedImage!.path),
-                          height: 220,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (_ocrResult != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(_ocrResult!, style: const TextStyle(fontSize: 16)),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _reset,
-                          child: const Text('إعادة التصوير'),
-                        ),
-                        const SizedBox(height: 8),
-                        ElevatedButton(
-                          onPressed: () {
-                            // هنا منطق المتابعة أو إضافة النقاط
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text('scan_invoice_success'.tr()),
-                                content: Text('scan_invoice_points_added'.tr()),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(),
-                                    child: Text('ok'.tr()),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                          child: Text('continue'.tr()),
-                        ),
-                      ]
-                    ],
-                  ),
-      ),
+      body: _buildResultView(),
     );
   }
 }
