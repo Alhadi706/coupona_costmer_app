@@ -8,6 +8,7 @@ import 'package:coupona_app/screens/login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:coupona_app/services/demo_seed_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   @override
@@ -53,6 +54,70 @@ class SettingsScreen extends StatelessWidget {
           Divider(height: 32),
           _DownloadDataSection(),
           Divider(height: 32),
+          // زر زرع بيانات تجريبية للتاجر
+          ListTile(
+            leading: Icon(Icons.science, color: Colors.orange),
+            title: Text('زرع بيانات تجريبية (تاجر/عروض/فواتير/مجتمع)'),
+            subtitle: Text('للاختبار السريع عبر رمز التاجر: يربط الشاشات المختلفة'),
+            onTap: () async {
+              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
+              if (code == null || code.trim().isEmpty) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('جارٍ زرع البيانات ...')),
+              );
+              try {
+                await DemoSeedService.seedMerchantDemo(code.trim());
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('تم زرع البيانات لرمز: ${code.trim()}')),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('فشل الزرع: $e')),
+                );
+              }
+            },
+          ),
+          Divider(height: 16),
+          // زر عرض إحصائيات سريعة للتاجر
+          ListTile(
+            leading: Icon(Icons.insights, color: Colors.teal),
+            title: Text('عرض إحصائيات التاجر (سريعة)'),
+            subtitle: Text('Offers/Stores/Groups/Reports + Invoices Total'),
+            onTap: () async {
+              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
+              if (code == null || code.trim().isEmpty) return;
+              try {
+                final stats = await DemoSeedService.getMerchantStats(code.trim());
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: Text('ملخص $code'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('العروض: ${stats['offers']}'),
+                        Text('المتاجر: ${stats['stores']}'),
+                        Text('المجموعات: ${stats['groups']}'),
+                        Text('البلاغات: ${stats['reports']}'),
+                        const Divider(),
+                        Text('الفواتير: ${stats['invoices']}'),
+                        Text('إجمالي الفواتير: ${stats['invoices_total']}'),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: Text('اغلاق')),
+                    ],
+                  ),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('فشل جلب الإحصائيات: $e')),
+                );
+              }
+            },
+          ),
+          Divider(height: 32),
           // زر لعرض قائمة العروض
           ListTile(
             leading: Icon(Icons.local_offer, color: Colors.deepPurple),
@@ -69,6 +134,25 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<String?> _askMerchantCode(BuildContext context, {String? defaultCode}) async {
+  String code = defaultCode ?? '';
+  return showDialog<String>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('أدخل رمز التاجر'),
+      content: TextField(
+        autofocus: true,
+        decoration: const InputDecoration(hintText: 'مثال: TRPCF2'),
+        onChanged: (v) => code = v,
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+        ElevatedButton(onPressed: () => Navigator.pop(context, code), child: const Text('تأكيد')),
+      ],
+    ),
+  );
 }
 
 class _AccountSection extends StatelessWidget {
