@@ -112,13 +112,18 @@ class DemoSeedService {
     final reportsCount = (await fs.collection('reports').where('merchant_code', isEqualTo: merchantCode).get()).docs.length;
 
     // Supabase invoices
-    final rows = await SupabaseService.client
-        .from('invoices')
-        .select<List<Map<String, dynamic>>>('*')
-        .eq('merchant_code', merchantCode)
-        .limit(1000);
-
-    final invoices = rows ?? <Map<String, dynamic>>[];
+    List<Map<String, dynamic>> invoices = <Map<String, dynamic>>[];
+    try {
+      final rows = await SupabaseService.client
+          .from('invoices')
+          .select<List<Map<String, dynamic>>>('*')
+          .eq('merchant_code', merchantCode)
+          .limit(1000);
+      invoices = rows ?? <Map<String, dynamic>>[];
+    } catch (e) {
+      // في حال عدم وجود العمود merchant_code نتجنب الفشل ونرجع 0
+      invoices = <Map<String, dynamic>>[];
+    }
     final invoicesCount = invoices.length;
     final invoicesTotal = invoices.fold<double>(0.0, (sum, r) => sum + ((r['total'] ?? 0) as num).toDouble());
 
