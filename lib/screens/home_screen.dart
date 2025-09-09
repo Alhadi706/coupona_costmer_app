@@ -24,6 +24,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/badge_helper.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'dart:ui' as ui;
+import '../services/demo_seed_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final String phone;
@@ -240,6 +241,37 @@ class _HomeScreenState extends State<HomeScreen> {
       activeForegroundColor: Colors.white,
       spacing: 12,
       children: [
+        SpeedDialChild(
+          label: 'بيانات تجريبية',
+          child: const Icon(Icons.science),
+          onTap: () async {
+            String code = 'TRPCF2';
+            await showDialog(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('أدخل رمز التاجر'),
+                content: TextField(
+                  decoration: const InputDecoration(hintText: 'مثال: TRPCF2'),
+                  onChanged: (v) => code = v,
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+                  ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('زرع')),
+                ],
+              ),
+            );
+            if (!mounted || code.trim().isEmpty) return;
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جارٍ زرع البيانات ...')));
+            try {
+              await DemoSeedService.seedMerchantDemo(code.trim());
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم زرع البيانات لرمز: ${code.trim()}')));
+            } catch (e) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل الزرع: $e')));
+            }
+          },
+        ),
         SpeedDialChild(
           label: 'scan_invoice'.tr(),
           child: const Icon(Icons.camera_alt),
