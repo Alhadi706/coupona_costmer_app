@@ -425,6 +425,74 @@ class AppDrawer extends StatelessWidget {
               );
             },
           ),
+          // عناصر تجريبية للعرض السريع
+          ListTile(
+            leading: const Icon(Icons.science, color: Colors.orange),
+            title: const Text('زرع بيانات تجريبية'),
+            onTap: () async {
+              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
+              if (code == null || code.trim().isEmpty) return;
+              // ignore: use_build_context_synchronously
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جارٍ زرع البيانات ...')));
+              try {
+                await DemoSeedService.seedMerchantDemo(code.trim());
+                // ignore: use_build_context_synchronously
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم زرع البيانات لرمز: ${code.trim()}')));
+              } catch (e) {
+                // ignore: use_build_context_synchronously
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل الزرع: $e')));
+              }
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.insights, color: Colors.teal),
+            title: const Text('إحصائيات التاجر'),
+            onTap: () async {
+              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
+              if (code == null || code.trim().isEmpty) return;
+              try {
+                final stats = await DemoSeedService.getMerchantStats(code.trim());
+                // ignore: use_build_context_synchronously
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: Text('ملخص $code'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('العروض: ${stats['offers']}'),
+                        Text('المتاجر: ${stats['stores']}'),
+                        Text('المجموعات: ${stats['groups']}'),
+                        Text('البلاغات: ${stats['reports']}'),
+                        const Divider(),
+                        Text('الفواتير: ${stats['invoices']}'),
+                        Text('إجمالي الفواتير: ${stats['invoices_total']}'),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('اغلاق')),
+                    ],
+                  ),
+                );
+              } catch (e) {
+                // ignore: use_build_context_synchronously
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل جلب الإحصائيات: $e')));
+              }
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.map, color: Colors.redAccent),
+            title: const Text('خريطة المتاجر (رمز التاجر)'),
+            onTap: () async {
+              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
+              if (code == null || code.trim().isEmpty) return;
+              // ignore: use_build_context_synchronously
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => MerchantMapScreen(initialMerchantCode: code.trim())),
+              );
+            },
+          ),
           Divider(),
           ListTile(
             leading: Icon(Icons.info),
