@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:coupona_app/services/demo_seed_service.dart';
+import 'merchant_map_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   @override
@@ -75,6 +76,21 @@ class SettingsScreen extends StatelessWidget {
                   SnackBar(content: Text('فشل الزرع: $e')),
                 );
               }
+            },
+          ),
+          Divider(height: 16),
+          // خريطة المتاجر حسب رمز التاجر
+          ListTile(
+            leading: Icon(Icons.map, color: Colors.redAccent),
+            title: Text('عرض خريطة المتاجر (حسب رمز التاجر)'),
+            onTap: () async {
+              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
+              if (code == null || code.trim().isEmpty) return;
+              // تجنب circular deps باستيراد متأخر
+              // ignore: use_build_context_synchronously
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => MerchantMapScreen(initialMerchantCode: code.trim())),
+              );
             },
           ),
           Divider(height: 16),
