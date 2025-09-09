@@ -22,7 +22,8 @@ import 'home_content_screen.dart'; // استيراد الشاشة الجديدة
 import 'my_rewards_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/badge_helper.dart';
-import 'package:easy_localization/easy_localization.dart' hide TextDirection;
+import 'package:easy_localization/easy_localization.dart';
+import 'dart:ui' as ui;
 
 class HomeScreen extends StatefulWidget {
   final String phone;
@@ -127,16 +128,16 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
 
     return Directionality(
-      textDirection: context.locale.languageCode == 'ar' ? TextDirection.rtl : TextDirection.ltr,
+      textDirection: context.locale.languageCode == 'ar' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
       child: Scaffold(
         key: langKey,
         appBar: AppBar(
-          title: Text('app_title'.tr(), style: TextStyle(color: Colors.white)),
+          title: Text('app_title'.tr(), style: const TextStyle(color: Colors.white)),
           backgroundColor: Colors.deepPurple.shade700,
           elevation: 0,
           leading: Builder(
             builder: (context) => IconButton(
-              icon: Icon(Icons.menu),
+              icon: const Icon(Icons.menu),
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           ),
@@ -146,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         drawer: AppDrawer(),
         body: widgetOptions[_selectedIndex],
-        bottomNavigationBar: StreamBuilder(
+  bottomNavigationBar: StreamBuilder(
           stream: FirebaseFirestore.instance.collection('offers').snapshots(),
           builder: (context, offersSnapshot) {
             int offersBadgeCount = 0;
@@ -170,33 +171,33 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (rewardsSnapshot.hasData) {
                       rewardsBadgeCount = rewardsSnapshot.data!.docs.length;
                     }
-                    return BottomNavigationBar(
+          return BottomNavigationBar(
                       items: [
-                        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'home_nav'.tr()),
-                        BottomNavigationBarItem(
+            BottomNavigationBarItem(icon: const Icon(Icons.home), label: 'home_nav'.tr()),
+            BottomNavigationBarItem(
                           icon: badges.Badge(
                             showBadge: offersBadgeCount - offersUnread > 0,
-                            badgeContent: Text('${offersBadgeCount - offersUnread}', style: const TextStyle(color: Colors.white, fontSize: 10)),
+              badgeContent: Text('${offersBadgeCount - offersUnread}', style: const TextStyle(color: Colors.white, fontSize: 10)),
                             badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                            child: const Icon(Icons.card_giftcard),
+              child: const Icon(Icons.card_giftcard),
                           ),
                           label: 'offers_nav'.tr(),
                         ),
-                        BottomNavigationBarItem(
+            BottomNavigationBarItem(
                           icon: badges.Badge(
                             showBadge: communityBadgeCount > 0,
-                            badgeContent: Text('$communityBadgeCount', style: const TextStyle(color: Colors.white, fontSize: 10)),
+              badgeContent: Text('$communityBadgeCount', style: const TextStyle(color: Colors.white, fontSize: 10)),
                             badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                            child: const Icon(Icons.groups),
+              child: const Icon(Icons.groups),
                           ),
                           label: 'community_nav'.tr(),
                         ),
-                        BottomNavigationBarItem(
+            BottomNavigationBarItem(
                           icon: badges.Badge(
                             showBadge: rewardsBadgeCount > 0,
-                            badgeContent: Text('$rewardsBadgeCount', style: const TextStyle(color: Colors.white, fontSize: 10)),
+              badgeContent: Text('$rewardsBadgeCount', style: const TextStyle(color: Colors.white, fontSize: 10)),
                             badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                            child: const Icon(Icons.emoji_events),
+              child: const Icon(Icons.emoji_events),
                           ),
                           label: 'rewards_nav'.tr(),
                         ),
@@ -241,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         SpeedDialChild(
           label: 'scan_invoice'.tr(),
-          child: Icon(Icons.camera_alt),
+          child: const Icon(Icons.camera_alt),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => ScanInvoiceScreen()),
@@ -250,7 +251,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         SpeedDialChild(
           label: 'add_offer'.tr(),
-          child: Icon(Icons.local_offer),
+          child: const Icon(Icons.local_offer),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => AddCouponScreen()),
@@ -259,7 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         SpeedDialChild(
           label: 'report'.tr(),
-          child: Icon(Icons.report),
+          child: const Icon(Icons.report),
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => ReportScreen()),
@@ -287,6 +288,7 @@ class CategoryShortcut extends StatelessWidget {
     this.width = 64
   });
 
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,

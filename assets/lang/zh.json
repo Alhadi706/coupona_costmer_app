@@ -202,11 +202,5 @@
   "hotels": "酒店",
   "clothing": "服装",
   "clinics": "诊所",
-  "all_categories": "所有类别",
-  "offer_expired": "已过期",
-  "offer_expires_today": "今天到期",
-  "offer_expires_tomorrow": "明天到期",
-  "offer_expires_in_days": "{days}天后到期",
-  "offer_expires_in_months": "{months}个月后到期",
-  "offer_expires_in_years": "{years}年后到期"
+  "all_categories": "所有类别"
 }

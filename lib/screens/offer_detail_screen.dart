@@ -4,7 +4,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:easy_localization/easy_localization.dart';
 
 class OfferDetailScreen extends StatefulWidget {
   final Map<String, dynamic> offer;
@@ -58,20 +57,21 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
     }
   }
 
-  String _getEndDateText(String? endDate) {
+  String getEndDateText(String? endDate) {
     if (endDate == null || endDate.isEmpty) return '';
     try {
+      // محاولة استخراج التاريخ فقط من النص
       final dateStr = endDate.split('T').first;
       final date = DateTime.parse(dateStr);
       final now = DateTime.now();
       final diff = date.difference(now).inDays;
-      if (diff < 0) return 'offer_expired'.tr();
-      if (diff == 0) return 'offer_expires_today'.tr();
-      if (diff == 1) return 'offer_expires_tomorrow'.tr();
-      if (diff < 7) return 'offer_expires_in_days'.tr(namedArgs: {'days': diff.toString()});
-      if (diff < 30) return 'offer_expires_in_days'.tr(namedArgs: {'days': diff.toString()});
-      if (diff < 365) return 'offer_expires_in_months'.tr(namedArgs: {'months': (diff ~/ 30).toString()});
-      return 'offer_expires_in_years'.tr(namedArgs: {'years': (diff ~/ 365).toString()});
+      if (diff < 0) return 'انتهى';
+      if (diff == 0) return 'ينتهي اليوم';
+      if (diff == 1) return 'ينتهي غدًا';
+      if (diff < 7) return 'ينتهي بعد $diff أيام';
+      if (diff < 30) return 'ينتهي بعد $diff يومًا';
+      if (diff < 365) return 'ينتهي بعد ${(diff / 30).floor()} شهر';
+      return 'ينتهي بعد ${(diff / 365).floor()} سنة';
     } catch (e) {
       return '';
     }
@@ -82,7 +82,7 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
     final offer = widget.offer;
     return Scaffold(
       appBar: AppBar(
-        title: Text('offer_details_title'.tr()),
+        title: Text('تفاصيل العرض'),
         backgroundColor: Colors.deepPurple.shade700,
       ),
       body: ListView(
@@ -109,29 +109,29 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
           Row(
             children: [
               if (offer['offerType'] != null && offer['offerType'] != '')
-                Chip(label: Text((offer['offerType']?.toString().trim() ?? '').tr(), style: const TextStyle(color: Colors.white))),
+                Chip(label: Text(offer['offerType'])),
               if (offer['percent'] != null && offer['percent'] != '') ...[
                 const SizedBox(width: 8),
                 Chip(label: Text(offer['percent'])),
               ],
               const SizedBox(width: 8),
               if (offer['endDate'] != null && offer['endDate'] != '')
-                Text(_getEndDateText(offer['endDate']), style: const TextStyle(color: Colors.red)),
+                Text(getEndDateText(offer['endDate']), style: const TextStyle(color: Colors.red)),
             ],
           ),
           const SizedBox(height: 16),
           if (offer['description'] != null && offer['description'] != '') ...[
-            Text(tr('offer_description') + ':', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('الوصف:', style: TextStyle(fontWeight: FontWeight.bold)),
             Text(offer['description']),
             const SizedBox(height: 12),
           ],
           if (offer['conditions'] != null && offer['conditions'] != '') ...[
-            Text(tr('offer_conditions') + ':', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('الشروط:', style: TextStyle(fontWeight: FontWeight.bold)),
             Text(offer['conditions']),
             const SizedBox(height: 12),
           ],
           if (offer['location'] != null && offer['location'] != '') ...[
-            Text(tr('offer_location') + ':', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('الموقع:', style: TextStyle(fontWeight: FontWeight.bold)),
             if (isLoadingAddress)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 4),
@@ -144,7 +144,7 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
             const SizedBox(height: 12),
           ],
           if (offer['phone'] != null && offer['phone'].toString().isNotEmpty) ...[
-            Text(tr('offer_phone') + ':', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('رقم الهاتف:', style: TextStyle(fontWeight: FontWeight.bold)),
             Row(
               children: [
                 Text(offer['phone']),

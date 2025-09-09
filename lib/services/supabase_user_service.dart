@@ -13,8 +13,6 @@ class SupabaseUserService {
     String? gender,
     double? latitude,
     double? longitude,
-    String? city, // إضافة المدينة
-    String? country, // إضافة الدولة
   }) async {
     final response = await _client.from('users').insert({
       'email': email,
@@ -25,8 +23,6 @@ class SupabaseUserService {
       if (gender != null) 'gender': gender,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
-      if (city != null) 'city': city, // إضافة المدينة للبيانات
-      if (country != null) 'country': country, // إضافة الدولة للبيانات
     });
     // يمكنك معالجة response أو إرجاعه إذا أردت
   }

@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coupona_app/services/supabase_user_service.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart'; // إضافة استيراد geocoding
 import 'package:coupona_app/screens/home_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -23,14 +22,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String? _locationError;
   DateTime? _selectedBirthDate;
   int? _calculatedAge;
-  String? _city; // إضافة متغير للمدينة
-  String? _country; // إضافة متغير للدولة
-
-  @override
-  void initState() {
-    super.initState();
-    _getLocation(); // استدعاء جلب الموقع عند بدء الشاشة
-  }
 
   Future<void> _getLocation() async {
     try {
@@ -52,23 +43,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         return;
       }
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
-      
-      if (placemarks.isNotEmpty) {
-        final placemark = placemarks.first;
-        setState(() {
-          _userPosition = position;
-          _city = placemark.locality ?? 'غير محدد'; // التعامل مع القيمة الفارغة
-          _country = placemark.country ?? 'غير محدد'; // التعامل مع القيمة الفارغة
-          _locationError = null;
-        });
-      } else {
-         setState(() {
-          _userPosition = position;
-          _locationError = 'لم يتم العثور على معلومات العنوان.';
-        });
-      }
-
+      setState(() {
+        _userPosition = position;
+        _locationError = null;
+      });
     } catch (e) {
       setState(() => _locationError = 'تعذر جلب الموقع: $e');
     }
@@ -116,15 +94,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       return;
     }
-    // إزالة التحقق الإجباري من الموقع
-    // if (_userPosition == null) {
-    //   if (_locationError != null) {
-    //      ScaffoldMessenger.of(context).showSnackBar(
-    //       SnackBar(content: Text(_locationError!)),
-    //     );
-    //     return;
-    //   }
-    // }
+    if (_userPosition == null) {
+      await _getLocation();
+      if (_userPosition == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_locationError ?? 'تعذر جلب الموقع.')),
+        );
+        return;
+      }
+    }
     setState(() => _loading = true);
     try {
       // إنشاء مستخدم في Firebase Auth
@@ -133,38 +111,25 @@ class _SignUpScreenState extends State<SignUpScreen> {
         password: password,
       );
       final user = userCredential.user;
-
-      // تحضير بيانات المستخدم
-      final userData = {
+      // حفظ بيانات المستخدم في Firestore
+      await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
         'email': email,
         'role': 'customer',
         'createdAt': DateTime.now().toIso8601String(),
         'age': age,
         'gender': gender,
+        'latitude': _userPosition!.latitude,
+        'longitude': _userPosition!.longitude,
         'birthDate': _selectedBirthDate!.toIso8601String(),
-      };
-
-      // إضافة بيانات الموقع إذا كانت متوفرة فقط
-      if (_userPosition != null) {
-        userData['latitude'] = _userPosition!.latitude;
-        userData['longitude'] = _userPosition!.longitude;
-        if (_city != null) userData['city'] = _city!;
-        if (_country != null) userData['country'] = _country!;
-      }
-
-      // حفظ بيانات المستخدم في Firestore
-      await FirebaseFirestore.instance.collection('users').doc(user!.uid).set(userData);
-      
-      // إضافة المستخدم في Supabase (اختياري) مع التحقق من الموقع
+      });
+      // إضافة المستخدم في Supabase (اختياري)
       await SupabaseUserService.addUser(
         email: email,
         role: 'customer',
         age: age,
         gender: gender,
-        latitude: _userPosition?.latitude,
-        longitude: _userPosition?.longitude,
-        city: _city,
-        country: _country,
+        latitude: _userPosition!.latitude,
+        longitude: _userPosition!.longitude,
       );
       if (mounted) {
         Navigator.pushAndRemoveUntil(
@@ -227,15 +192,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            // حقول المدينة والدولة (للعرض فقط)
-            if (_city != null && _country != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Text(
-                  'الموقع: $_city, $_country',
-                  style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-                ),
-              ),
             GestureDetector(
               onTap: _pickBirthDate,
               child: AbsorbPointer(

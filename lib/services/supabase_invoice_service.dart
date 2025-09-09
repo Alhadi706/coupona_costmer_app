@@ -12,8 +12,9 @@ class SupabaseInvoiceService {
     required String userId,
     required String merchantId,
     required String uniqueHash,
+    String? merchantCode,
   }) async {
-    await SupabaseService.client.from('invoices').insert({
+    final data = {
       'invoice_number': invoiceNumber,
       'store_name': storeName,
       'date': date.toIso8601String(),
@@ -22,7 +23,19 @@ class SupabaseInvoiceService {
       'user_id': userId,
       'merchant_id': merchantId,
       'unique_hash': uniqueHash,
-    });
+      if (merchantCode != null && merchantCode.isNotEmpty) 'merchant_code': merchantCode,
+    };
+    try {
+      await SupabaseService.client.from('invoices').insert(data);
+    } catch (e) {
+      // إذا الجدول لا يحتوي العمود الجديد تجاهل الخطأ المتعلق بالحقل فقط
+      if (e.toString().contains('merchant_code')) {
+        final fallback = Map<String, dynamic>.from(data)..remove('merchant_code');
+        await SupabaseService.client.from('invoices').insert(fallback);
+      } else {
+        rethrow;
+      }
+    }
   }
 
   /// دالة لحذف جميع العروض من Firestore (للاستخدام لمرة واحدة فقط)

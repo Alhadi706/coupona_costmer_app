@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class FullMapScreen extends StatefulWidget {
@@ -16,19 +16,6 @@ class _FullMapScreenState extends State<FullMapScreen> {
   String searchText = '';
   String selectedCategory = '';
   Map<String, dynamic>? selectedStore;
-
-  final List<String> categories = [
-    'غذائية',
-    'عيادات',
-    'ملابس',
-    'مجوهرات',
-    'مطاعم',
-    'إلكترونيات',
-    'استراحات',
-    'صحة',
-    'أنشطة',
-    'أخرى',
-  ];
 
   void _showStoreDetails(Map<String, dynamic> store) {
     setState(() {
@@ -68,14 +55,6 @@ class _FullMapScreenState extends State<FullMapScreen> {
     );
   }
 
-  Future<List<Map<String, dynamic>>> fetchOffers() async {
-    final supabase = Supabase.instance.client;
-    final response = await supabase
-        .from('offers')
-        .select('id, latitude, longitude, name, category, description, phone, location');
-    return List<Map<String, dynamic>>.from(response);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,22 +66,45 @@ class _FullMapScreenState extends State<FullMapScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: fetchOffers(),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('stores').snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          if (!snapshot.hasData) {
             return const Center(child: Text('لا توجد بيانات متاحة'));
           }
-          final items = snapshot.data!;
+          List<Map<String, dynamic>> stores = snapshot.data!.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            data['id'] = doc.id;
+            return data;
+          }).toList();
+          // فلترة حسب البحث والتصنيف
+          final filteredStores = stores.where((store) {
+            final matchesSearch = searchText.isEmpty || (store['name']?.toString().contains(searchText) ?? false);
+            final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
+            return matchesSearch && matchesCategory;
+          }).toList();
+          // قائمة التصنيفات المخصصة
+          final List<String> categories = [
+            'غذائية',
+            'عيادات',
+            'ملابس',
+            'مجوهرات',
+            'مطاعم',
+            'إلكترونيات',
+            'استراحات',
+            'صحة',
+            'أنشطة',
+            'أخرى',
+          ];
           return Stack(
             children: [
               FlutterMap(
                 options: MapOptions(
-                  center: items.isNotEmpty && items[0]['latitude'] != null && items[0]['longitude'] != null
-                      ? LatLng(items[0]['latitude'], items[0]['longitude'])
+                  center: filteredStores.isNotEmpty
+                      ? LatLng(filteredStores[0]['lat'], filteredStores[0]['lng'])
                       : LatLng(24.7136, 46.6753),
                   zoom: 12.0,
                 ),
@@ -114,17 +116,16 @@ class _FullMapScreenState extends State<FullMapScreen> {
                   ),
                   MarkerLayer(
                     markers: [
-                      for (final item in items)
-                        if (item['latitude'] != null && item['longitude'] != null)
-                          Marker(
-                            width: 40,
-                            height: 40,
-                            point: LatLng(item['latitude'], item['longitude']),
-                            child: GestureDetector(
-                              onTap: () => _showStoreDetails(item),
-                              child: Icon(Icons.location_on, color: Colors.red, size: 36),
-                            ),
+                      for (final store in filteredStores)
+                        Marker(
+                          width: 40,
+                          height: 40,
+                          point: LatLng(store['lat'], store['lng']),
+                          child: GestureDetector(
+                            onTap: () => _showStoreDetails(store),
+                            child: Icon(Icons.location_on, color: Colors.red, size: 36),
                           ),
+                        ),
                     ],
                   ),
                 ],

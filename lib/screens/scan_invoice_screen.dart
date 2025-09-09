@@ -1,9 +1,13 @@
 // filepath: lib/screens/scan_invoice_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+// لا تستخدم File مباشرة على الويب
+import 'dart:io' show File; // سيُهمل في الويب لكن تجنّب استدعائه عندما kIsWeb = true
 import 'package:easy_localization/easy_localization.dart';
+import '../services/invoice_parser.dart';
+import '../services/supabase_invoice_service.dart';
 
 class ScanInvoiceScreen extends StatefulWidget {
   const ScanInvoiceScreen({Key? key}) : super(key: key);
@@ -19,6 +23,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   String? _error;
   bool _didAutoOpenCamera = false;
   final TextRecognizer _textRecognizer = TextRecognizer();
+  final TextEditingController _merchantCodeController = TextEditingController(text: 'TRPCF2');
 
   @override
   void dispose() {
@@ -48,7 +53,10 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
     });
     final picker = ImagePicker();
     try {
-      final XFile? image = await picker.pickImage(source: ImageSource.camera);
+      final XFile? image = await picker.pickImage(
+        source: kIsWeb ? ImageSource.gallery : ImageSource.camera,
+        // على الويب الكاميرا قد لا تعمل دائماً فنلجأ للمعرض
+      );
       if (image != null) {
         if (!mounted) return;
         setState(() {
@@ -81,16 +89,60 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       _ocrResult = null;
     });
     try {
+      if (kIsWeb) {
+        // مكتبة ML Kit غير مدعومة رسمياً على الويب حالياً
+        setState(() {
+          _isProcessing = false;
+          _error = 'ميزة التعرف على النص غير مدعومة على الويب حالياً، جرّب التطبيق على الهاتف.';
+        });
+        return;
+      }
       final inputImage = InputImage.fromFilePath(image.path);
       final RecognizedText recognizedText =
           await _textRecognizer.processImage(inputImage);
       if (!mounted) return;
+      final extracted = recognizedText.text;
+      if (!mounted) return;
+      if (extracted.trim().isEmpty) {
+        setState(() {
+          _isProcessing = false;
+          _ocrResult = 'no_text_found'.tr();
+        });
+        return;
+      }
+
+      // Parse invoice
+      final parsed = parseInvoiceText(
+        extracted,
+        merchantCode: _merchantCodeController.text.trim().isEmpty ? 'UNKNOWN' : _merchantCodeController.text.trim(),
+      );
+
+      // Save to Supabase (يمكن لاحقاً إضافة check لمنع التكرار بقراءة unique_hash)
+      try {
+        await SupabaseInvoiceService.addInvoice(
+          invoiceNumber: parsed.invoiceNumber,
+          storeName: parsed.storeName,
+          date: parsed.date,
+          products: parsed.products,
+          total: parsed.total,
+          userId: 'test_user', // TODO: استبدلها بمعرّف المستخدم الحقيقي
+          merchantId: parsed.merchantCode, // مؤقتاً نضع code في هذا الحقل
+          uniqueHash: parsed.uniqueHash,
+          merchantCode: parsed.merchantCode,
+        );
+      } catch (e) {
+        // تجاهل الخطأ التخزيني حالياً لكن أظهر رسالة
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('خطأ في حفظ الفاتورة: $e')),
+          );
+        }
+      }
+
+      if (!mounted) return;
       setState(() {
         _isProcessing = false;
-        _ocrResult = recognizedText.text;
-        if (_ocrResult!.isEmpty) {
-          _ocrResult = 'no_text_found'.tr();
-        }
+        _ocrResult = extracted;
       });
     } catch (e) {
       if (!mounted) return;
@@ -151,12 +203,26 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_capturedImage != null)
-              Image.file(
-                File(_capturedImage!.path),
-                fit: BoxFit.contain,
-                height: 200,
+            TextField(
+              controller: _merchantCodeController,
+              decoration: const InputDecoration(
+                labelText: 'رمز التاجر (Merchant Code)',
+                border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 12),
+            if (_capturedImage != null)
+              kIsWeb
+                  ? Image.network(
+                      _capturedImage!.path,
+                      height: 200,
+                      fit: BoxFit.contain,
+                    )
+                  : Image.file(
+                      File(_capturedImage!.path),
+                      fit: BoxFit.contain,
+                      height: 200,
+                    ),
             const SizedBox(height: 16),
             Text(
               'invoice_text'.tr(),
