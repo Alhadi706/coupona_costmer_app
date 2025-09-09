@@ -116,12 +116,17 @@ class DemoSeedService {
     try {
       final rows = await SupabaseService.client
           .from('invoices')
-          .select<List<Map<String, dynamic>>>('*')
+          .select('*')
           .eq('merchant_code', merchantCode)
           .limit(1000);
-      invoices = rows ?? <Map<String, dynamic>>[];
+      if (rows is List) {
+        invoices = rows
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
     } catch (e) {
-      // في حال عدم وجود العمود merchant_code نتجنب الفشل ونرجع 0
+      // في حال عدم وجود العمود merchant_code أو أي فشل، نتجنب الكسر
       invoices = <Map<String, dynamic>>[];
     }
     final invoicesCount = invoices.length;
