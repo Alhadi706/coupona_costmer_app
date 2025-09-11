@@ -29,6 +29,8 @@ class DemoSeedService {
         'merchant_code': merchantCode,
         'brand': 'كوكاكولا',
         'valid_until': DateTime.now().add(const Duration(days: 20)).toIso8601String(),
+  'createdAt': DateTime.now().toIso8601String(),
+  'location': '32.8872,13.1913',
       },
       {
         'id': 'O-${merchantCode}-2',
@@ -37,6 +39,8 @@ class DemoSeedService {
         'merchant_code': merchantCode,
         'brand': 'كوكاكولا',
         'valid_until': DateTime.now().add(const Duration(days: 10)).toIso8601String(),
+  'createdAt': DateTime.now().toIso8601String(),
+  'location': '32.8850,13.1900',
       },
       {
         'id': 'O-${merchantCode}-3',
@@ -45,6 +49,8 @@ class DemoSeedService {
         'merchant_code': merchantCode,
         'brand': 'كوكاكولا',
         'valid_until': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+  'createdAt': DateTime.now().toIso8601String(),
+  'location': '32.8890,13.1950',
       },
     ];
     for (final data in offerDocs) {
@@ -140,5 +146,19 @@ class DemoSeedService {
       'invoices': invoicesCount,
       'invoices_total': invoicesTotal,
     };
+  }
+}
+
+/// دالة مساعدة (اختيارية) لتحديث جميع العروض القديمة التي لا تحتوي createdAt
+/// استدعها يدويًا مرة واحدة إذا لاحظت فرقًا في العدادات
+Future<void> backfillOffersCreatedAt() async {
+  final fs = FirebaseFirestore.instance;
+  final snap = await fs.collection('offers').get();
+  final nowIso = DateTime.now().toIso8601String();
+  for (final doc in snap.docs) {
+    final data = doc.data();
+    if (!data.containsKey('createdAt')) {
+      await doc.reference.update({'createdAt': nowIso});
+    }
   }
 }
