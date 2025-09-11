@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'offer_detail_screen.dart';
 import 'home_screen.dart';
+import 'package:flutter/foundation.dart';
 
 class OffersScreen extends StatelessWidget {
   const OffersScreen({super.key});
@@ -44,16 +45,18 @@ class OffersScreen extends StatelessWidget {
                               height: 140,
                               width: double.infinity,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
+                              errorBuilder: (context, error, stackTrace) => Image.asset(
+                                'assets/img/map_sample.png',
                                 height: 140,
-                                color: Colors.grey.shade200,
-                                child: Icon(Icons.image_not_supported, color: Colors.grey, size: 60),
+                                width: double.infinity,
+                                fit: BoxFit.cover,
                               ),
                             )
-                          : Container(
+                          : Image.asset(
+                              'assets/img/map_sample.png',
                               height: 140,
-                              color: Colors.grey.shade200,
-                              child: Icon(Icons.image, color: Colors.grey, size: 60),
+                              width: double.infinity,
+                              fit: BoxFit.cover,
                             ),
                     ),
                     Padding(

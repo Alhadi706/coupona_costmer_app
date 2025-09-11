@@ -11,9 +11,9 @@ class CategoryBar extends StatelessWidget {
   const CategoryBar({
     Key? key,
     required this.categories,
-    this.height = 80,
-    this.iconSize = 32,
-    this.fontSize = 13,
+  this.height = 72,
+  this.iconSize = 30,
+  this.fontSize = 12,
     this.onCategoryTap,
   }) : super(key: key);
 
@@ -41,9 +41,9 @@ class CategoryBar extends StatelessWidget {
                   radius: iconSize / 1.5,
                   child: Icon(cat['icon'], size: iconSize, color: Colors.deepPurple),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 SizedBox(
-                  width: iconSize * 2,
+                  width: iconSize * 2.1,
                   child: Text(
                     (cat is String
                         ? cat.toString().tr()

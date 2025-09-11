@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -30,10 +31,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   void _playClickSound() {
-    FlutterRingtonePlayer().playNotification();
+  if (kIsWeb) return; // الحزمة لا تعمل على الويب
+  FlutterRingtonePlayer().playNotification();
   }
 
   void _playSuccessSound() {
+    if (kIsWeb) return;
     FlutterRingtonePlayer().play(
       android: AndroidSounds.notification,
       ios: IosSounds.triTone,
