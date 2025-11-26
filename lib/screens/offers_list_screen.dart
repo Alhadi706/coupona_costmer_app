@@ -1,5 +1,5 @@
-// import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/supabase_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/firebase_service.dart';
 import 'package:flutter/material.dart';
 
 class OffersListScreen extends StatefulWidget {
@@ -21,10 +21,16 @@ class _OffersListScreenState extends State<OffersListScreen> {
 
   Future<List<Map<String, dynamic>>> fetchOffers() async {
     try {
-      final client = SupabaseService.client;
-      final resp = await client.from('offers').select().order('createdAt', ascending: false);
-      final list = (resp as List?) ?? [];
-      return list.whereType<Map<String, dynamic>>().toList();
+      final snapshot = await FirebaseService.firestore
+          .collection('offers')
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs.map((d) {
+        final data = Map<String, dynamic>.from(d.data() as Map<String, dynamic>);
+        data['id'] = d.id;
+        if (data['createdAt'] is Timestamp) data['createdAt'] = (data['createdAt'] as Timestamp).toDate();
+        return data;
+      }).toList();
     } catch (e) {
       debugPrint('Fetch offers error: $e');
       rethrow;

@@ -22,7 +22,7 @@ import 'category_offers_screen.dart'; // استيراد شاشة عروض الف
 import 'home_content_screen.dart'; // استيراد الشاشة الجديدة
 import 'my_rewards_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 import '../services/badge_helper.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -151,10 +151,8 @@ class _HomeScreenState extends State<HomeScreen> {
         bottomNavigationBar: FutureBuilder<int>(
           future: () async {
             try {
-              final client = SupabaseService.client;
-              final resp = await client.from('offers').select('id');
-              final list = (resp as List?) ?? [];
-              return list.length;
+              final snapshot = await FirebaseService.firestore.collection('offers').get();
+              return snapshot.docs.length;
             } catch (e) {
               return 0;
             }

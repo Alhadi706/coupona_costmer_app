@@ -1,31 +1,24 @@
 import 'dart:io';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'firebase_service.dart';
 
 class SupabaseOfferService {
-  static final SupabaseClient _client = Supabase.instance.client;
-
-  /// رفع صورة إلى Supabase Storage وإرجاع الرابط
+  /// Upload image to Firebase Storage and return URL (used as replacement).
   static Future<String?> uploadImage(XFile image) async {
     try {
-      // اسم الملف بدون أحرف عربية أو رموز خاصة
-      String cleanName = image.name.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '_');
+      final cleanName = image.name.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '_');
       final fileName = 'offers/${DateTime.now().millisecondsSinceEpoch}_$cleanName';
       final bytes = await image.readAsBytes();
-      final response = await _client.storage.from('offers').uploadBinary(
-        fileName, bytes, fileOptions: const FileOptions(upsert: true));
-      if (response.isNotEmpty) {
-        final publicUrl = _client.storage.from('offers').getPublicUrl(fileName);
-        return publicUrl;
-      }
-      return null;
+      final ref = FirebaseService.storage.ref().child(fileName);
+      await ref.putData(bytes);
+      return await ref.getDownloadURL();
     } catch (e) {
       print('Upload image error: $e');
       return null;
     }
   }
 
-  /// إضافة عرض جديد إلى جدول offers في Supabase
+  /// Add offer to Firestore (replaces previous Supabase insert).
   static Future<void> addOffer({
     required String offerType,
     required String category,
@@ -38,7 +31,7 @@ class SupabaseOfferService {
     String? location,
     String? imageUrl,
   }) async {
-    await _client.from('offers').insert({
+    await FirebaseService.firestore.collection('offers').add({
       'offerType': offerType,
       'category': category,
       'titleType': titleType,

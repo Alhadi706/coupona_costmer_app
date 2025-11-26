@@ -9,7 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:coupona_app/services/imgur_service.dart';
-import 'package:coupona_app/services/supabase_offer_service.dart';
+import 'package:coupona_app/services/firebase_service.dart';
 import 'map_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'home_screen.dart';
@@ -83,9 +83,16 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
   Future<String?> _uploadImage() async {
     if (_pickedImage == null) return null;
     try {
-      return kIsWeb 
-          ? await SupabaseOfferService.uploadImage(_pickedImage!)
-          : await ImgurService.uploadImage(File(_pickedImage!.path));
+      if (kIsWeb) {
+        final bytes = await _pickedImage!.readAsBytes();
+        final fileName = 'offers/${DateTime.now().millisecondsSinceEpoch}_${_pickedImage!.name.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '_')}';
+        final ref = FirebaseService.storage.ref().child(fileName);
+        await ref.putData(bytes);
+        final url = await ref.getDownloadURL();
+        return url;
+      } else {
+        return await ImgurService.uploadImage(File(_pickedImage!.path));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -144,41 +151,15 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
         ]);
         debugPrint('بعد إضافة العرض إلى Firestore (أو انتهاء المهلة)');
       } catch (e, stack) {
-        debugPrint('خطأ أثناء إضافة العرض إلى Firestore: $e\n$stack');
+        // Log the Firestore error but do not abort — continue to add to Supabase.
+        debugPrint('خطأ أثناء إضافة العرض إلى Firestore (سنتابع كتابة Supabase): $e\n$stack');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('error_add_offer'.tr(namedArgs: {'error': e.toString()}))),
+            SnackBar(content: Text('فشل حفظ العرض في Firestore، سيتم المحاولة بواسطة النظام (Supabase).')),
           );
         }
-        return;
       }
-      debugPrint('قبل إضافة العرض إلى Supabase');
-      try {
-        await Future.any([
-          SupabaseOfferService.addOffer(
-            offerType: _offerType!,
-            category: _category!,
-            titleType: _titleType,
-            discountValue: (_discountValue == null || _discountValue!.isEmpty) ? null : _discountValue,
-            price: (_price == null || _price!.isEmpty) ? null : _price,
-            description: _description,
-            startDate: _startDate?.toIso8601String(),
-            endDate: _endDate?.toIso8601String(),
-            location: _location,
-            imageUrl: imageUrl,
-          ),
-          Future.delayed(const Duration(seconds: 5)),
-        ]);
-        debugPrint('بعد إضافة العرض إلى Supabase (أو انتهاء المهلة)');
-      } catch (e, stack) {
-        debugPrint('خطأ أثناء إضافة العرض إلى Supabase: $e\n$stack');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('error_add_offer'.tr(namedArgs: {'error': e.toString()}))),
-          );
-        }
-        return;
-      }
+      // الآن نعتمد على Firestore فقط، لا حاجة لاستدعاء Supabase.
       debugPrint('قبل إظهار Dialog النجاح');
       await showDialog(
         context: context,

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
-import '../../services/supabase_service.dart';
+import '../../services/firebase_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../../models/map_item.dart';
 import '../../models/map_sample_data.dart';
@@ -37,12 +37,11 @@ class _MapBarState extends State<MapBar> {
       loadError = null;
     });
     try {
-      final client = SupabaseService.client;
-      final merchantsResponse = await client.from('merchants').select();
-      final offersResponse = await client.from('offers').select();
+      final merchantsSnap = await FirebaseService.firestore.collection('merchants').get();
+      final offersSnap = await FirebaseService.firestore.collection('offers').get();
 
-      var merchants = (merchantsResponse as List?) ?? [];
-      var offers = (offersResponse as List?) ?? [];
+      var merchants = merchantsSnap.docs.map((d) => Map<String, dynamic>.from(d.data() as Map<String, dynamic>)).toList();
+      var offers = offersSnap.docs.map((d) => Map<String, dynamic>.from(d.data() as Map<String, dynamic>)).toList();
 
       var stores = merchants
           .whereType<Map<String, dynamic>>()
@@ -50,7 +49,7 @@ class _MapBarState extends State<MapBar> {
           .whereType<MapItem>()
           .toList();
 
-      var offersList = offers
+        var offersList = offers
           .whereType<Map<String, dynamic>>()
           .map((o) => MapItem.fromMap(o, MapItemType.offer))
           .whereType<MapItem>()
@@ -60,7 +59,7 @@ class _MapBarState extends State<MapBar> {
 
       if (stores.isEmpty && offers.isEmpty) {
         stores = List<MapItem>.from(sampleStoreItems);
-        offers = List<MapItem>.from(sampleOfferItems);
+        offersList = List<MapItem>.from(sampleOfferItems);
         usedFallback = true;
       }
 

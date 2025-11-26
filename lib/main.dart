@@ -8,7 +8,6 @@ import 'screens/login_screen.dart'; // استيراد شاشة تسجيل الد
 import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart'; // استيراد الشاشة الرئيسية
 import 'firebase_options.dart';
-import 'services/supabase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,7 +15,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await SupabaseService.init();
+  // Supabase initialization removed — using Firebase only now.
   runApp(
     EasyLocalization(
       supportedLocales: const [Locale('ar'), Locale('en'), Locale('fr'), Locale('es'), Locale('tr'), Locale('ru'), Locale('zh')],

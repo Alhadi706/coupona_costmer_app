@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart' as cs;
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/category_bar.dart'; // استيراد صحيح حسب هيكل المشروع
 import '../widgets/map_bar.dart'; // استيراد صحيح حسب هيكل المشروع
 import 'category_offers_screen.dart';
@@ -41,11 +42,15 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
 
   Future<void> fetchOffers() async {
     try {
-      final client = SupabaseService.client;
-      final resp = await client.from('offers').select().order('createdAt', ascending: false);
-      final list = (resp as List?) ?? [];
+      final snapshot = await FirebaseService.firestore.collection('offers').orderBy('createdAt', descending: true).get();
+      final list = snapshot.docs.map((d) {
+        final map = Map<String, dynamic>.from(d.data() as Map<String, dynamic>);
+        map['id'] = d.id;
+        if (map['createdAt'] is Timestamp) map['createdAt'] = (map['createdAt'] as Timestamp).toDate();
+        return map;
+      }).toList();
       setState(() {
-        offers = list.whereType<Map<String, dynamic>>().toList();
+        offers = list;
         isLoadingOffers = false;
       });
     } catch (e) {

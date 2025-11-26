@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/firebase_service.dart';
 import 'offer_detail_screen.dart';
 
 class CategoryOffersScreen extends StatelessWidget {
@@ -105,20 +106,24 @@ class CategoryOffersScreen extends StatelessWidget {
   }
 
   Future<List<Map<String, dynamic>>> _fetchOffersFromSupabase(String category) async {
-    final client = Supabase.instance.client;
     try {
-      final response = await client
-          .from('offers')
-          .select()
-          .eq('category', category)
-          .order('createdAt', ascending: false);
+      final snapshot = await FirebaseService.firestore
+          .collection('offers')
+          .where('category', isEqualTo: category)
+          .orderBy('createdAt', descending: true)
+          .get();
 
-      if (response is List) {
-        return response.whereType<Map<String, dynamic>>().toList();
-      }
-      return [];
+      return snapshot.docs.map((d) {
+        final data = Map<String, dynamic>.from(d.data() as Map<String, dynamic>);
+        data['id'] = d.id;
+        // convert Firestore Timestamp to DateTime if needed
+        if (data['createdAt'] is Timestamp) {
+          data['createdAt'] = (data['createdAt'] as Timestamp).toDate();
+        }
+        return data;
+      }).toList();
     } catch (e) {
-      debugPrint('Supabase fetch offers error: $e');
+      debugPrint('Firestore fetch offers error: $e');
       return [];
     }
   }

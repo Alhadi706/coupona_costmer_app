@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/supabase_service.dart';
+import '../services/firebase_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
@@ -119,15 +119,15 @@ class _ReportScreenState extends State<ReportScreen> {
                   FutureBuilder<List<Map<String, dynamic>>>(
                     future: () async {
                       try {
-                        final client = SupabaseService.client;
-                        final resp = await client.from('merchants').select();
-                        final list = (resp as List?) ?? [];
-                        return list.whereType<Map<String, dynamic>>().map((m) {
+                        final snap = await FirebaseService.firestore.collection('merchants').get();
+                        final list = snap.docs.map((d) {
+                          final m = Map<String, dynamic>.from(d.data() as Map<String, dynamic>);
                           return {
-                            'id': m['id']?.toString() ?? (m['uuid']?.toString() ?? ''),
+                            'id': d.id,
                             'name': (m['name'] ?? m['storeName'] ?? '').toString(),
                           };
                         }).where((store) => (store['name'] as String).isNotEmpty).toList();
+                        return list;
                       } catch (e) {
                         debugPrint('Fetch merchants error: $e');
                         return const <Map<String, dynamic>>[];
