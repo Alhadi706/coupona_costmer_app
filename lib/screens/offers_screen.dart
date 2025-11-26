@@ -1,6 +1,6 @@
 // filepath: lib/screens/offers_screen.dart
 import 'package:flutter/material.dart';
-import '../services/supabase_service.dart';
+import 'package:shared_services/shared_services.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'offer_detail_screen.dart';
 import 'home_screen.dart';

@@ -62,6 +62,8 @@ dependencies:
   geocoding: ^4.0.0
   google_mlkit_text_recognition: ^0.15.0
   # أضف أي حزم أخرى تستخدمها هنا
+  shared_services:
+    path: packages/shared_services
 
 dev_dependencies:
   flutter_test:
