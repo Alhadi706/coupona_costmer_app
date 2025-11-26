@@ -167,7 +167,6 @@
   "community_create": "Создать",
   "community_sent": "Отправлено",
   "community_sent_waiting": "Ваш запрос на создание группы отправлен и ожидает одобрения администратора.",
-  "ok": "ОК",
   "community_create_group_btn": "Запросить новую группу",
   "community_no_messages": "Пока нет сообщений",
   "community_write_message": "Написать сообщение...",
@@ -202,5 +201,12 @@
   "hotels": "Отели",
   "clothing": "Одежда",
   "clinics": "Клиники",
-  "all_categories": "Все категории"
+  "all_categories": "Все категории",
+  "invoice_summary": "Сводка по счету",
+  "merchant_id_label": "ID продавца",
+  "total_amount_label": "Итоговая сумма",
+  "link_invoice": "Связать счёт",
+  "invoice_link_success": "Счёт успешно связан.",
+  "invoice_link_failed": "Не удалось связать счёт. Попробуйте ещё раз.",
+  "invoice_link_missing_merchant": "Идентификатор продавца не найден на счёте."
 }

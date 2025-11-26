@@ -192,5 +192,12 @@
   "hotels": "إقامة",
   "clothing": "ملابس",
   "clinics": "عيادات",
-  "all_categories": "كل التصنيفات"
+  "all_categories": "كل التصنيفات",
+  "invoice_summary": "ملخص الفاتورة",
+  "merchant_id_label": "كود التاجر",
+  "total_amount_label": "المبلغ الإجمالي",
+  "link_invoice": "ربط الفاتورة",
+  "invoice_link_success": "تم ربط الفاتورة بنجاح.",
+  "invoice_link_failed": "تعذر ربط الفاتورة، حاول مرة أخرى.",
+  "invoice_link_missing_merchant": "لم يتم العثور على هوية التاجر في الفاتورة."
 }

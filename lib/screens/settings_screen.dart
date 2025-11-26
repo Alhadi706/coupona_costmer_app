@@ -5,11 +5,10 @@ import 'package:coupona_app/screens/report_screen.dart';
 import 'package:coupona_app/screens/offers_list_screen.dart';
 import 'users_screen.dart';
 import 'package:coupona_app/screens/login_screen.dart';
+import 'package:coupona_app/screens/home_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:coupona_app/services/demo_seed_service.dart';
-import 'merchant_map_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   @override
@@ -55,85 +54,6 @@ class SettingsScreen extends StatelessWidget {
           Divider(height: 32),
           _DownloadDataSection(),
           Divider(height: 32),
-          // زر زرع بيانات تجريبية للتاجر
-          ListTile(
-            leading: Icon(Icons.science, color: Colors.orange),
-            title: Text('زرع بيانات تجريبية (تاجر/عروض/فواتير/مجتمع)'),
-            subtitle: Text('للاختبار السريع عبر رمز التاجر: يربط الشاشات المختلفة'),
-            onTap: () async {
-              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
-              if (code == null || code.trim().isEmpty) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('جارٍ زرع البيانات ...')),
-              );
-              try {
-                await DemoSeedService.seedMerchantDemo(code.trim());
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('تم زرع البيانات لرمز: ${code.trim()}')),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('فشل الزرع: $e')),
-                );
-              }
-            },
-          ),
-          Divider(height: 16),
-          // خريطة المتاجر حسب رمز التاجر
-          ListTile(
-            leading: Icon(Icons.map, color: Colors.redAccent),
-            title: Text('عرض خريطة المتاجر (حسب رمز التاجر)'),
-            onTap: () async {
-              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
-              if (code == null || code.trim().isEmpty) return;
-              // تجنب circular deps باستيراد متأخر
-              // ignore: use_build_context_synchronously
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => MerchantMapScreen(initialMerchantCode: code.trim())),
-              );
-            },
-          ),
-          Divider(height: 16),
-          // زر عرض إحصائيات سريعة للتاجر
-          ListTile(
-            leading: Icon(Icons.insights, color: Colors.teal),
-            title: Text('عرض إحصائيات التاجر (سريعة)'),
-            subtitle: Text('Offers/Stores/Groups/Reports + Invoices Total'),
-            onTap: () async {
-              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
-              if (code == null || code.trim().isEmpty) return;
-              try {
-                final stats = await DemoSeedService.getMerchantStats(code.trim());
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: Text('ملخص $code'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('العروض: ${stats['offers']}'),
-                        Text('المتاجر: ${stats['stores']}'),
-                        Text('المجموعات: ${stats['groups']}'),
-                        Text('البلاغات: ${stats['reports']}'),
-                        const Divider(),
-                        Text('الفواتير: ${stats['invoices']}'),
-                        Text('إجمالي الفواتير: ${stats['invoices_total']}'),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: Text('اغلاق')),
-                    ],
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('فشل جلب الإحصائيات: $e')),
-                );
-              }
-            },
-          ),
-          Divider(height: 32),
           // زر لعرض قائمة العروض
           ListTile(
             leading: Icon(Icons.local_offer, color: Colors.deepPurple),
@@ -150,25 +70,6 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-Future<String?> _askMerchantCode(BuildContext context, {String? defaultCode}) async {
-  String code = defaultCode ?? '';
-  return showDialog<String>(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text('أدخل رمز التاجر'),
-      content: TextField(
-        autofocus: true,
-        decoration: const InputDecoration(hintText: 'مثال: TRPCF2'),
-        onChanged: (v) => code = v,
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-        ElevatedButton(onPressed: () => Navigator.pop(context, code), child: const Text('تأكيد')),
-      ],
-    ),
-  );
 }
 
 class _AccountSection extends StatelessWidget {
@@ -399,7 +300,13 @@ class AppDrawer extends StatelessWidget {
             leading: Icon(Icons.home),
             title: Text('drawer_home'.tr()),
             onTap: () {
-              Navigator.of(context).pushReplacementNamed('/');
+              // Navigate to the app's HomeScreen. Using pushAndRemoveUntil
+              // ensures we clear the stack and don't accidentally return
+              // to the LoginPage which is the app's initial/home route.
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => HomeScreen(phone: '', age: '', gender: '')),
+                (route) => false,
+              );
             },
           ),
           ListTile(
@@ -422,74 +329,6 @@ class AppDrawer extends StatelessWidget {
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => SettingsScreen()),
-              );
-            },
-          ),
-          // عناصر تجريبية للعرض السريع
-          ListTile(
-            leading: const Icon(Icons.science, color: Colors.orange),
-            title: const Text('زرع بيانات تجريبية'),
-            onTap: () async {
-              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
-              if (code == null || code.trim().isEmpty) return;
-              // ignore: use_build_context_synchronously
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('جارٍ زرع البيانات ...')));
-              try {
-                await DemoSeedService.seedMerchantDemo(code.trim());
-                // ignore: use_build_context_synchronously
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم زرع البيانات لرمز: ${code.trim()}')));
-              } catch (e) {
-                // ignore: use_build_context_synchronously
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل الزرع: $e')));
-              }
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.insights, color: Colors.teal),
-            title: const Text('إحصائيات التاجر'),
-            onTap: () async {
-              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
-              if (code == null || code.trim().isEmpty) return;
-              try {
-                final stats = await DemoSeedService.getMerchantStats(code.trim());
-                // ignore: use_build_context_synchronously
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: Text('ملخص $code'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('العروض: ${stats['offers']}'),
-                        Text('المتاجر: ${stats['stores']}'),
-                        Text('المجموعات: ${stats['groups']}'),
-                        Text('البلاغات: ${stats['reports']}'),
-                        const Divider(),
-                        Text('الفواتير: ${stats['invoices']}'),
-                        Text('إجمالي الفواتير: ${stats['invoices_total']}'),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('اغلاق')),
-                    ],
-                  ),
-                );
-              } catch (e) {
-                // ignore: use_build_context_synchronously
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('فشل جلب الإحصائيات: $e')));
-              }
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.map, color: Colors.redAccent),
-            title: const Text('خريطة المتاجر (رمز التاجر)'),
-            onTap: () async {
-              final code = await _askMerchantCode(context, defaultCode: 'TRPCF2');
-              if (code == null || code.trim().isEmpty) return;
-              // ignore: use_build_context_synchronously
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => MerchantMapScreen(initialMerchantCode: code.trim())),
               );
             },
           ),

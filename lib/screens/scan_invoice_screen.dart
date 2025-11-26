@@ -1,13 +1,13 @@
 // filepath: lib/screens/scan_invoice_screen.dart
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:image_picker/image_picker.dart';
-// لا تستخدم File مباشرة على الويب
-import 'dart:io' show File; // سيُهمل في الويب لكن تجنّب استدعائه عندما kIsWeb = true
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
 import '../services/invoice_parser.dart';
-import '../services/supabase_invoice_service.dart';
+import '../services/invoice_scanner.dart';
+import '../services/user_merchant_link_service.dart';
 
 class ScanInvoiceScreen extends StatefulWidget {
   const ScanInvoiceScreen({Key? key}) : super(key: key);
@@ -22,14 +22,12 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   String? _ocrResult;
   String? _error;
   bool _didAutoOpenCamera = false;
-  final TextRecognizer _textRecognizer = TextRecognizer();
-  final TextEditingController _merchantCodeController = TextEditingController(text: 'TRPCF2');
-
-  @override
-  void dispose() {
-    _textRecognizer.close();
-    super.dispose();
-  }
+  Map<String, dynamic>? _parsedData;
+  bool _isLinking = false;
+  String? _linkMessage;
+  bool _linkHasError = false;
+  final TextEditingController _manualMerchantIdController = TextEditingController();
+  bool _showManualMerchantIdInput = false;
 
   @override
   void didChangeDependencies() {
@@ -38,117 +36,75 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       _didAutoOpenCamera = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _captureImage();
+          _startScan();
         }
       });
     }
   }
 
-  Future<void> _captureImage() async {
+  Future<void> _startScan({bool allowPopOnCancel = true}) async {
     if (!mounted) return;
     setState(() {
       _isProcessing = true;
       _error = null;
       _ocrResult = null;
+      _parsedData = null;
+      _linkMessage = null;
+      _linkHasError = false;
+      _showManualMerchantIdInput = false;
+      _manualMerchantIdController.clear();
     });
-    final picker = ImagePicker();
+
     try {
-      final XFile? image = await picker.pickImage(
-        source: kIsWeb ? ImageSource.gallery : ImageSource.camera,
-        // على الويب الكاميرا قد لا تعمل دائماً فنلجأ للمعرض
-      );
-      if (image != null) {
-        if (!mounted) return;
-        setState(() {
-          _capturedImage = image;
-        });
-        await _processInvoice(image);
-      } else {
-        if (!mounted) return;
+      final result = await InvoiceScanner.scanInvoiceText();
+      if (!mounted) return;
+
+      if (result.image == null && result.errorMessage == 'no_image_captured') {
         setState(() {
           _isProcessing = false;
+          _capturedImage = null;
+          _ocrResult = null;
+          _parsedData = null;
+          _linkMessage = null;
         });
-        if (Navigator.canPop(context)) {
+        if (allowPopOnCancel && Navigator.canPop(context)) {
           Navigator.of(context).pop();
         }
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isProcessing = false;
-        _error = 'error_capturing_image'.tr();
-      });
-    }
-  }
-
-  Future<void> _processInvoice(XFile image) async {
-    if (!mounted) return;
-    setState(() {
-      _isProcessing = true;
-      _error = null;
-      _ocrResult = null;
-    });
-    try {
-      if (kIsWeb) {
-        // مكتبة ML Kit غير مدعومة رسمياً على الويب حالياً
-        setState(() {
-          _isProcessing = false;
-          _error = 'ميزة التعرف على النص غير مدعومة على الويب حالياً، جرّب التطبيق على الهاتف.';
-        });
         return;
       }
-      final inputImage = InputImage.fromFilePath(image.path);
-      final RecognizedText recognizedText =
-          await _textRecognizer.processImage(inputImage);
-      if (!mounted) return;
-      final extracted = recognizedText.text;
-      if (!mounted) return;
-      if (extracted.trim().isEmpty) {
+
+      if (result.hasError) {
         setState(() {
           _isProcessing = false;
-          _ocrResult = 'no_text_found'.tr();
+          _capturedImage = result.image;
+          _error = result.errorMessage == 'no_image_captured'
+              ? 'error_capturing_image'.tr()
+              : 'error_processing_image'.tr();
+          _parsedData = null;
+          _linkMessage = null;
         });
         return;
       }
 
-      // Parse invoice
-      final parsed = parseInvoiceText(
-        extracted,
-        merchantCode: _merchantCodeController.text.trim().isEmpty ? 'UNKNOWN' : _merchantCodeController.text.trim(),
-      );
+      final rawText = (result.text ?? '').trim();
+      final parsed = rawText.isNotEmpty ? InvoiceParser.parseInvoiceData(rawText) : null;
 
-      // Save to Supabase (يمكن لاحقاً إضافة check لمنع التكرار بقراءة unique_hash)
-      try {
-        await SupabaseInvoiceService.addInvoice(
-          invoiceNumber: parsed.invoiceNumber,
-          storeName: parsed.storeName,
-          date: parsed.date,
-          products: parsed.products,
-          total: parsed.total,
-          userId: 'test_user', // TODO: استبدلها بمعرّف المستخدم الحقيقي
-          merchantId: parsed.merchantCode, // مؤقتاً نضع code في هذا الحقل
-          uniqueHash: parsed.uniqueHash,
-          merchantCode: parsed.merchantCode,
-        );
-      } catch (e) {
-        // تجاهل الخطأ التخزيني حالياً لكن أظهر رسالة
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('خطأ في حفظ الفاتورة: $e')),
-          );
-        }
-      }
-
-      if (!mounted) return;
       setState(() {
+        _capturedImage = result.image;
         _isProcessing = false;
-        _ocrResult = extracted;
+        _ocrResult = rawText.isEmpty ? 'no_text_found'.tr() : rawText;
+        _parsedData = parsed;
+        _linkMessage = null;
+        _linkHasError = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _isProcessing = false;
         _error = 'error_processing_image'.tr();
+        _parsedData = null;
+        _linkMessage = null;
+        _linkHasError = false;
       });
     }
   }
@@ -159,9 +115,90 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       _isProcessing = false;
       _ocrResult = null;
       _error = null;
+      _parsedData = null;
+      _linkMessage = null;
+      _linkHasError = false;
       _didAutoOpenCamera = false;
     });
-    didChangeDependencies();
+    _startScan(allowPopOnCancel: false);
+  }
+
+  Future<void> _linkInvoice() async {
+    final parsed = _parsedData;
+    if (parsed == null) {
+      return;
+    }
+
+    String merchantId = parsed['merchant_id']?.toString().trim() ?? '';
+    if (merchantId.isEmpty || merchantId.startsWith('UUID_')) {
+      // Show manual input UI
+      setState(() {
+        _showManualMerchantIdInput = true;
+        _linkMessage = 'invoice_link_missing_merchant';
+        _linkHasError = true;
+      });
+      return;
+    }
+
+    // If manual input is visible, use its value
+    if (_showManualMerchantIdInput) {
+      merchantId = _manualMerchantIdController.text.trim();
+      if (merchantId.isEmpty) {
+        setState(() {
+          _linkMessage = 'invoice_link_missing_merchant';
+          _linkHasError = true;
+        });
+        return;
+      }
+    }
+
+    final payload = Map<String, dynamic>.from(parsed);
+    payload['merchant_id'] = merchantId;
+    payload.remove('merchant_id');
+
+    setState(() {
+      _isLinking = true;
+      _linkMessage = null;
+      _linkHasError = false;
+    });
+
+    try {
+      final resultMessage = await UserMerchantLinkService.sendDataToLinkAgent(
+        merchantUuid: merchantId,
+        invoicePayload: payload,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isLinking = false;
+        _linkMessage = resultMessage;
+        _linkHasError = false;
+      });
+      if (resultMessage.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_resolveLinkMessage(resultMessage))),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLinking = false;
+        _linkMessage = 'invoice_link_failed';
+        _linkHasError = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('invoice_link_failed'.tr())),
+      );
+    }
+  }
+
+  String _resolveLinkMessage(String keyOrMessage) {
+    final localized = keyOrMessage.tr();
+    // easy_localization returns the key itself when no translation is found.
+    if (localized == keyOrMessage && !keyOrMessage.contains(' ')) {
+      return keyOrMessage;
+    }
+    return localized;
   }
 
   Widget _buildResultView() {
@@ -177,6 +214,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         ),
       );
     }
+
     if (_error != null) {
       return Center(
         child: Column(
@@ -184,9 +222,11 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Text(_error!,
-                  style: const TextStyle(color: Colors.red, fontSize: 16),
-                  textAlign: TextAlign.center),
+              child: Text(
+                _error!,
+                style: const TextStyle(color: Colors.red, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
@@ -197,32 +237,19 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         ),
       );
     }
+
     if (_ocrResult != null) {
       return SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TextField(
-              controller: _merchantCodeController,
-              decoration: const InputDecoration(
-                labelText: 'رمز التاجر (Merchant Code)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
             if (_capturedImage != null)
-              kIsWeb
-                  ? Image.network(
-                      _capturedImage!.path,
-                      height: 200,
-                      fit: BoxFit.contain,
-                    )
-                  : Image.file(
-                      File(_capturedImage!.path),
-                      fit: BoxFit.contain,
-                      height: 200,
-                    ),
+              Image.file(
+                File(_capturedImage!.path),
+                fit: BoxFit.contain,
+                height: 200,
+              ),
             const SizedBox(height: 16),
             Text(
               'invoice_text'.tr(),
@@ -240,6 +267,66 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                 ),
               ),
             ),
+            if (_parsedData != null) ...[
+              const SizedBox(height: 20),
+              Text(
+                'invoice_summary'.tr(),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Card(
+                color: Colors.deepPurple.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildSummaryRow('merchant_id_label'.tr(), _parsedData!['merchant_id']?.toString() ?? ''),
+                      if (_showManualMerchantIdInput) ...[
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _manualMerchantIdController,
+                          decoration: InputDecoration(
+                            labelText: 'merchant_id_label'.tr(),
+                            hintText: 'أدخل كود التاجر من الفاتورة',
+                            border: const OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.text,
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      _buildSummaryRow(
+                        'total_amount_label'.tr(),
+                        (_parsedData!['total_amount'] ?? 0).toString(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _isLinking ? null : _linkInvoice,
+                icon: _isLinking
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.link),
+                label: Text('link_invoice'.tr()),
+              ),
+              if (_linkMessage != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _resolveLinkMessage(_linkMessage!),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _linkHasError ? Colors.red : Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _reset,
@@ -249,6 +336,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         ),
       );
     }
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -265,6 +353,27 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, String value) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.left,
+            style: const TextStyle(fontFamily: 'RobotoMono'),
+          ),
+        ),
+      ],
     );
   }
 

@@ -1,5 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'offer_detail_screen.dart';
 
 class CategoryOffersScreen extends StatelessWidget {
@@ -13,23 +13,21 @@ class CategoryOffersScreen extends StatelessWidget {
         title: Text('عروض $categoryName'),
         backgroundColor: Colors.deepPurple.shade700,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('offers')
-            .where('category', isEqualTo: categoryName)
-            .snapshots(),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _fetchOffersFromSupabase(categoryName),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return const Center(child: Text('لا توجد عروض متاحة لهذه الفئة'));
           }
-          final offers = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+          final offers = snapshot.data!;
           return ListView.builder(
             itemCount: offers.length,
             itemBuilder: (context, index) {
               final offer = offers[index];
+              final imageUrl = (offer['image'] ?? offer['imageUrl'] ?? '').toString();
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -38,9 +36,9 @@ class CategoryOffersScreen extends StatelessWidget {
                   children: [
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      child: offer['image'] != null && offer['image'] != ''
+                      child: imageUrl.isNotEmpty
                           ? Image.network(
-                              offer['image'],
+                              imageUrl,
                               width: double.infinity,
                               height: 210,
                               fit: BoxFit.cover,
@@ -104,5 +102,24 @@ class CategoryOffersScreen extends StatelessWidget {
         },
       ),
     );
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchOffersFromSupabase(String category) async {
+    final client = Supabase.instance.client;
+    try {
+      final response = await client
+          .from('offers')
+          .select()
+          .eq('category', category)
+          .order('createdAt', ascending: false);
+
+      if (response is List) {
+        return response.whereType<Map<String, dynamic>>().toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('Supabase fetch offers error: $e');
+      return [];
+    }
   }
 }

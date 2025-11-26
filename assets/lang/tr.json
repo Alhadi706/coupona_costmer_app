@@ -167,7 +167,6 @@
   "community_create": "Oluştur",
   "community_sent": "Gönderildi",
   "community_sent_waiting": "Grup oluşturma talebiniz gönderildi ve yönetici onayı bekleniyor.",
-  "ok": "Tamam",
   "community_create_group_btn": "Yeni Grup Talebi",
   "community_no_messages": "Henüz mesaj yok",
   "community_write_message": "Mesaj yaz...",
@@ -202,5 +201,12 @@
   "hotels": "Oteller",
   "clothing": "Giyim",
   "clinics": "Klinikler",
-  "all_categories": "Tüm Kategoriler"
+  "all_categories": "Tüm Kategoriler",
+  "invoice_summary": "Fatura özeti",
+  "merchant_id_label": "Tüccar Kimliği",
+  "total_amount_label": "Toplam tutar",
+  "link_invoice": "Faturayı bağla",
+  "invoice_link_success": "Fatura başarıyla bağlandı.",
+  "invoice_link_failed": "Fatura bağlanamadı. Lütfen tekrar deneyin.",
+  "invoice_link_missing_merchant": "Faturada satıcı kimliği bulunamadı."
 }

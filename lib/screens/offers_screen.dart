@@ -1,10 +1,9 @@
 // filepath: lib/screens/offers_screen.dart
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/supabase_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'offer_detail_screen.dart';
 import 'home_screen.dart';
-import 'package:flutter/foundation.dart';
 
 class OffersScreen extends StatelessWidget {
   const OffersScreen({super.key});
@@ -16,21 +15,31 @@ class OffersScreen extends StatelessWidget {
         title: Text('offers_title'.tr()),
         backgroundColor: Colors.deepPurple.shade700,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('offers').orderBy('createdAt', descending: true).snapshots(),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: () async {
+          try {
+            final client = SupabaseService.client;
+            final resp = await client.from('offers').select().order('createdAt', ascending: false);
+            final list = (resp as List?) ?? [];
+            return list.whereType<Map<String, dynamic>>().toList();
+          } catch (e) {
+            debugPrint('Fetch offers error: $e');
+            return <Map<String, dynamic>>[];
+          }
+        }(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(child: Text('offers_no_offers'.tr()));
           }
-          final offers = snapshot.data!.docs;
+          final offers = snapshot.data!;
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: offers.length,
             itemBuilder: (context, i) {
-              final offer = offers[i].data() as Map<String, dynamic>;
+              final offer = offers[i];
               return Card(
                 margin: const EdgeInsets.only(bottom: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -45,18 +54,16 @@ class OffersScreen extends StatelessWidget {
                               height: 140,
                               width: double.infinity,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Image.asset(
-                                'assets/img/map_sample.png',
+                              errorBuilder: (context, error, stackTrace) => Container(
                                 height: 140,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
+                                color: Colors.grey.shade200,
+                                child: Icon(Icons.image_not_supported, color: Colors.grey, size: 60),
                               ),
                             )
-                          : Image.asset(
-                              'assets/img/map_sample.png',
+                          : Container(
                               height: 140,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
+                              color: Colors.grey.shade200,
+                              child: Icon(Icons.image, color: Colors.grey, size: 60),
                             ),
                     ),
                     Padding(
@@ -69,7 +76,7 @@ class OffersScreen extends StatelessWidget {
                           Row(
                             children: [
                               Chip(label: Text(offer['offerType'] ?? '')),
-                              if ((offer['percent'] ?? '').isNotEmpty) ...[
+                              if ((offer['percent'] ?? '').toString().isNotEmpty) ...[
                                 const SizedBox(width: 8),
                                 Chip(label: Text(offer['percent'] ?? '')),
                               ],

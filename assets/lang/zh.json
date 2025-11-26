@@ -167,7 +167,6 @@
   "community_create": "创建",
   "community_sent": "已发送",
   "community_sent_waiting": "您的建群申请已发送，正在等待管理员批准。",
-  "ok": "确定",
   "community_create_group_btn": "申请新群组",
   "community_no_messages": "暂无消息",
   "community_write_message": "写消息...",
@@ -202,5 +201,12 @@
   "hotels": "酒店",
   "clothing": "服装",
   "clinics": "诊所",
-  "all_categories": "所有类别"
+  "all_categories": "所有类别",
+  "invoice_summary": "发票摘要",
+  "merchant_id_label": "商家编号",
+  "total_amount_label": "总金额",
+  "link_invoice": "关联发票",
+  "invoice_link_success": "发票已成功关联。",
+  "invoice_link_failed": "无法关联发票，请重试。",
+  "invoice_link_missing_merchant": "未在发票中找到商家编号。"
 }

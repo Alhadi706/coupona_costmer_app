@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart' as cs;
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/supabase_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../widgets/category_bar.dart'; // استيراد صحيح حسب هيكل المشروع
 import '../widgets/map_bar.dart'; // استيراد صحيح حسب هيكل المشروع
@@ -40,11 +40,21 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   }
 
   Future<void> fetchOffers() async {
-    final snapshot = await FirebaseFirestore.instance.collection('offers').orderBy('createdAt', descending: true).get();
-    setState(() {
-      offers = snapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
-      isLoadingOffers = false;
-    });
+    try {
+      final client = SupabaseService.client;
+      final resp = await client.from('offers').select().order('createdAt', ascending: false);
+      final list = (resp as List?) ?? [];
+      setState(() {
+        offers = list.whereType<Map<String, dynamic>>().toList();
+        isLoadingOffers = false;
+      });
+    } catch (e) {
+      debugPrint('Fetch offers error: $e');
+      setState(() {
+        offers = [];
+        isLoadingOffers = false;
+      });
+    }
   }
 
   @override

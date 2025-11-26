@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  final VoidCallback onFinish;
+  final Future<void> Function() onFinish;
   const OnboardingScreen({super.key, required this.onFinish});
 
   @override
@@ -31,12 +30,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   void _playClickSound() {
-  if (kIsWeb) return; // الحزمة لا تعمل على الويب
-  FlutterRingtonePlayer().playNotification();
+    FlutterRingtonePlayer().playNotification();
   }
 
   void _playSuccessSound() {
-    if (kIsWeb) return;
     FlutterRingtonePlayer().play(
       android: AndroidSounds.notification,
       ios: IosSounds.triTone,
@@ -49,8 +46,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _finishOnboarding() async {
     _playSuccessSound();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_done', true);
-    widget.onFinish();
+  await prefs.setBool('onboarding_done', true);
+  await widget.onFinish();
   }
 
   @override

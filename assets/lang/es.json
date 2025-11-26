@@ -167,7 +167,6 @@
   "community_create": "Crear",
   "community_sent": "Enviado",
   "community_sent_waiting": "Su solicitud de creación de grupo ha sido enviada y está esperando la aprobación del administrador.",
-  "ok": "OK",
   "community_create_group_btn": "Solicitar nuevo grupo",
   "community_no_messages": "Aún no hay mensajes",
   "community_write_message": "Escribe un mensaje...",
@@ -202,5 +201,12 @@
   "hotels": "Hoteles",
   "clothing": "Ropa",
   "clinics": "Clínicas",
-  "all_categories": "Todas las categorías"
+  "all_categories": "Todas las categorías",
+  "invoice_summary": "Resumen de la factura",
+  "merchant_id_label": "ID del comerciante",
+  "total_amount_label": "Importe total",
+  "link_invoice": "Vincular factura",
+  "invoice_link_success": "Factura vinculada correctamente.",
+  "invoice_link_failed": "No se pudo vincular la factura. Inténtalo de nuevo.",
+  "invoice_link_missing_merchant": "No se detectó el ID del comerciante en la factura."
 }

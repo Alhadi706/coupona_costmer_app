@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/supabase_service.dart';
 import 'package:easy_localization/easy_localization.dart';
+import '../../models/map_item.dart';
+import '../../models/map_sample_data.dart';
 import '../../screens/full_map_screen.dart';
 
 class MapBar extends StatefulWidget {
@@ -17,26 +19,65 @@ class MapBar extends StatefulWidget {
 class _MapBarState extends State<MapBar> {
   String searchText = '';
   String selectedCategory = '';
-  Map<String, dynamic>? selectedStore;
-  List<Map<String, dynamic>> stores = [];
+  List<MapItem> mapItems = [];
   bool isLoading = true;
+  bool isUsingFallback = false;
+  String? loadError;
 
   @override
   void initState() {
     super.initState();
-    fetchStores();
+    _loadMapItems();
   }
 
-  Future<void> fetchStores() async {
-    final snapshot = await FirebaseFirestore.instance.collection('stores').get();
+  Future<void> _loadMapItems() async {
     setState(() {
-      stores = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id;
-        return data;
-      }).toList();
-      isLoading = false;
+      isLoading = true;
+      isUsingFallback = false;
+      loadError = null;
     });
+    try {
+      final client = SupabaseService.client;
+      final merchantsResponse = await client.from('merchants').select();
+      final offersResponse = await client.from('offers').select();
+
+      var merchants = (merchantsResponse as List?) ?? [];
+      var offers = (offersResponse as List?) ?? [];
+
+      var stores = merchants
+          .whereType<Map<String, dynamic>>()
+          .map((m) => MapItem.fromMap(m, MapItemType.store))
+          .whereType<MapItem>()
+          .toList();
+
+      var offersList = offers
+          .whereType<Map<String, dynamic>>()
+          .map((o) => MapItem.fromMap(o, MapItemType.offer))
+          .whereType<MapItem>()
+          .toList();
+
+      var usedFallback = false;
+
+      if (stores.isEmpty && offers.isEmpty) {
+        stores = List<MapItem>.from(sampleStoreItems);
+        offers = List<MapItem>.from(sampleOfferItems);
+        usedFallback = true;
+      }
+
+      setState(() {
+        mapItems = [...stores, ...offersList];
+        isLoading = false;
+        isUsingFallback = usedFallback;
+      });
+    } catch (error, stackTrace) {
+      debugPrint('[MapBar] Failed to load map data: $error\n$stackTrace');
+      setState(() {
+        mapItems = [...sampleStoreItems, ...sampleOfferItems];
+        isLoading = false;
+        isUsingFallback = true;
+        loadError = error.toString();
+      });
+    }
   }
 
   void _expandMap() {
@@ -45,16 +86,11 @@ class _MapBarState extends State<MapBar> {
     );
   }
 
-  void _shrinkMap() {
-    setState(() {
-      selectedStore = null;
-    });
-  }
+  void _showItemDetails(MapItem item) {
+    final phone = item.data['phone']?.toString();
+    final addressValue = item.data['location']?.toString() ?? item.data['address']?.toString();
+    final offerValue = (item.data['discountValue'] ?? item.data['percent'] ?? '').toString();
 
-  void _showStoreDetails(Map<String, dynamic> store) {
-    setState(() {
-      selectedStore = store;
-    });
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -66,22 +102,44 @@ class _MapBarState extends State<MapBar> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(store['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-            if (store['category'] != null) ...[
+            Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+            if (item.category != null && item.category!.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Chip(label: Text(store['category'])),
+              Chip(
+                label: Text(item.category!.tr()),
+                backgroundColor: item.type == MapItemType.offer ? Colors.orange.shade100 : Colors.deepPurple.shade50,
+                labelStyle: TextStyle(
+                  color: item.type == MapItemType.offer ? Colors.orange.shade800 : Colors.deepPurple.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
-            if (store['description'] != null) ...[
+            if (item.subtitle != null && item.subtitle!.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(store['description']),
+              Text(item.subtitle!),
             ],
-            if (store['phone'] != null) ...[
+            if (phone != null && phone.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Row(children: [const Icon(Icons.phone, size: 18), SizedBox(width: 6), Text(store['phone'])]),
+              Row(children: [const Icon(Icons.phone, size: 18), const SizedBox(width: 6), Text(phone)]),
             ],
-            if (store['location'] != null) ...[
+            if (addressValue != null && addressValue.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Row(children: [const Icon(Icons.location_on, size: 18), SizedBox(width: 6), Text(store['location'])]),
+              Row(children: [
+                const Icon(Icons.location_on, size: 18),
+                const SizedBox(width: 6),
+                Expanded(child: Text(addressValue, maxLines: 2, overflow: TextOverflow.ellipsis)),
+              ]),
+            ],
+            if (item.type == MapItemType.offer && offerValue.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(children: [
+                Icon(Icons.local_offer, color: Colors.orange.shade700, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  'تفاصيل العرض: $offerValue',
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ]),
             ],
           ],
         ),
@@ -95,9 +153,9 @@ class _MapBarState extends State<MapBar> {
       return const Center(child: CircularProgressIndicator());
     }
     // فلترة حسب البحث والتصنيف
-    final filteredStores = stores.where((store) {
-      final matchesSearch = searchText.isEmpty || (store['name']?.toString().contains(searchText) ?? false);
-      final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
+    final filteredItems = mapItems.where((item) {
+      final matchesSearch = item.matchesSearch(searchText);
+      final matchesCategory = item.matchesCategory(selectedCategory);
       return matchesSearch && matchesCategory;
     }).toList();
     // قائمة التصنيفات المخصصة (مفاتيح ترجمة)
@@ -127,8 +185,8 @@ class _MapBarState extends State<MapBar> {
                 children: [
                   FlutterMap(
                     options: MapOptions(
-                      center: filteredStores.isNotEmpty
-                          ? LatLng(filteredStores[0]['lat'], filteredStores[0]['lng'])
+                      center: filteredItems.isNotEmpty
+                          ? filteredItems.first.position
                           : LatLng(24.7136, 46.6753),
                       zoom: 12.0,
                       interactiveFlags: InteractiveFlag.none,
@@ -141,14 +199,18 @@ class _MapBarState extends State<MapBar> {
                       ),
                       MarkerLayer(
                         markers: [
-                          for (final store in filteredStores)
+                          for (final item in filteredItems)
                             Marker(
                               width: 40,
                               height: 40,
-                              point: LatLng(store['lat'], store['lng']),
+                              point: item.position,
                               child: GestureDetector(
-                                onTap: () => _showStoreDetails(store),
-                                child: Icon(Icons.location_on, color: Colors.red, size: 36),
+                                onTap: () => _showItemDetails(item),
+                                child: Icon(
+                                  item.type == MapItemType.store ? Icons.store : Icons.local_offer,
+                                  color: item.type == MapItemType.store ? Colors.deepPurple : Colors.orange,
+                                  size: 34,
+                                ),
                               ),
                             ),
                         ],
@@ -167,46 +229,60 @@ class _MapBarState extends State<MapBar> {
                       ),
                     ),
                   ),
+                  if (isUsingFallback)
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      right: 12,
+                      child: Card(
+                        color: Colors.white.withOpacity(0.95),
+                        elevation: 3,
+                        margin: EdgeInsets.zero,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          child: Text(
+                            loadError != null
+                                ? 'تعذر تحميل البيانات الحالية، لذلك نعرض بيانات تجريبية.'
+                                : 'يتم عرض بيانات تجريبية للتجربة فقط.',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ),
                   // شريط التصنيفات
                   Positioned(
                     top: 95,
                     left: 24,
                     right: 24,
-                    child: IgnorePointer(
-                      ignoring: false,
-                      child: AnimatedOpacity(
-                        opacity: true ? 1.0 : 0.0,
-                        duration: Duration(milliseconds: 200),
-                        child: Material(
-                          elevation: 4,
+                    child: Material(
+                      elevation: 4,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.98),
                           borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.98),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  for (final cat in categories)
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                                      child: FilterChip(
-                                        label: Text(cat.tr()),
-                                        selected: selectedCategory == cat,
-                                        onSelected: (_) => setState(() => selectedCategory = selectedCategory == cat ? '' : cat),
-                                      ),
-                                    ),
-                                  FilterChip(
-                                    label: Text('all_categories'.tr()),
-                                    selected: selectedCategory == '',
-                                    onSelected: (_) => setState(() => selectedCategory = ''),
+                        ),
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              for (final cat in categories)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: FilterChip(
+                                    label: Text(cat.tr()),
+                                    selected: selectedCategory == cat,
+                                    onSelected: (_) => setState(() => selectedCategory = selectedCategory == cat ? '' : cat),
                                   ),
-                                ],
+                                ),
+                              FilterChip(
+                                label: Text('all_categories'.tr()),
+                                selected: selectedCategory == '',
+                                onSelected: (_) => setState(() => selectedCategory = ''),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       ),

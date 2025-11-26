@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/supabase_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
@@ -115,19 +116,25 @@ class _ReportScreenState extends State<ReportScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // اسم المحل أو العلامة التجارية
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance.collection('stores').snapshots(),
-                    builder: (context, snapshot) {
-                      List<Map<String, dynamic>> stores = [];
-                      if (snapshot.hasData) {
-                        stores = snapshot.data!.docs.map((doc) {
-                          final data = doc.data() as Map<String, dynamic>;
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: () async {
+                      try {
+                        final client = SupabaseService.client;
+                        final resp = await client.from('merchants').select();
+                        final list = (resp as List?) ?? [];
+                        return list.whereType<Map<String, dynamic>>().map((m) {
                           return {
-                            'id': doc.id,
-                            'name': data['name'] ?? '',
+                            'id': m['id']?.toString() ?? (m['uuid']?.toString() ?? ''),
+                            'name': (m['name'] ?? m['storeName'] ?? '').toString(),
                           };
                         }).where((store) => (store['name'] as String).isNotEmpty).toList();
+                      } catch (e) {
+                        debugPrint('Fetch merchants error: $e');
+                        return const <Map<String, dynamic>>[];
                       }
+                    }(),
+                    builder: (context, snapshot) {
+                      final stores = snapshot.data ?? [];
                       return Autocomplete<Map<String, dynamic>>(
                         optionsBuilder: (TextEditingValue textEditingValue) {
                           if (textEditingValue.text == '') {

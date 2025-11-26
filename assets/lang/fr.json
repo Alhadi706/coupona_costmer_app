@@ -177,5 +177,12 @@
   "hotels": "Hôtels",
   "clothing": "Vêtements",
   "clinics": "Cliniques",
-  "all_categories": "Toutes les catégories"
+  "all_categories": "Toutes les catégories",
+  "invoice_summary": "Résumé de la facture",
+  "merchant_id_label": "ID du commerçant",
+  "total_amount_label": "Montant total",
+  "link_invoice": "Lier la facture",
+  "invoice_link_success": "Facture liée avec succès.",
+  "invoice_link_failed": "Impossible de lier la facture. Veuillez réessayer.",
+  "invoice_link_missing_merchant": "Identifiant marchand introuvable sur la facture."
 }

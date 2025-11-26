@@ -389,5 +389,12 @@
   "hotels": "Hotels",
   "clothing": "Clothing",
   "clinics": "Clinics",
-  "all_categories": "All Categories"
+  "all_categories": "All Categories",
+  "invoice_summary": "Invoice summary",
+  "merchant_id_label": "Merchant ID",
+  "total_amount_label": "Total amount",
+  "link_invoice": "Link invoice",
+  "invoice_link_success": "Invoice linked successfully.",
+  "invoice_link_failed": "Could not link the invoice. Please try again.",
+  "invoice_link_missing_merchant": "Merchant ID missing from the scan."
 }
