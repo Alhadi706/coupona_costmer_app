@@ -1,5 +1,3 @@
-library shared_services;
-
 export 'src/supabase_service.dart';
 export 'src/map_item.dart';
 export 'src/invoice_parser.dart';

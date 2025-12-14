@@ -3,7 +3,7 @@ import '../services/firebase_service.dart';
 import 'package:flutter/material.dart';
 
 class OffersListScreen extends StatefulWidget {
-  const OffersListScreen({Key? key}) : super(key: key);
+  const OffersListScreen({super.key});
 
   @override
   State<OffersListScreen> createState() => _OffersListScreenState();
@@ -26,7 +26,7 @@ class _OffersListScreenState extends State<OffersListScreen> {
           .orderBy('createdAt', descending: true)
           .get();
       return snapshot.docs.map((d) {
-        final data = Map<String, dynamic>.from(d.data() as Map<String, dynamic>);
+        final data = Map<String, dynamic>.from(d.data());
         data['id'] = d.id;
         if (data['createdAt'] is Timestamp) data['createdAt'] = (data['createdAt'] as Timestamp).toDate();
         return data;

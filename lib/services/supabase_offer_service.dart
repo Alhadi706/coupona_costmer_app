@@ -1,5 +1,6 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_service.dart';
 
 class SupabaseOfferService {
@@ -13,7 +14,7 @@ class SupabaseOfferService {
       await ref.putData(bytes);
       return await ref.getDownloadURL();
     } catch (e) {
-      print('Upload image error: $e');
+      debugPrint('Upload image error: $e');
       return null;
     }
   }
@@ -38,11 +39,11 @@ class SupabaseOfferService {
       'discountValue': discountValue,
       'price': price,
       'description': description,
-      'startDate': startDate,
-      'endDate': endDate,
+      'startDate': startDate != null ? Timestamp.fromDate(DateTime.parse(startDate)) : null,
+      'endDate': endDate != null ? Timestamp.fromDate(DateTime.parse(endDate)) : null,
       'location': location,
       'imageUrl': imageUrl,
-      'createdAt': DateTime.now().toIso8601String(),
+      'createdAt': Timestamp.now(),
     });
   }
 }

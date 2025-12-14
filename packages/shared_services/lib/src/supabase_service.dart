@@ -1,17 +1,10 @@
-// Shared Supabase service copied from app's implementation
-import 'package:supabase_flutter/supabase_flutter.dart';
+// Lightweight Firebase wrapper to keep shared package API stable.
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class SupabaseService {
-  static const String supabaseUrl = 'https://pedzvbkrlbhfguhkzznr.supabase.co';
-  static const String supabaseAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlZHp2YmtybGJoZmd1aGt6em5yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2OTY5NjcsImV4cCI6MjA2NDI3Mjk2N30.fNM7yYuqauXXbnwEiYbBu86R5VDhe0Ie4Xc7iJgwZzg';
-
-  static Future<void> init() async {
-    await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
-    );
-  }
-
-  static SupabaseClient get client => Supabase.instance.client;
+  // Expose Firestore and Storage through a familiar class name so imports
+  // in the shared package remain valid while using Firebase under the hood.
+  static FirebaseFirestore get firestore => FirebaseFirestore.instance;
+  static FirebaseStorage get storage => FirebaseStorage.instance;
 }

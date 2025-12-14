@@ -1,16 +1,19 @@
 // lib/services/supabase_service.dart
-import 'package:supabase_flutter/supabase_flutter.dart';
+// Shim for legacy Supabase usage. Supabase has been removed from the
+// project in favor of Firebase (Firestore/Storage). Keep this shim so
+// in-progress migration doesn't break imports; callers should move to
+// `FirebaseService` and remove their Supabase usages.
 
 class SupabaseService {
-  static const String supabaseUrl = 'https://pedzvbkrlbhfguhkzznr.supabase.co';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBlZHp2YmtybGJoZmd1aGt6em5yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2OTY5NjcsImV4cCI6MjA2NDI3Mjk2N30.fNM7yYuqauXXbnwEiYbBu86R5VDhe0Ie4Xc7iJgwZzg';
-
+  /// No-op initializer kept for compatibility. Use `FirebaseService.init()`
+  /// in your `main.dart` instead.
   static Future<void> init() async {
-    await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
-    );
+    // Supabase disabled — do nothing.
+    return;
   }
 
-  static SupabaseClient get client => Supabase.instance.client;
+  /// Accessing a Supabase client is unsupported. Callers should migrate to
+  /// `FirebaseService.firestore` or `FirebaseService.storage` instead.
+  static dynamic get client =>
+      throw UnsupportedError('Supabase removed; use FirebaseService instead.');
 }

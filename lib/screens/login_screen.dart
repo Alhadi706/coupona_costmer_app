@@ -1,14 +1,17 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'home_screen.dart';
 import 'signup_screen.dart';
 
 class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
   @override
-  _LoginPageState createState() => _LoginPageState();
+  LoginPageState createState() => LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class LoginPageState extends State<LoginPage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   String? _selectedGender;
@@ -37,6 +40,14 @@ class _LoginPageState extends State<LoginPage> {
         return;
       }
       if (userCredential.user != null) {
+        final uid = userCredential.user!.uid;
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        final role = userDoc.data()?['role']?.toString();
+        if (role != 'customer') {
+          await FirebaseAuth.instance.signOut();
+          throw FirebaseAuthException(code: 'role-mismatch', message: 'not-customer');
+        }
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -56,6 +67,7 @@ class _LoginPageState extends State<LoginPage> {
       String msg = 'خطأ في تسجيل الدخول';
       if (e.code == 'user-not-found') msg = 'المستخدم غير موجود';
       if (e.code == 'wrong-password') msg = 'كلمة المرور غير صحيحة';
+      if (e.code == 'role-mismatch') msg = 'هذا الحساب مخصص للتجار. يرجى استخدام تسجيل الدخول المناسب.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg)),
       );

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
-import '../services/firebase_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../models/map_item.dart';
 import '../models/map_sample_data.dart';
@@ -92,43 +92,82 @@ class _FullMapScreenState extends State<FullMapScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: FutureBuilder<List<MapItem>>(
-        future: _fetchMapItems(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance.collection('stores').snapshots(),
+        builder: (context, storesSnapshot) {
+          final waitingForStores = storesSnapshot.connectionState == ConnectionState.waiting && !storesSnapshot.hasData;
+          if (waitingForStores) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          var usedFallback = false;
-          String? fallbackMessage;
-          var allItems = snapshot.data ?? [];
+          var storeItems = <MapItem>[];
+          var storesUsedFallback = false;
+          String? fallbackReason;
 
-          if (snapshot.hasError) {
-            allItems = [...sampleStoreItems, ...sampleOfferItems];
-            usedFallback = true;
-            fallbackMessage = 'تعذر تحميل بيانات الخريطة من الخادم.';
+          if (storesSnapshot.hasError) {
+            storeItems = List<MapItem>.from(sampleStoreItems);
+            storesUsedFallback = true;
+            fallbackReason = 'تعذر تحميل بيانات المحلات من الخادم.';
+          } else {
+            storeItems = storesSnapshot.data?.docs
+                    .map((doc) => MapItem.fromSnapshot(doc, MapItemType.store))
+                    .whereType<MapItem>()
+                    .toList() ??
+                [];
           }
 
-          if (allItems.isEmpty) {
-            allItems = [...sampleStoreItems, ...sampleOfferItems];
-            usedFallback = true;
-            fallbackMessage ??= 'لا توجد بيانات نشطة حاليًا، نعرض بيانات تجريبية.';
-          }
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance.collection('offers').snapshots(),
+            builder: (context, offersSnapshot) {
+              final waitingForOffers = offersSnapshot.connectionState == ConnectionState.waiting && !offersSnapshot.hasData;
+              if (waitingForOffers) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          final filteredItems = allItems.where((item) {
-            final matchesType = (item.type == MapItemType.store && showStores) || (item.type == MapItemType.offer && showOffers);
-            if (!matchesType) {
-              return false;
-            }
-            final matchesSearch = item.matchesSearch(searchText);
-            final matchesCategory = item.matchesCategory(selectedCategory);
-            return matchesSearch && matchesCategory;
-          }).toList();
+              var offerItems = <MapItem>[];
+              var usedFallback = storesUsedFallback;
+              var fallbackMessage = fallbackReason;
 
-          final markersToShow = filteredItems;
-          final initialCenter = markersToShow.isNotEmpty
-              ? markersToShow.first.position
-              : const LatLng(24.7136, 46.6753);
+              if (offersSnapshot.hasError) {
+                offerItems = List<MapItem>.from(sampleOfferItems);
+                usedFallback = true;
+                fallbackMessage = 'تعذر تحميل بيانات العروض من الخادم.';
+              } else {
+                offerItems = offersSnapshot.data?.docs
+                        .map((doc) => MapItem.fromSnapshot(doc, MapItemType.offer))
+                        .whereType<MapItem>()
+                        .toList() ??
+                    [];
+              }
+
+              if (storeItems.isEmpty && offerItems.isEmpty) {
+                storeItems = List<MapItem>.from(sampleStoreItems);
+                offerItems = List<MapItem>.from(sampleOfferItems);
+                usedFallback = true;
+                fallbackMessage ??= 'لا توجد بيانات نشطة حاليًا، نعرض بيانات تجريبية.';
+              }
+
+              final allItems = [...storeItems, ...offerItems];
+              final fallbackBannerText = fallbackMessage ?? 'يتم عرض بيانات تجريبية للتجربة فقط.';
+
+              if (allItems.isEmpty) {
+                return const Center(child: Text('لا توجد بيانات متاحة'));
+              }
+
+              final filteredItems = allItems.where((item) {
+                final matchesType = (item.type == MapItemType.store && showStores) || (item.type == MapItemType.offer && showOffers);
+                if (!matchesType) {
+                  return false;
+                }
+                final matchesSearch = item.matchesSearch(searchText);
+                final matchesCategory = item.matchesCategory(selectedCategory);
+                return matchesSearch && matchesCategory;
+              }).toList();
+
+              final markersToShow = filteredItems;
+              final initialCenter = markersToShow.isNotEmpty
+                  ? markersToShow.first.position
+                  : const LatLng(24.7136, 46.6753);
 
               final List<String> categories = const [
                 'restaurants',
@@ -188,7 +227,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           child: Text(
-                            fallbackMessage ?? 'يتم عرض بيانات تجريبية للتجربة فقط.',
+                            fallbackBannerText,
                             textAlign: TextAlign.center,
                             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                           ),
@@ -330,34 +369,9 @@ class _FullMapScreenState extends State<FullMapScreen> {
                 ],
               );
             },
-          ),
+          );
+        },
+      ),
     );
-  }
-
-  Future<List<MapItem>> _fetchMapItems() async {
-    try {
-      final merchantsSnap = await FirebaseService.firestore.collection('merchants').get();
-      final offersSnap = await FirebaseService.firestore.collection('offers').get();
-
-      final merchants = merchantsSnap.docs.map((d) => Map<String, dynamic>.from(d.data() as Map<String, dynamic>)).toList();
-      final offers = offersSnap.docs.map((d) => Map<String, dynamic>.from(d.data() as Map<String, dynamic>)).toList();
-
-      final storeItems = merchants
-          .whereType<Map<String, dynamic>>()
-          .map((m) => MapItem.fromMap(m, MapItemType.store))
-          .whereType<MapItem>()
-          .toList();
-
-      final offerItems = offers
-          .whereType<Map<String, dynamic>>()
-          .map((o) => MapItem.fromMap(o, MapItemType.offer))
-          .whereType<MapItem>()
-          .toList();
-
-      return [...storeItems, ...offerItems];
-    } catch (err, st) {
-      debugPrint('[FullMapScreen] fetch error: $err\n$st');
-      return [];
-    }
   }
 }

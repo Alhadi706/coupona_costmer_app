@@ -4,12 +4,14 @@ class InvoiceParser {
     final normalizedText = rawText.replaceAll('\r', '');
     final extractedData = <String, dynamic>{};
 
-    final merchantIdRegex = RegExp(
-      r'(?<=كود\s+التاجر[:：]?\s*|merchant\s*id[:：]?\s*)([\w\d-]+)',
+    final merchantCodeRegex = RegExp(
+      r'(?:كود\s*التاجر|merchant\s*(?:code|id)|store\s*code)\s*[:：#-]*\s*([A-Z0-9\-]{4,12})',
       caseSensitive: false,
     );
-    final merchantMatch = merchantIdRegex.firstMatch(normalizedText);
-    extractedData['merchant_id'] = merchantMatch?.group(1)?.trim() ?? 'UUID_لم_يتم_استخلاصه';
+    final merchantMatch = merchantCodeRegex.firstMatch(normalizedText.toUpperCase());
+    final rawCode = merchantMatch?.group(1) ?? '';
+    final normalizedCode = rawCode.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    extractedData['merchant_code'] = normalizedCode;
 
     final totalRegex = RegExp(
       r'(?:الإجمالي|المجموع|total)\s*[:：-]?\s*([\d.,]+)',

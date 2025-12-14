@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart' as cs;
-import '../services/firebase_service.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:easy_localization/easy_localization.dart';
+
+import '../services/firebase_service.dart';
 import '../widgets/category_bar.dart'; // استيراد صحيح حسب هيكل المشروع
 import '../widgets/map_bar.dart'; // استيراد صحيح حسب هيكل المشروع
-import 'category_offers_screen.dart';
 
 class HomeContentScreen extends StatefulWidget {
   final List<Map<String, dynamic>> categories;
@@ -23,11 +23,31 @@ class HomeContentScreen extends StatefulWidget {
 }
 
 class _HomeContentScreenState extends State<HomeContentScreen> {
-  final List<String> imgList = [
-    'https://via.placeholder.com/600x250/8BC34A/FFFFFF?Text=Offer+1',
-    'https://via.placeholder.com/600x250/FFC107/FFFFFF?Text=Offer+2',
-    'https://via.placeholder.com/600x250/03A9F4/FFFFFF?Text=Offer+3',
-    'https://via.placeholder.com/600x250/E91E63/FFFFFF?Text=Offer+4',
+  final List<_HeroBannerConfig> _bannerConfigs = const [
+    _HeroBannerConfig(
+      gradient: [Color(0xFF8BC34A), Color(0xFF4CAF50)],
+      icon: Icons.local_offer,
+      titleKey: 'offers_title',
+      subtitleKey: 'available_rewards_now',
+    ),
+    _HeroBannerConfig(
+      gradient: [Color(0xFFFFC107), Color(0xFFFF9800)],
+      icon: Icons.card_giftcard,
+      titleKey: 'my_rewards_title',
+      subtitleKey: 'my_rewards_points_balance',
+    ),
+    _HeroBannerConfig(
+      gradient: [Color(0xFF03A9F4), Color(0xFF0288D1)],
+      icon: Icons.receipt_long,
+      titleKey: 'scan_invoice',
+      subtitleKey: 'tip_scan_invoices',
+    ),
+    _HeroBannerConfig(
+      gradient: [Color(0xFFE91E63), Color(0xFFC2185B)],
+      icon: Icons.add_circle_outline,
+      titleKey: 'add_offer',
+      subtitleKey: 'tip_use_public_coupons',
+    ),
   ];
 
   int _currentCarouselIndex = 0;
@@ -44,7 +64,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     try {
       final snapshot = await FirebaseService.firestore.collection('offers').orderBy('createdAt', descending: true).get();
       final list = snapshot.docs.map((d) {
-        final map = Map<String, dynamic>.from(d.data() as Map<String, dynamic>);
+        final map = Map<String, dynamic>.from(d.data());
         map['id'] = d.id;
         if (map['createdAt'] is Timestamp) map['createdAt'] = (map['createdAt'] as Timestamp).toDate();
         return map;
@@ -99,7 +119,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                if (imgList.isNotEmpty)
+                if (_bannerConfigs.isNotEmpty)
                   Card(
                     elevation: 3,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -121,17 +141,17 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                                 });
                               },
                             ),
-                            items: imgList.map((item) => Container(
+                            items: _bannerConfigs.map((config) => Container(
                               margin: const EdgeInsets.symmetric(horizontal: 5.0),
                               child: ClipRRect(
                                 borderRadius: const BorderRadius.all(Radius.circular(12.0)),
-                                child: Image.network(item, fit: BoxFit.cover, width: 1000.0),
+                                child: _HeroBanner(config: config),
                               ),
                             )).toList(),
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: imgList.asMap().entries.map((entry) {
+                            children: _bannerConfigs.asMap().entries.map((entry) {
                               return AnimatedContainer(
                                 duration: const Duration(milliseconds: 300),
                                 width: _currentCarouselIndex == entry.key ? 16.0 : 8.0,
@@ -139,9 +159,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                                 margin: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 4.0),
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  color: _currentCarouselIndex == entry.key
+                                    color: _currentCarouselIndex == entry.key
                                       ? Colors.blue.shade700
-                                      : Colors.blue.shade200.withOpacity(0.5),
+                                      : Colors.blue.shade200.withValues(alpha: 0.5),
                                 ),
                               );
                             }).toList(),
@@ -180,30 +200,12 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                 ),
                 const SizedBox(height: 20),
                 // نص القائمة
-                if (isLoadingOffers) 
+                if (isLoadingOffers)
                   const Center(child: CircularProgressIndicator())
-                else if (offers.isEmpty) 
+                else if (offers.isEmpty)
                   const Center(child: Text('لا توجد عروض متاحة حالياً'))
-                else 
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                    itemCount: offers.length,
-                    separatorBuilder: (context, i) => const Divider(),
-                    itemBuilder: (context, i) {
-                      final offer = offers[i];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        child: ListTile(
-                          leading: const Icon(Icons.local_offer, color: Colors.deepPurple),
-                          title: Text(offer['description'] ?? 'بدون وصف'),
-                          subtitle: Text('الفئة: ${offer['category'] ?? ''}'),
-                          trailing: Text(offer['discountValue']?.toString() ?? ''),
-                        ),
-                      );
-                    },
-                  ),
+                else
+                  _OffersGrid(offers: offers),
                 const SizedBox(height: 24),
                 // -----------------------------
                 // تنبيه بانتهاء النقاط قريبًا
@@ -294,6 +296,214 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _HeroBannerConfig {
+  final List<Color> gradient;
+  final IconData icon;
+  final String titleKey;
+  final String subtitleKey;
+
+  const _HeroBannerConfig({
+    required this.gradient,
+    required this.icon,
+    required this.titleKey,
+    required this.subtitleKey,
+  });
+}
+
+class _HeroBanner extends StatelessWidget {
+  final _HeroBannerConfig config;
+
+  const _HeroBanner({required this.config});
+
+  @override
+  Widget build(BuildContext context) {
+    final gradientColors = config.gradient;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: gradientColors.length == 1
+              ? [gradientColors.first, gradientColors.first]
+              : gradientColors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          Icon(config.icon, color: Colors.white, size: 36),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  config.titleKey.tr(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  config.subtitleKey.tr(),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
+    );
+  }
+}
+
+class _OffersGrid extends StatelessWidget {
+  final List<Map<String, dynamic>> offers;
+  const _OffersGrid({required this.offers});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final int crossAxisCount = width >= 480 ? 3 : 2;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: offers.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.68,
+          ),
+          itemBuilder: (context, index) => _OfferCard(data: offers[index]),
+        );
+      },
+    );
+  }
+}
+
+class _OfferCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  const _OfferCard({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = data['imageUrl']?.toString();
+    final category = data['category']?.toString() ?? '—';
+    final description = data['description']?.toString() ?? '—';
+    final discountValue = data['discountValue']?.toString();
+    final expiry = _formatDate(context, data['endDate'] ?? data['expiration']);
+
+    return Material(
+      borderRadius: BorderRadius.circular(16),
+      color: Colors.white,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {},
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: imageUrl != null && imageUrl.isNotEmpty
+                    ? Image.network(
+                        imageUrl,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const _PlaceholderImage(),
+                      )
+                    : const _PlaceholderImage(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.deepPurple.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(category, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.deepPurple)),
+                      ),
+                      const Spacer(),
+                      if (discountValue != null && discountValue.isNotEmpty)
+                        Text(discountValue, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.schedule, size: 14, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text(expiry ?? '—', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  TextButton(
+                    onPressed: () {},
+                    child: Text('offers_details_btn'.tr(), style: const TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static String? _formatDate(BuildContext context, dynamic value) {
+    DateTime? date;
+    if (value is Timestamp) {
+      date = value.toDate();
+    } else if (value is DateTime) {
+      date = value;
+    } else if (value is String) {
+      date = DateTime.tryParse(value);
+    }
+    if (date == null) return null;
+    final locale = context.locale.toString();
+    return DateFormat('y/MM/dd', locale).format(date);
+  }
+}
+
+class _PlaceholderImage extends StatelessWidget {
+  const _PlaceholderImage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.grey.shade200,
+      alignment: Alignment.center,
+      child: Icon(Icons.photo_size_select_actual_outlined, color: Colors.grey.shade500),
     );
   }
 }

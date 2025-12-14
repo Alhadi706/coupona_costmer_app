@@ -1,23 +1,20 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io' show File;
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:coupona_app/services/imgur_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:coupona_app/services/firebase_service.dart';
 import 'map_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
-import 'home_screen.dart';
-import '../../main.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class AddCouponScreen extends StatefulWidget {
-  const AddCouponScreen({Key? key}) : super(key: key);
+  final String? merchantId;
+  const AddCouponScreen({super.key, this.merchantId});
 
   @override
   State<AddCouponScreen> createState() => _AddCouponScreenState();
@@ -84,14 +81,29 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
     if (_pickedImage == null) return null;
     try {
       if (kIsWeb) {
-        final bytes = await _pickedImage!.readAsBytes();
+        debugPrint('Uploading image to Firebase Storage (web)');
+        final bytes = await _pickedImage!.readAsBytes().timeout(const Duration(seconds: 10));
         final fileName = 'offers/${DateTime.now().millisecondsSinceEpoch}_${_pickedImage!.name.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '_')}';
         final ref = FirebaseService.storage.ref().child(fileName);
-        await ref.putData(bytes);
-        final url = await ref.getDownloadURL();
-        return url;
+        // putData can take time; guard with timeout
+        try {
+          final uploadSnapshot = await ref.putData(bytes).timeout(const Duration(seconds: 15));
+          debugPrint('Upload snapshot state: ${uploadSnapshot.state}');
+          final url = await ref.getDownloadURL().timeout(const Duration(seconds: 5));
+          debugPrint('Got download URL: $url');
+          return url;
+        } on TimeoutException catch (te) {
+          debugPrint('Firebase upload timed out: $te');
+          return null;
+        }
       } else {
-        return await ImgurService.uploadImage(File(_pickedImage!.path));
+        debugPrint('Uploading image to Imgur (non-web)');
+        try {
+          return await ImgurService.uploadImage(File(_pickedImage!.path)).timeout(const Duration(seconds: 15));
+        } on TimeoutException catch (te) {
+          debugPrint('Imgur upload timed out: $te');
+          return null;
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -105,6 +117,18 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
 
   Future<void> _submit() async {
     debugPrint('تم استدعاء _submit');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('error_auth_required'.tr())),
+      );
+      return;
+    }
+
+    final isMerchantSubmission = widget.merchantId != null;
+    final ownerType = isMerchantSubmission ? 'merchant' : 'customer';
+    final merchantId = isMerchantSubmission ? widget.merchantId : null;
+    final customerId = ownerType == 'customer' ? user.uid : null;
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('error_required_fields'.tr())),
@@ -130,36 +154,49 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
         imageUrl = 'assets/img/map_sample.png';
       }
       debugPrint('قبل إضافة العرض إلى Firestore');
+      bool writeSucceeded = false;
       try {
-        await Future.any([
-          FirebaseFirestore.instance.collection('offers')
+        debugPrint('Adding offer to Firestore');
+        // guard Firestore write with a timeout so UI won't hang indefinitely
+        await FirebaseFirestore.instance
+            .collection('offers')
             .add({
-              'offerType': _offerType!,
+              'ownerType': ownerType,
+              'merchantId': merchantId,
+              'customerId': customerId,
+              'createdBy': user.uid,
               'category': _category!,
               'titleType': _titleType,
               'discountType': _discountType,
               'discountValue': _discountValue,
               'price': _price,
               'description': _description,
-              'startDate': _startDate?.toIso8601String(),
-              'endDate': _endDate?.toIso8601String(),
+              'startDate': _startDate != null ? Timestamp.fromDate(_startDate!) : null,
+              'endDate': _endDate != null ? Timestamp.fromDate(_endDate!) : null,
               'location': _location,
               'imageUrl': imageUrl,
-              'createdAt': DateTime.now().toIso8601String(),
-            }),
-          Future.delayed(const Duration(seconds: 3)),
-        ]);
-        debugPrint('بعد إضافة العرض إلى Firestore (أو انتهاء المهلة)');
+              'createdAt': Timestamp.now(),
+            })
+            .timeout(const Duration(seconds: 8));
+        writeSucceeded = true;
+        debugPrint('بعد إضافة العرض إلى Firestore');
       } catch (e, stack) {
-        // Log the Firestore error but do not abort — continue to add to Supabase.
-        debugPrint('خطأ أثناء إضافة العرض إلى Firestore (سنتابع كتابة Supabase): $e\n$stack');
+        // Log the Firestore error and notify the user. Do not show success dialog.
+        debugPrint('خطأ أثناء إضافة العرض إلى Firestore: $e\n$stack');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('فشل حفظ العرض في Firestore، سيتم المحاولة بواسطة النظام (Supabase).')),
+            SnackBar(content: Text('error_save_offer_firestore'.tr())),
           );
         }
       }
-      // الآن نعتمد على Firestore فقط، لا حاجة لاستدعاء Supabase.
+
+      // الآن نعتمد على Firestore فقط.
+      if (!writeSucceeded) {
+        // Keep loading false and return so user can retry.
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
       debugPrint('قبل إظهار Dialog النجاح');
       await showDialog(
         context: context,
@@ -182,7 +219,6 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop(); // يغلق الـ Dialog فقط
-                Navigator.of(context).popUntil((route) => route.isFirst); // يرجع للرئيسية
               },
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
@@ -196,6 +232,10 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
         ),
       );
       debugPrint('بعد إظهار Dialog النجاح');
+      // بعد إغلاق الـ Dialog نرجع للـ screen السابق مع نتيجة نجاح
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
       return;
     } catch (e, stack) {
       debugPrint('Add offer error: $e\n$stack');

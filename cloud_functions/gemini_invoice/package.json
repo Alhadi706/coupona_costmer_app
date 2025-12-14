@@ -1,0 +1,16 @@
+{
+  "name": "gemini-invoice-function",
+  "version": "1.0.0",
+  "description": "Vertex AI Gemini powered invoice OCR endpoint for Coupone app",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "functions-framework --target=analyzeInvoice",
+    "deploy": "gcloud functions deploy analyzeInvoice --gen2 --runtime=nodejs20 --region=us-central1 --source=. --entry-point=analyzeInvoice --trigger-http --allow-unauthenticated --set-env-vars=VERTEX_LOCATION=us-central1,VERTEX_MODEL=gemini-1.5-pro"
+  },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.4.0",
+    "@google-cloud/vertexai": "^1.4.0",
+    "node-fetch": "^3.3.2"
+  }
+}

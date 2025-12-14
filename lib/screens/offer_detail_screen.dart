@@ -1,13 +1,13 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
 
 class OfferDetailScreen extends StatefulWidget {
   final Map<String, dynamic> offer;
-  const OfferDetailScreen({Key? key, required this.offer}) : super(key: key);
+  const OfferDetailScreen({super.key, required this.offer});
 
   @override
   State<OfferDetailScreen> createState() => _OfferDetailScreenState();
@@ -57,12 +57,23 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
     }
   }
 
-  String getEndDateText(String? endDate) {
-    if (endDate == null || endDate.isEmpty) return '';
+  DateTime? _resolveDate(dynamic value) {
+    if (value == null) return null;
+    if (value is DateTime) return value;
+    if (value is Timestamp) return value.toDate();
+    final text = value.toString();
+    if (text.isEmpty) return null;
     try {
-      // محاولة استخراج التاريخ فقط من النص
-      final dateStr = endDate.split('T').first;
-      final date = DateTime.parse(dateStr);
+      return DateTime.parse(text.split('T').first);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String getEndDateText(dynamic rawEndDate) {
+    final date = _resolveDate(rawEndDate);
+    if (date == null) return '';
+    try {
       final now = DateTime.now();
       final diff = date.difference(now).inDays;
       if (diff < 0) return 'انتهى';
@@ -207,7 +218,7 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
 
 class _ShareOptions extends StatelessWidget {
   final Map<String, dynamic> offer;
-  const _ShareOptions({Key? key, required this.offer}) : super(key: key);
+  const _ShareOptions({required this.offer});
 
   @override
   Widget build(BuildContext context) {

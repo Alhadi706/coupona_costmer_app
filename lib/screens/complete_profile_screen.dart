@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
   final String userId;
-  const CompleteProfileScreen({Key? key, required this.userId}) : super(key: key);
+  const CompleteProfileScreen({super.key, required this.userId});
 
   @override
   State<CompleteProfileScreen> createState() => _CompleteProfileScreenState();

@@ -22,7 +22,6 @@ import 'category_offers_screen.dart'; // استيراد شاشة عروض الف
 import 'home_content_screen.dart'; // استيراد الشاشة الجديدة
 import 'my_rewards_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../services/firebase_service.dart';
 import '../services/badge_helper.dart';
 import 'package:easy_localization/easy_localization.dart';
 
@@ -148,17 +147,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         drawer: AppDrawer(),
         body: widgetOptions[_selectedIndex],
-        bottomNavigationBar: FutureBuilder<int>(
-          future: () async {
-            try {
-              final snapshot = await FirebaseService.firestore.collection('offers').get();
-              return snapshot.docs.length;
-            } catch (e) {
-              return 0;
-            }
-          }(),
+        bottomNavigationBar: StreamBuilder(
+          stream: FirebaseFirestore.instance.collection('offers').snapshots(),
           builder: (context, offersSnapshot) {
-            final offersBadgeCount = offersSnapshot.data ?? 0;
+            int offersBadgeCount = 0;
+            if (offersSnapshot.hasData) {
+              offersBadgeCount = offersSnapshot.data!.docs.length;
+            }
             return StreamBuilder(
               stream: FirebaseFirestore.instance.collection('groups').snapshots(),
               builder: (context, groupsSnapshot) {

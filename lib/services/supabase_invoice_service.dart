@@ -1,5 +1,5 @@
+import 'supabase_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'firebase_service.dart';
 
 class SupabaseInvoiceService {
   static Future<void> addInvoice({
@@ -12,7 +12,7 @@ class SupabaseInvoiceService {
     required String merchantId,
     required String uniqueHash,
   }) async {
-    await FirebaseService.firestore.collection('invoices').add({
+    await SupabaseService.client.from('invoices').insert({
       'invoice_number': invoiceNumber,
       'store_name': storeName,
       'date': date.toIso8601String(),
@@ -21,34 +21,31 @@ class SupabaseInvoiceService {
       'user_id': userId,
       'merchant_id': merchantId,
       'unique_hash': uniqueHash,
-      'createdAt': DateTime.now().toIso8601String(),
     });
   }
 
   static Future<List<InvoiceRecord>> fetchInvoicesForUser(String userId) async {
-    final snapshot = await FirebaseService.firestore
-      .collection('invoices')
-      .where('user_id', isEqualTo: userId)
-      .orderBy('date', descending: true)
-      .get();
-    return snapshot.docs.map((d) {
-      final map = Map<String, dynamic>.from(d.data() as Map<String, dynamic>);
-      map['id'] = d.id;
-      return InvoiceRecord.fromJson(map);
-    }).toList();
+    final response = await SupabaseService.client
+        .from('invoices')
+        .select()
+        .eq('user_id', userId)
+        .order('date', ascending: false);
+    return response
+        .whereType<Map<String, dynamic>>()
+        .map(InvoiceRecord.fromJson)
+        .toList();
   }
 
   static Future<List<InvoiceRecord>> fetchInvoicesForMerchant(String merchantId) async {
-    final snapshot = await FirebaseService.firestore
-      .collection('invoices')
-      .where('merchant_id', isEqualTo: merchantId)
-      .orderBy('date', descending: true)
-      .get();
-    return snapshot.docs.map((d) {
-      final map = Map<String, dynamic>.from(d.data() as Map<String, dynamic>);
-      map['id'] = d.id;
-      return InvoiceRecord.fromJson(map);
-    }).toList();
+    final response = await SupabaseService.client
+        .from('invoices')
+        .select()
+        .eq('merchant_id', merchantId)
+        .order('date', ascending: false);
+    return response
+        .whereType<Map<String, dynamic>>()
+        .map(InvoiceRecord.fromJson)
+        .toList();
   }
 
   static Future<List<String>> fetchDistinctMerchantIdsForUser(String userId) async {

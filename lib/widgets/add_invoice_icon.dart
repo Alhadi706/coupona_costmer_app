@@ -4,7 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 class AddInvoiceIcon extends StatelessWidget {
   final VoidCallback? onTap;
   final double iconSize;
-  const AddInvoiceIcon({Key? key, required this.onTap, this.iconSize = 40}) : super(key: key);
+  const AddInvoiceIcon({super.key, required this.onTap, this.iconSize = 40});
 
   @override
   Widget build(BuildContext context) {

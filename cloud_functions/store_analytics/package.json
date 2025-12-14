@@ -1,0 +1,14 @@
+{
+  "name": "store-analytics-function",
+  "version": "0.1.0",
+  "description": "Aggregates merchant invoices into brand_store_performance analytics documents",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "firebase deploy --only functions:aggregateBrandStorePerformance"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.5.0",
+    "firebase-functions": "^4.9.0"
+  }
+}

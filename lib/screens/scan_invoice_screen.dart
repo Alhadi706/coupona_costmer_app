@@ -26,8 +26,6 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   bool _isLinking = false;
   String? _linkMessage;
   bool _linkHasError = false;
-  final TextEditingController _manualMerchantIdController = TextEditingController();
-  bool _showManualMerchantIdInput = false;
 
   @override
   void didChangeDependencies() {
@@ -51,8 +49,6 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       _parsedData = null;
       _linkMessage = null;
       _linkHasError = false;
-      _showManualMerchantIdInput = false;
-      _manualMerchantIdController.clear();
     });
 
     try {
@@ -129,31 +125,16 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       return;
     }
 
-    String merchantId = parsed['merchant_id']?.toString().trim() ?? '';
-    if (merchantId.isEmpty || merchantId.startsWith('UUID_')) {
-      // Show manual input UI
+    final merchantId = parsed['merchant_id']?.toString().trim();
+    if (merchantId == null || merchantId.isEmpty || merchantId.startsWith('UUID_')) {
       setState(() {
-        _showManualMerchantIdInput = true;
         _linkMessage = 'invoice_link_missing_merchant';
         _linkHasError = true;
       });
       return;
     }
 
-    // If manual input is visible, use its value
-    if (_showManualMerchantIdInput) {
-      merchantId = _manualMerchantIdController.text.trim();
-      if (merchantId.isEmpty) {
-        setState(() {
-          _linkMessage = 'invoice_link_missing_merchant';
-          _linkHasError = true;
-        });
-        return;
-      }
-    }
-
     final payload = Map<String, dynamic>.from(parsed);
-    payload['merchant_id'] = merchantId;
     payload.remove('merchant_id');
 
     setState(() {
@@ -164,7 +145,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
 
     try {
       final resultMessage = await UserMerchantLinkService.sendDataToLinkAgent(
-        merchantUuid: merchantId,
+        merchantCode: merchantId,
         invoicePayload: payload,
       );
 
@@ -282,18 +263,6 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildSummaryRow('merchant_id_label'.tr(), _parsedData!['merchant_id']?.toString() ?? ''),
-                      if (_showManualMerchantIdInput) ...[
-                        const SizedBox(height: 8),
-                        TextField(
-                          controller: _manualMerchantIdController,
-                          decoration: InputDecoration(
-                            labelText: 'merchant_id_label'.tr(),
-                            hintText: 'أدخل كود التاجر من الفاتورة',
-                            border: const OutlineInputBorder(),
-                          ),
-                          keyboardType: TextInputType.text,
-                        ),
-                      ],
                       const SizedBox(height: 8),
                       _buildSummaryRow(
                         'total_amount_label'.tr(),

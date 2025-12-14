@@ -9,14 +9,14 @@ class CategoryShortcut extends StatelessWidget {
   final double width;
 
   const CategoryShortcut({
-    Key? key,
+    super.key,
     required this.icon,
     required this.label,
     this.onTap,
     this.iconSize = 24,
     this.fontSize = 10,
     this.width = 60,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

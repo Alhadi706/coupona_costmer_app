@@ -1,0 +1,5 @@
+# Files listed here are skipped during gcloud deployments
+.gcloudignore
+.git
+.gitignore
+node_modules

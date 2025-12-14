@@ -5,7 +5,7 @@ import 'package:latlong2/latlong.dart';
 
 class MapPickerScreen extends StatefulWidget {
   final LatLng? initialLocation;
-  const MapPickerScreen({Key? key, this.initialLocation}) : super(key: key);
+  const MapPickerScreen({super.key, this.initialLocation});
 
   @override
   State<MapPickerScreen> createState() => _MapPickerScreenState();
@@ -26,8 +26,8 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
       appBar: AppBar(title: const Text('تحديد الموقع على الخريطة')),
       body: FlutterMap(
         options: MapOptions(
-          center: _pickedLocation,
-          zoom: 13.0,
+          initialCenter: _pickedLocation ?? const LatLng(32.8872, 13.1913),
+          initialZoom: 13.0,
           onTap: (tapPosition, point) {
             setState(() {
               _pickedLocation = point;

@@ -86,11 +86,11 @@ class CategoryOffersScreen extends StatelessWidget {
                                 ),
                               );
                             },
-                            child: const Text('التفاصيل'),
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               textStyle: const TextStyle(fontSize: 14),
                             ),
+                            child: const Text('التفاصيل'),
                           ),
                         ],
                       ),
@@ -114,7 +114,7 @@ class CategoryOffersScreen extends StatelessWidget {
           .get();
 
       return snapshot.docs.map((d) {
-        final data = Map<String, dynamic>.from(d.data() as Map<String, dynamic>);
+        final data = Map<String, dynamic>.from(d.data());
         data['id'] = d.id;
         // convert Firestore Timestamp to DateTime if needed
         if (data['createdAt'] is Timestamp) {

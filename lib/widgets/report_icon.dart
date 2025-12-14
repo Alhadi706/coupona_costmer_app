@@ -4,7 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 class ReportIcon extends StatelessWidget {
   final VoidCallback? onTap;
   final double iconSize;
-  const ReportIcon({Key? key, required this.onTap, this.iconSize = 40}) : super(key: key);
+  const ReportIcon({super.key, required this.onTap, this.iconSize = 40});
 
   @override
   Widget build(BuildContext context) {

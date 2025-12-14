@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:coupona_app/screens/add_coupon_screen.dart';
-import 'package:coupona_app/screens/scan_invoice_screen.dart';
-import 'package:coupona_app/screens/report_screen.dart';
 import 'package:coupona_app/screens/offers_list_screen.dart';
 import 'users_screen.dart';
 import 'package:coupona_app/screens/login_screen.dart';
 import 'package:coupona_app/screens/home_screen.dart';
+import 'customer_analytics_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
   @override
   Widget build(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -40,7 +39,10 @@ class SettingsScreen extends StatelessWidget {
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 2,
       ),
-      drawer: AppDrawer(),
+      drawer: AppDrawer(
+        userName: currentUser?.displayName,
+        userEmail: currentUser?.email,
+      ),
       body: ListView(
         padding: EdgeInsets.all(16),
         children: [
@@ -59,9 +61,9 @@ class SettingsScreen extends StatelessWidget {
             leading: Icon(Icons.local_offer, color: Colors.deepPurple),
             title: Text('offers_list'.tr()),
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => OffersListScreen()),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => OffersListScreen()));
             },
           ),
           Divider(height: 32),
@@ -80,10 +82,7 @@ class _AccountSection extends StatelessWidget {
       children: [
         Text(
           'account_section'.tr(),
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8),
         ListTile(
@@ -91,9 +90,9 @@ class _AccountSection extends StatelessWidget {
           leading: Icon(Icons.person),
           title: Text('profile'.tr()),
           onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => UsersScreen()),
-            );
+            Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => UsersScreen()));
           },
         ),
         ListTile(
@@ -140,10 +139,7 @@ class _LanguageSection extends StatelessWidget {
       children: [
         Text(
           'language_section'.tr(),
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8),
         ListTile(
@@ -155,10 +151,14 @@ class _LanguageSection extends StatelessWidget {
               context: context,
               builder: (context) => SimpleDialog(
                 title: Text('choose_language'.tr()),
-                children: languages.map((lang) => SimpleDialogOption(
-                  onPressed: () => Navigator.pop(context, lang['code']),
-                  child: Text(lang['name']!),
-                )).toList(),
+                children: languages
+                    .map(
+                      (lang) => SimpleDialogOption(
+                        onPressed: () => Navigator.pop(context, lang['code']),
+                        child: Text(lang['name']!),
+                      ),
+                    )
+                    .toList(),
               ),
             );
             if (selected != null) {
@@ -179,10 +179,7 @@ class _NotificationsSection extends StatelessWidget {
       children: [
         Text(
           'notifications_section'.tr(),
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8),
         ListTile(
@@ -206,10 +203,7 @@ class _LocationPrivacySection extends StatelessWidget {
       children: [
         Text(
           'location_privacy_section'.tr(),
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8),
         ListTile(
@@ -241,10 +235,7 @@ class _DownloadDataSection extends StatelessWidget {
       children: [
         Text(
           'download_data_section'.tr(),
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 8),
         ListTile(
@@ -261,16 +252,26 @@ class _DownloadDataSection extends StatelessWidget {
 }
 
 class AppDrawer extends StatelessWidget {
+  final String? userName;
+  final String? userEmail;
+
+  const AppDrawer({super.key, this.userName, this.userEmail});
+
   @override
   Widget build(BuildContext context) {
+    final resolvedName = (userName != null && userName!.trim().isNotEmpty)
+        ? userName!
+        : 'drawer_username'.tr();
+    final resolvedEmail = (userEmail != null && userEmail!.trim().isNotEmpty)
+        ? userEmail!
+        : 'drawer_email'.tr();
+
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
-            ),
+            decoration: BoxDecoration(color: Theme.of(context).primaryColor),
             child: Column(
               children: [
                 CircleAvatar(
@@ -279,7 +280,7 @@ class AppDrawer extends StatelessWidget {
                 ),
                 SizedBox(height: 8),
                 Text(
-                  'drawer_username'.tr(),
+                  resolvedName,
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -287,11 +288,8 @@ class AppDrawer extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'drawer_email'.tr(),
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                  resolvedEmail,
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
@@ -304,7 +302,9 @@ class AppDrawer extends StatelessWidget {
               // ensures we clear the stack and don't accidentally return
               // to the LoginPage which is the app's initial/home route.
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => HomeScreen(phone: '', age: '', gender: '')),
+                MaterialPageRoute(
+                  builder: (_) => HomeScreen(phone: '', age: '', gender: ''),
+                ),
                 (route) => false,
               );
             },
@@ -324,12 +324,23 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           ListTile(
+            leading: Icon(Icons.insights_outlined),
+            title: Text('drawer_customer_analytics'.tr()),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const CustomerAnalyticsScreen(),
+                ),
+              );
+            },
+          ),
+          ListTile(
             leading: Icon(Icons.settings),
             title: Text('drawer_settings'.tr()),
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => SettingsScreen()),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => SettingsScreen()));
             },
           ),
           Divider(),

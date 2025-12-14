@@ -1,12 +1,12 @@
 # Coupona Customer App
 
-Cross-platform Flutter application that helps customers discover merchants, redeem offers, and now keep track of scanned invoices linked to Supabase.
+Cross-platform Flutter application that helps customers discover merchants, redeem offers, and keep track of scanned invoices persisted to Firestore.
 
 ---
 
 ## Invoice Linking Overview
 
-Each scanned invoice is persisted to the Supabase `invoices` table via `SupabaseInvoiceService.addInvoice`. The record acts as the shared contract between merchant and customer using the following keys:
+Each scanned invoice is persisted to the Firestore `invoices` collection via `SupabaseInvoiceService.addInvoice` (this helper now writes to Firestore). The record acts as the shared contract between merchant and customer using the following keys:
 
 | Column        | Purpose                                             |
 | ------------- | --------------------------------------------------- |
@@ -14,9 +14,9 @@ Each scanned invoice is persisted to the Supabase `invoices` table via `Supabase
 | `user_id`     | Auth identifier of the customer who scanned         |
 | `invoice_number`, `unique_hash`, `date`, `total`, `products` | Additional metadata captured from OCR |
 
-### Supabase query helpers
+### Firestore query helpers
 
-`lib/services/supabase_invoice_service.dart` now includes utilities to explore the link graph:
+`lib/services/supabase_invoice_service.dart` includes utilities to explore the link graph (reads Firestore `invoices`):
 
 - `fetchInvoicesForUser(userId)` – full invoice history for a customer.
 - `fetchInvoicesForMerchant(merchantId)` – invoices captured for a merchant.
@@ -68,11 +68,11 @@ Invoice scanning is powered by on-device Google ML Kit OCR and the Flutter image
 	flutter run -d chrome
 	```
 
-4. Provide Supabase credentials via `SupabaseService` (already configured for the shared project). Update the anon key if rotating credentials.
+4. Initialize Firebase in `main.dart` (the project includes `lib/firebase_options.dart`); run `Firebase.initializeApp()` before using Firestore/Storage.
 
 ---
 
 ## Next Steps
 
-- Use `InvoiceParser.parseInvoiceData` to transform OCR output into structured invoice fields (merchant ID + total) before inserting into Supabase; adjust regexes as you encounter new invoice formats.
+- Use `InvoiceParser.parseInvoiceData` to transform OCR output into structured invoice fields (merchant ID + total) before inserting into Firestore; adjust regexes as you encounter new invoice formats.
 - Enrich merchant and customer views with profile lookups based on the helper methods above.

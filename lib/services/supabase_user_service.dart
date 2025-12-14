@@ -1,10 +1,8 @@
 // lib/services/supabase_user_service.dart
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'firebase_service.dart';
 
 class SupabaseUserService {
-  static final SupabaseClient _client = Supabase.instance.client;
-
-  /// إضافة مستخدم جديد إلى جدول users في Supabase
+  /// Adds a user document to Firestore `users` collection.
   static Future<void> addUser({
     required String email,
     required String role,
@@ -14,7 +12,7 @@ class SupabaseUserService {
     double? latitude,
     double? longitude,
   }) async {
-    final response = await _client.from('users').insert({
+    await FirebaseService.firestore.collection('users').add({
       'email': email,
       'role': role,
       'points': points,
@@ -24,6 +22,5 @@ class SupabaseUserService {
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
     });
-    // يمكنك معالجة response أو إرجاعه إذا أردت
   }
 }

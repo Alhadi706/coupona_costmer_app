@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
-import '../../services/firebase_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../../models/map_item.dart';
 import '../../models/map_sample_data.dart';
@@ -37,21 +37,15 @@ class _MapBarState extends State<MapBar> {
       loadError = null;
     });
     try {
-      final merchantsSnap = await FirebaseService.firestore.collection('merchants').get();
-      final offersSnap = await FirebaseService.firestore.collection('offers').get();
+      final storesSnapshot = await FirebaseFirestore.instance.collection('stores').get();
+      final offersSnapshot = await FirebaseFirestore.instance.collection('offers').get();
 
-      var merchants = merchantsSnap.docs.map((d) => Map<String, dynamic>.from(d.data() as Map<String, dynamic>)).toList();
-      var offers = offersSnap.docs.map((d) => Map<String, dynamic>.from(d.data() as Map<String, dynamic>)).toList();
-
-      var stores = merchants
-          .whereType<Map<String, dynamic>>()
-          .map((m) => MapItem.fromMap(m, MapItemType.store))
+      var stores = storesSnapshot.docs
+          .map((doc) => MapItem.fromSnapshot(doc, MapItemType.store))
           .whereType<MapItem>()
           .toList();
-
-        var offersList = offers
-          .whereType<Map<String, dynamic>>()
-          .map((o) => MapItem.fromMap(o, MapItemType.offer))
+      var offers = offersSnapshot.docs
+          .map((doc) => MapItem.fromSnapshot(doc, MapItemType.offer))
           .whereType<MapItem>()
           .toList();
 
@@ -59,12 +53,12 @@ class _MapBarState extends State<MapBar> {
 
       if (stores.isEmpty && offers.isEmpty) {
         stores = List<MapItem>.from(sampleStoreItems);
-        offersList = List<MapItem>.from(sampleOfferItems);
+        offers = List<MapItem>.from(sampleOfferItems);
         usedFallback = true;
       }
 
       setState(() {
-        mapItems = [...stores, ...offersList];
+        mapItems = [...stores, ...offers];
         isLoading = false;
         isUsingFallback = usedFallback;
       });

@@ -9,13 +9,13 @@ class CategoryBar extends StatelessWidget {
   final void Function(Map<String, dynamic> category)? onCategoryTap;
 
   const CategoryBar({
-    Key? key,
+    super.key,
     required this.categories,
     this.height = 80,
     this.iconSize = 32,
     this.fontSize = 13,
     this.onCategoryTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

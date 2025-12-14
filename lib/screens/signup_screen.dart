@@ -6,7 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:coupona_app/screens/home_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({Key? key}) : super(key: key);
+  const SignUpScreen({super.key});
 
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
@@ -14,6 +14,7 @@ class SignUpScreen extends StatefulWidget {
 
 class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   bool _loading = false;
@@ -22,6 +23,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String? _locationError;
   DateTime? _selectedBirthDate;
   int? _calculatedAge;
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _getLocation() async {
     try {
@@ -61,6 +70,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       lastDate: now,
       helpText: 'اختر تاريخ الميلاد',
       locale: const Locale('ar'),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
+      initialDatePickerMode: DatePickerMode.year,
     );
     if (picked != null) {
       setState(() {
@@ -71,7 +82,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Future<void> _signUp() async {
+    final displayName = _nameController.text.trim();
     final email = _emailController.text.trim();
+        if (displayName.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('يرجى إدخال اسم يظهر في الفواتير.')),
+          );
+          return;
+        }
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
     final gender = _selectedGender;
@@ -113,6 +131,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final user = userCredential.user;
       // حفظ بيانات المستخدم في Firestore
       await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
+        'displayName': displayName,
         'email': email,
         'role': 'customer',
         'createdAt': DateTime.now().toIso8601String(),
@@ -121,6 +140,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
         'latitude': _userPosition!.latitude,
         'longitude': _userPosition!.longitude,
         'birthDate': _selectedBirthDate!.toIso8601String(),
+      });
+      await FirebaseFirestore.instance.collection('customers').doc(user.uid).set({
+        'name': displayName,
+        'phone': '',
+        'age': age,
+        'gender': gender,
+        'totalPoints': 0,
+        'merchantPoints': <String, num>{},
       });
       // إضافة المستخدم في Supabase (اختياري)
       await SupabaseUserService.addUser(
@@ -161,6 +188,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
         padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
+            const SizedBox(height: 16),
+            TextField(
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'الاسم الذي سيظهر للتجار',
+                prefixIcon: Icon(Icons.badge),
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: _emailController,
