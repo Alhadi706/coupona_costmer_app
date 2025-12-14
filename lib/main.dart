@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 import 'screens/login_screen.dart'; // استيراد شاشة تسجيل الدخول
@@ -9,6 +10,7 @@ import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart'; // استيراد الشاشة الرئيسية
 import 'firebase_options.dart';
 import 'services/supabase_service.dart';
+import 'services/supabase_invoice_service.dart'; // استيراد خدمة Supabase لحذف العروض
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,31 +39,39 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  bool? _showOnboarding;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadOnboardingState();
-  }
-
-  Future<void> _loadOnboardingState() async {
-    final shouldShow = await _shouldShowOnboarding();
-    if (mounted) {
-      setState(() => _showOnboarding = shouldShow);
-    }
-  }
-
   Future<bool> _shouldShowOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
     return !(prefs.getBool('onboarding_done') ?? false);
   }
 
-  Future<void> _handleOnboardingFinish() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_done', true);
+  // زر مؤقت لإضافة فاتورة وهمية
+  void _addTestInvoice() async {
+  await SupabaseInvoiceService.addInvoice(
+      invoiceNumber: 'INV-2025-TEST-002',
+      storeName: 'الشعاب',
+      date: DateTime.parse('2025-07-09'),
+      products: [
+        {'name': 'لميس', 'quantity': 2, 'unit_price': 8, 'total_price': 16},
+        {'name': 'توري', 'quantity': 1, 'unit_price': 5, 'total_price': 5},
+        {'name': 'زبادي النسيم', 'quantity': 3, 'unit_price': 2, 'total_price': 6},
+        {'name': 'حفاظات ليلاس', 'quantity': 1, 'unit_price': 25, 'total_price': 25},
+        {'name': 'تن الجيد', 'quantity': 2, 'unit_price': 7, 'total_price': 14},
+        {'name': 'عصير الريحان', 'quantity': 4, 'unit_price': 1.5, 'total_price': 6},
+        {'name': 'عصير المزرعة', 'quantity': 2, 'unit_price': 2, 'total_price': 4},
+        {'name': 'مكرونة اللمة', 'quantity': 5, 'unit_price': 1, 'total_price': 5},
+        {'name': 'أزر المبروك', 'quantity': 1, 'unit_price': 18, 'total_price': 18},
+        {'name': 'طماطم الصفوة', 'quantity': 3, 'unit_price': 3, 'total_price': 9},
+      ],
+      total: 108,
+      userId: 'user_test_1', // ضع هنا user_id حقيقي أو تجريبي
+      merchantId: 'your-merchant-uuid-here',
+      uniqueHash: 'test-hash-002',
+  merchantCode: 'TRPCF2',
+    );
     if (mounted) {
-      setState(() => _showOnboarding = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تمت إضافة الفاتورة التجريبية بنجاح!')),
+      );
     }
   }
 
@@ -88,13 +98,36 @@ class _MyAppState extends State<MyApp> {
         textTheme: const TextTheme(bodyMedium: TextStyle(color: Colors.white)),
       ),
       themeMode: ThemeMode.system, // دعم الوضع الليلي تلقائي
-      home: _showOnboarding == null
-          ? const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            )
-          : _showOnboarding!
-              ? OnboardingScreen(onFinish: _handleOnboardingFinish)
-              : LoginPage(),
+      home: FutureBuilder<bool>(
+        future: _shouldShowOnboarding(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          }
+          if (snapshot.data == true) {
+            return OnboardingScreen(onFinish: () {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => LoginPage()),
+              );
+            });
+          }
+          return Stack(
+            children: [
+              LoginPage(),
+              Positioned(
+                bottom: 40,
+                right: 20,
+                child: FloatingActionButton.extended(
+                  onPressed: _addTestInvoice,
+                  label: const Text('فاتورة تجريبية'),
+                  icon: const Icon(Icons.receipt_long),
+                  backgroundColor: Colors.deepPurple,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
