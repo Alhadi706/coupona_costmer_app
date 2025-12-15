@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'onboarding_screen.dart';
+import 'role_selection_screen.dart';
 
 class LanguageSelectionScreen extends StatelessWidget {
   const LanguageSelectionScreen({super.key});
@@ -11,7 +13,13 @@ class LanguageSelectionScreen extends StatelessWidget {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefKey, locale.languageCode);
     await context.setLocale(locale);
-    Navigator.of(context).pushReplacementNamed('/onboarding');
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => OnboardingScreen(onFinish: () async {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+        );
+      })),
+    );
   }
 
   @override

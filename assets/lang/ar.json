@@ -563,4 +563,14 @@
   "merchant_notifications_error": "تعذر تحميل الإشعارات",
   "merchant_notifications_empty": "لا توجد إشعارات",
   "merchant_notifications_mark_read": "تمييز كمقروء"
+  ,
+  "error_capturing_image": "حدث خطأ أثناء التقاط الصورة",
+  "error_processing_image": "حدث خطأ أثناء معالجة الصورة",
+  "no_text_found": "لم يتم العثور على نص في الصورة",
+  "processing_invoice": "جاري معالجة الفاتورة...",
+  "try_again": "حاول مرة أخرى",
+  "invoice_text": "نص الفاتورة",
+  "scan_invoice_to_get_text": "امسح الفاتورة للحصول على النص",
+  "scan_another_invoice": "مسح فاتورة أخرى",
+  "scan_invoice_icon": "أيقونة مسح الفاتورة"
 }

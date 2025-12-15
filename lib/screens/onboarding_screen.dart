@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+import 'role_selection_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final Future<void> Function() onFinish;
@@ -46,8 +48,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void _finishOnboarding() async {
     _playSuccessSound();
     final prefs = await SharedPreferences.getInstance();
-  await prefs.setBool('onboarding_done', true);
-  await widget.onFinish();
+    await prefs.setBool('onboarding_done', true);
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => RoleSelectionScreen()),
+    );
   }
 
   @override

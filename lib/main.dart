@@ -8,6 +8,8 @@ import 'package:easy_localization/easy_localization.dart';
 import 'screens/login_screen.dart'; // استيراد شاشة تسجيل الدخول
 import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart'; // استيراد الشاشة الرئيسية
+import 'screens/language_selection_screen.dart';
+import 'screens/role_selection_screen.dart';
 import 'firebase_options.dart';
 import 'services/supabase_service.dart';
 import 'services/supabase_invoice_service.dart'; // استيراد خدمة Supabase لحذف العروض
@@ -39,11 +41,36 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+<<<<<<< HEAD
   Future<bool> _shouldShowOnboarding() async {
-    final prefs = await SharedPreferences.getInstance();
-    return !(prefs.getBool('onboarding_done') ?? false);
+=======
+  String? _languageSelected;
+  bool? _showOnboarding;
+  bool _onboardingDone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadState();
   }
 
+  Future<void> _loadState() async {
+>>>>>>> 39ebec2 (نسخة نهائية: إصلاح التنقل من شاشة البداية إلى شاشة اختيار الدور)
+    final prefs = await SharedPreferences.getInstance();
+    final lang = prefs.getString('app_language_code');
+    final onboarding = prefs.getBool('onboarding_done') ?? false;
+    setState(() {
+      _languageSelected = lang;
+      _showOnboarding = !onboarding;
+      _onboardingDone = onboarding;
+    });
+  }
+
+  Future<void> _handleLanguageSelected() async {
+    setState(() => _languageSelected = 'done');
+  }
+
+<<<<<<< HEAD
   // زر مؤقت لإضافة فاتورة وهمية
   void _addTestInvoice() async {
   await SupabaseInvoiceService.addInvoice(
@@ -73,12 +100,18 @@ class _MyAppState extends State<MyApp> {
         const SnackBar(content: Text('تمت إضافة الفاتورة التجريبية بنجاح!')),
       );
     }
+=======
+  Future<void> _handleOnboardingFinish() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboarding_done', true);
+    setState(() {
+>>>>>>> 39ebec2 (نسخة نهائية: إصلاح التنقل من شاشة البداية إلى شاشة اختيار الدور)
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      locale: context.locale, // استخدم locale من easy_localization
+      locale: context.locale,
       supportedLocales: context.supportedLocales,
       localizationsDelegates: context.localizationDelegates,
       navigatorKey: navigatorKey,
@@ -97,6 +130,7 @@ class _MyAppState extends State<MyApp> {
         appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF23242B)),
         textTheme: const TextTheme(bodyMedium: TextStyle(color: Colors.white)),
       ),
+<<<<<<< HEAD
       themeMode: ThemeMode.system, // دعم الوضع الليلي تلقائي
       home: FutureBuilder<bool>(
         future: _shouldShowOnboarding(),
@@ -128,6 +162,13 @@ class _MyAppState extends State<MyApp> {
           );
         },
       ),
+=======
+      themeMode: ThemeMode.system,
+      home: _languageSelected == null
+          ? LanguageSelectionScreen()
+          : (_showOnboarding ?? true)
+              ? OnboardingScreen(onFinish: _handleOnboardingFinish)
+              : (_onboardingDone ? RoleSelectionScreen() : const Scaffold(body: Center(child: CircularProgressIndicator()))),
     );
   }
 }
