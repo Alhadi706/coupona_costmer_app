@@ -15,11 +15,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   bool _loading = false;
+  String? _warningMessage;
 
   Future<void> _signUp() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
+    _warningMessage = null;
     if (password != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('كلمتا المرور غير متطابقتين!')),
@@ -40,9 +42,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
         'role': 'customer',
         'createdAt': DateTime.now().toIso8601String(),
       });
-      // إضافة المستخدم في Supabase (اختياري)
-      await SupabaseUserService.addUser(email: email, role: 'customer');
+
+      // مزامنة Supabase اختيارية: لا نوقف التسجيل لو فشلت الشبكة/الصلاحيات.
+      try {
+        await SupabaseUserService.addUser(email: email, role: 'customer');
+      } catch (_) {
+        _warningMessage = 'تم إنشاء الحساب، لكن تعذر مزامنة البيانات مع Supabase.';
+      }
+
       if (mounted) {
+        if (_warningMessage != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_warningMessage!)),
+          );
+        }
         Navigator.pop(context);
       }
     } catch (e) {

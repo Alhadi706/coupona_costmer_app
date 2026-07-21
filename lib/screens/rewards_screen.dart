@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../services/supabase_service.dart';
+
 class RewardsScreen extends StatefulWidget {
   const RewardsScreen({super.key});
 
@@ -19,10 +21,16 @@ class _RewardsScreenState extends State<RewardsScreen> {
   }
 
   Future<void> fetchRewards() async {
-    // جلب الجوائز من Supabase
-    final response = await Supabase.instance.client
-        .from('rewards')
-        .select();
+    if (!SupabaseService.enabled) {
+      if (!mounted) return;
+      setState(() {
+        rewards = [];
+        isLoading = false;
+      });
+      return;
+    }
+
+    final response = await Supabase.instance.client.from('rewards').select();
     setState(() {
       rewards = response;
       isLoading = false;

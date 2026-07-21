@@ -2,11 +2,14 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'supabase_service.dart';
+
 class SupabaseOfferService {
-  static final SupabaseClient _client = Supabase.instance.client;
+  static SupabaseClient get _client => Supabase.instance.client;
 
   /// رفع صورة إلى Supabase Storage وإرجاع الرابط
   static Future<String?> uploadImage(XFile image) async {
+    if (!SupabaseService.enabled) return null;
     try {
       // اسم الملف بدون أحرف عربية أو رموز خاصة
       String cleanName = image.name.replaceAll(RegExp(r'[^a-zA-Z0-9_.-]'), '_');
@@ -38,6 +41,7 @@ class SupabaseOfferService {
     String? location,
     String? imageUrl,
   }) async {
+    if (!SupabaseService.enabled) return;
     await _client.from('offers').insert({
       'offerType': offerType,
       'category': category,
