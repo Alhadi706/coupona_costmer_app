@@ -1,21 +1,26 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:easy_localization/easy_localization.dart';
+import '../services/company_server_service.dart';
 
 class PointsScreen extends StatelessWidget {
   final String userId;
   const PointsScreen({super.key, required this.userId});
 
   Future<int> fetchPoints() async {
-    final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
-    return doc.exists && doc.data() != null && doc.data()!['points'] != null ? doc.data()!['points'] as int : 0;
+    final user = await CompanyServerService.getUserById(userId);
+    if (user == null) return 0;
+    final points = user['points'];
+    if (points is int) return points;
+    if (points is num) return points.toInt();
+    return int.tryParse(points?.toString() ?? '') ?? 0;
   }
 
   Future<List<int>> fetchPointsHistory() async {
     // جلب آخر 7 أيام من النقاط (أو بيانات تجريبية إذا لم تتوفر)
-    final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
-    if (doc.exists && doc.data() != null && doc.data()!['points_history'] != null) {
-      final List<dynamic> history = doc.data()!['points_history'];
+    final user = await CompanyServerService.getUserById(userId);
+    if (user != null && user['points_history'] != null) {
+      final List<dynamic> history = user['points_history'];
       return history.cast<int>();
     }
     // بيانات تجريبية في حال عدم وجود نقاط تاريخية
@@ -35,7 +40,7 @@ class PointsScreen extends StatelessWidget {
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('نقاطي: $points', style: const TextStyle(fontSize: 24)),
+            Text('my_points_value'.tr(namedArgs: {'points': '$points'}), style: const TextStyle(fontSize: 24)),
             const SizedBox(height: 24),
             SizedBox(
               height: 180,
@@ -49,7 +54,7 @@ class PointsScreen extends StatelessWidget {
                     ),
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(showTitles: true, getTitlesWidget: (value, meta) {
-                        return Text('يوم ${(value + 1).toInt()}');
+                        return Text('day_value'.tr(namedArgs: {'day': '${(value + 1).toInt()}'}));
                       }),
                     ),
                     topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -68,7 +73,7 @@ class PointsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const Text('تطور نقاطك خلال آخر 7 أيام', style: TextStyle(fontSize: 16)),
+            Text('points_progress_last_7_days'.tr(), style: const TextStyle(fontSize: 16)),
           ],
         );
       },

@@ -1,9 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
+import '../services/company_server_service.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
   final String userId;
-  const CompleteProfileScreen({Key? key, required this.userId}) : super(key: key);
+  const CompleteProfileScreen({super.key, required this.userId});
 
   @override
   State<CompleteProfileScreen> createState() => _CompleteProfileScreenState();
@@ -19,7 +20,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   Future<void> _saveProfile() async {
     setState(() => _loading = true);
     try {
-      await FirebaseFirestore.instance.collection('users').doc(widget.userId).update({
+      await CompanyServerService.updateUserProfile(userId: widget.userId, payload: {
         'fullName': _nameController.text.trim(),
         'gender': _gender,
         'city': _cityController.text.trim(),
@@ -27,12 +28,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         'profileCompleted': true,
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم حفظ البيانات بنجاح!')),
+        SnackBar(content: Text('profile_saved_success'.tr())),
       );
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في حفظ البيانات: $e')),
+        SnackBar(content: Text('profile_save_error'.tr(namedArgs: {'error': e.toString()}))),
       );
     } finally {
       setState(() => _loading = false);
@@ -42,44 +43,44 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('استكمال البيانات')), 
+      appBar: AppBar(title: Text('complete_profile_title'.tr())), 
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'الاسم الكامل',
+              decoration: InputDecoration(
+                labelText: 'full_name'.tr(),
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: _gender,
-              items: const [
-                DropdownMenuItem(value: 'ذكر', child: Text('ذكر')),
-                DropdownMenuItem(value: 'أنثى', child: Text('أنثى')),
+              items: [
+                DropdownMenuItem(value: 'male', child: Text('male'.tr())),
+                DropdownMenuItem(value: 'female', child: Text('female'.tr())),
               ],
               onChanged: (val) => setState(() => _gender = val),
-              decoration: const InputDecoration(
-                labelText: 'الجنس',
+              decoration: InputDecoration(
+                labelText: 'gender'.tr(),
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _cityController,
-              decoration: const InputDecoration(
-                labelText: 'المدينة',
+              decoration: InputDecoration(
+                labelText: 'city'.tr(),
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _countryController,
-              decoration: const InputDecoration(
-                labelText: 'الدولة',
+              decoration: InputDecoration(
+                labelText: 'country'.tr(),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -88,7 +89,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               onPressed: _loading ? null : _saveProfile,
               child: _loading
                   ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('حفظ البيانات'),
+                  : Text('save_data'.tr()),
             ),
           ],
         ),

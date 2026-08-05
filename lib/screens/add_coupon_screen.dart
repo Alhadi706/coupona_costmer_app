@@ -1,19 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io' show File;
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:coupona_app/services/imgur_service.dart';
-import 'package:coupona_app/services/supabase_offer_service.dart';
+import 'package:coupona_app/services/company_server_service.dart';
 import 'map_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'home_screen.dart';
-import '../../main.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class AddCouponScreen extends StatefulWidget {
@@ -83,9 +77,11 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
   Future<String?> _uploadImage() async {
     if (_pickedImage == null) return null;
     try {
-      return kIsWeb 
-          ? await SupabaseOfferService.uploadImage(_pickedImage!)
-          : await ImgurService.uploadImage(File(_pickedImage!.path));
+      final bytes = await _pickedImage!.readAsBytes();
+      if (bytes.isNotEmpty) {
+        return ImgurService.uploadImageFromBytes(bytes);
+      }
+      return ImgurService.uploadImage(File(_pickedImage!.path));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -116,102 +112,34 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
 
     setState(() => _isLoading = true);
     try {
-      debugPrint('قبل رفع الصورة');
+      final DateTime now = DateTime.now().toUtc();
       String? imageUrl = await _uploadImage();
       debugPrint('بعد رفع الصورة');
       if (imageUrl == null || imageUrl.isEmpty) {
         imageUrl = 'assets/img/map_sample.png';
       }
-      debugPrint('قبل إضافة العرض إلى Firestore');
-      try {
-        await Future.any([
-          FirebaseFirestore.instance.collection('offers')
-            .add({
-              'offerType': _offerType!,
-              'category': _category!,
-              'titleType': _titleType,
-              'discountType': _discountType,
-              'discountValue': _discountValue,
-              'price': _price,
-              'description': _description,
-              'startDate': _startDate?.toIso8601String(),
-              'endDate': _endDate?.toIso8601String(),
-              'location': _location,
-              'imageUrl': imageUrl,
-              'createdAt': DateTime.now().toIso8601String(),
-            }),
-          Future.delayed(const Duration(seconds: 3)),
-        ]);
-        debugPrint('بعد إضافة العرض إلى Firestore (أو انتهاء المهلة)');
-      } catch (e, stack) {
-        debugPrint('خطأ أثناء إضافة العرض إلى Firestore: $e\n$stack');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('error_add_offer'.tr(namedArgs: {'error': e.toString()}))),
-          );
-        }
-        return;
-      }
-      debugPrint('قبل إضافة العرض إلى Supabase');
-      try {
-        await Future.any([
-          SupabaseOfferService.addOffer(
-            offerType: _offerType!,
-            category: _category!,
-            titleType: _titleType,
-            discountValue: (_discountValue == null || _discountValue!.isEmpty) ? null : _discountValue,
-            price: (_price == null || _price!.isEmpty) ? null : _price,
-            description: _description,
-            startDate: _startDate?.toIso8601String(),
-            endDate: _endDate?.toIso8601String(),
-            location: _location,
-            imageUrl: imageUrl,
-          ),
-          Future.delayed(const Duration(seconds: 5)),
-        ]);
-        debugPrint('بعد إضافة العرض إلى Supabase (أو انتهاء المهلة)');
-      } catch (e, stack) {
-        debugPrint('خطأ أثناء إضافة العرض إلى Supabase: $e\n$stack');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('error_add_offer'.tr(namedArgs: {'error': e.toString()}))),
-          );
-        }
-        return;
-      }
-      debugPrint('قبل إظهار Dialog النجاح');
-      await showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          title: Center(
-            child: Container(
-              width: 70,
-              height: 70,
-              decoration: BoxDecoration(
-                color: Colors.green.shade100,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.check_circle, color: Colors.green, size: 56),
-            ),
-          ),
-          content: Text('success_offer'.tr(), textAlign: TextAlign.center, style: TextStyle(fontSize: 18)),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // يغلق الـ Dialog فقط
-                Navigator.of(context).popUntil((route) => route.isFirst); // يرجع للرئيسية
-              },
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Colors.deepPurple,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: Text('back_to_home'.tr(), style: TextStyle(fontSize: 16)),
-            ),
-          ],
+      await CompanyServerService.createOffer({
+        'offerType': _offerType!,
+        'category': _category!,
+        'titleType': _titleType,
+        'discountType': _discountType,
+        'discountValue': _discountValue,
+        'price': _price,
+        'description': _description,
+        'startDate': _startDate?.toIso8601String(),
+        'endDate': _endDate?.toIso8601String(),
+        'location': _location,
+        'imageUrl': imageUrl,
+        'createdAt': now.toIso8601String(),
+        'lifecycleStatus': 'pending_review',
+        'lifecycleUpdatedAt': now.toIso8601String(),
+        'lifecycleReason': 'created_from_add_coupon_screen',
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('success_offer'.tr()),
+          backgroundColor: Colors.green,
         ),
       );
       debugPrint('بعد إظهار Dialog النجاح');

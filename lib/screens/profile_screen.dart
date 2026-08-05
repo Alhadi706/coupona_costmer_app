@@ -1,19 +1,19 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
+import '../services/company_server_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   final String userId;
   const ProfileScreen({super.key, required this.userId});
 
   Future<Map<String, dynamic>?> fetchProfile() async {
-    final doc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
-    return doc.exists ? doc.data() : null;
+    return CompanyServerService.getUserById(userId);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('الملف الشخصي')),
+      appBar: AppBar(title: Text('profile'.tr())),
       body: FutureBuilder<Map<String, dynamic>?>(
         future: fetchProfile(),
         builder: (context, snapshot) {
@@ -21,7 +21,7 @@ class ProfileScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data == null) {
-            return const Center(child: Text('لا توجد بيانات للملف الشخصي'));
+            return Center(child: Text('profile_no_data'.tr()));
           }
           final user = snapshot.data!;
           return Padding(
@@ -29,12 +29,12 @@ class ProfileScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('البريد الإلكتروني: ${user['email'] ?? ''}', style: TextStyle(fontSize: 18)),
+                Text('profile_email_value'.tr(namedArgs: {'email': '${user['email'] ?? ''}'}), style: TextStyle(fontSize: 18)),
                 const SizedBox(height: 10),
-                Text('الاسم: ${user['fullName'] ?? ''}'),
-                Text('الجنس: ${user['gender'] ?? ''}'),
-                Text('المدينة: ${user['city'] ?? ''}'),
-                Text('الدولة: ${user['country'] ?? ''}'),
+                Text('profile_name_value'.tr(namedArgs: {'name': '${user['fullName'] ?? ''}'})),
+                Text('profile_gender_value'.tr(namedArgs: {'gender': '${user['gender'] ?? ''}'})),
+                Text('profile_city_value'.tr(namedArgs: {'city': '${user['city'] ?? ''}'})),
+                Text('profile_country_value'.tr(namedArgs: {'country': '${user['country'] ?? ''}'})),
               ],
             ),
           );

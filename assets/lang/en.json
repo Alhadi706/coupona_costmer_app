@@ -315,79 +315,246 @@
   "diagnostic_analytics_model_scheduled": "Diagnostic analytics model training scheduled.",
   "descriptive_analytics_model_scheduled": "Descriptive analytics model training scheduled.",
   "exploratory_data_analysis_model_scheduled": "Exploratory data analysis model training scheduled.",
-  "my_rewards_title": "My Rewards",
-  "my_rewards_points_balance": "Your Points Balance",
-  "my_rewards_points_needed": "You need {points} points to get the next prize",
-  "my_rewards_how_to_increase": "How to increase your points?",
-  "my_rewards_tip1": "1. Purchase from participating stores: Each invoice gives you points according to the store's policy.",
-  "my_rewards_tip2": "2. Use coupons: When your coupon is used by another user, you get points.",
-  "my_rewards_tip3": "3. Upload offers from inactive stores: You get symbolic points as a reward.",
-  "my_rewards_increase_btn": "Increase My Points",
-  "my_rewards_available_prizes": "Available Prizes",
-  "my_rewards_points": "Points: {points}",
-  "my_rewards_receive_prize": "Receive Prize",
-  "my_rewards_show_qr": "Please show the QR code to the cashier to scan and receive your prize",
-  "my_rewards_close": "Close",
-  "my_rewards_receive_btn": "Receive Prize",
-  "my_rewards_prize_details": "Prize Details",
-  "my_rewards_prize_name": "Prize Name: {name}",
-  "my_rewards_prize_required_points": "Required Points: {points}",
-  "my_rewards_collect_more": "Collect more points to get this prize!",
-  "my_rewards_details_btn": "Details",
-  "my_rewards_points_history": "Points History",
-  "my_rewards_date": "Date",
-  "my_rewards_amount": "Amount",
-  "my_rewards_source": "Source",
-  "my_rewards_balance": "Balance",
-  "my_rewards_expiry_alert": "Alert: Some of your points will expire soon!",
-  "my_rewards_shops_map": "Participating Shops Map (Demo)",
-  "my_rewards_points_chart": "Points Progress Chart (Demo)",
-  "community_title": "Coupona Community",
-  "community_groups_tab": "Groups",
-  "community_private_tab": "Private Messages",
-  "community_no_groups": "No groups available",
-  "community_groups_title": "Community Groups",
-  "community_create_group_title": "Request New Group",
-  "community_group_name": "Group Name",
-  "cancel": "Cancel",
-  "community_create": "Create",
-  "community_sent": "Sent",
-  "community_sent_waiting": "Your group creation request has been sent and is awaiting admin approval.",
-  "ok": "OK",
-  "community_create_group_btn": "Request New Group",
-  "community_no_messages": "No messages yet",
-  "community_write_message": "Write a message...",
-  "community_message_sent": "Message sent (demo)",
-  "community_chat_with_ahmed": "Chat with Seller Ahmed",
-  "community_chat_ahmed_msg": "Hello, how can I benefit from the offer?",
-  "community_chat_with_mohamed": "Chat with Customer Mohamed",
-  "community_chat_mohamed_msg": "Coupon received successfully!",
-  "offers_title": "Available Offers",
-  "offers_no_offers": "No offers available currently",
-  "offers_expires": "Expires: {date}",
-  "offers_details_btn": "View Details",
-  "app_title": "Coupona",
-  "home_nav": "Home",
+  "offline_no_internet": "No internet connection",
+  "wallet_ledger": "Wallet and Accounting Ledger",
+  "planned_feature_coming_soon": "{feature} will be available soon.",
+  "scan_invoice_title": "Scan Invoice",
+  "scan_invoice_capture_error": "An error occurred while capturing the image.",
+  "scan_invoice_ocr_error": "Could not read invoice text (OCR): {error}",
+  "scan_invoice_no_text": "No clear text was detected in the image. Try capturing again with better lighting.",
+  "scan_invoice_duplicate": "This invoice was already submitted before, so it was not accepted again.",
+  "scan_invoice_too_old": "The invoice date is too old based on policy, so points were not applied.",
+  "scan_invoice_rewards_save_error": "Invoice was read, but failed to save rewards: {error}",
+  "scan_invoice_total_unclear": "Text was extracted, but the total amount is unclear. You can retake the photo or enter amount later.",
+  "scan_invoice_frame_hint": "Place the invoice inside the frame",
+  "scan_invoice_capture_photo": "Capture Photo",
+  "scan_invoice_capture_long": "Capture Long Receipt",
+  "scan_invoice_engine_merchant_only": "Active engine: Merchant name capture only (Merchant Engine v2)",
+  "scan_invoice_total_detected": "Detected total: {total}",
+  "scan_invoice_not_available": "Unavailable",
+  "scan_invoice_invoice_number": "Invoice number: {value}",
+  "scan_invoice_order_number": "Order number: {value}",
+  "scan_invoice_store_name": "Store name: {value}",
+  "scan_invoice_confidence_high": "Confidence is high, but you can confirm from candidates:",
+  "scan_invoice_confidence_low": "Confidence is low, choose the correct name from candidates:",
+  "scan_invoice_date": "Date: {value}",
+  "scan_invoice_category": "Consumption category: {value}",
+  "scan_invoice_items_extracted": "Extracted items:",
+  "scan_invoice_quantity_label": "Qty",
+  "scan_invoice_unit_price_label": "Unit price",
+  "scan_invoice_line_total_label": "Line total",
+  "scan_invoice_item_template": "- {name} | {qtyLabel}: {qty} | {unitLabel}: {unit} | {totalLabel}: {total}",
+  "scan_invoice_demo_mode": "Demo mode: invoice and rewards saving is temporarily disabled.",
+  "scan_invoice_reward_applied": "Cashback and points were recorded successfully.",
+  "scan_invoice_reward_not_applied": "Points were not auto-applied for this invoice yet.",
+  "scan_invoice_no_text_extracted": "No extracted text yet.",
+  "scan_invoice_reanalyze": "Reanalyze",
+  "scan_invoice_new_image": "New Image",
+  "scan_invoice_pick_other_image": "Choose Another Image",
+  "app_name": "Coupona",
   "offers_nav": "Offers",
   "community_nav": "Community",
-  "rewards_nav": "My Rewards",
-  "report_icon": "Reports",
-  "menu_icon": "Menu",
-  "add_invoice_icon": "Add Offer",
-  "progress_to_next_reward": "Progress to next reward:",
-  "points_left_to_reward": "12 points left to get a 30 Dinar discount coupon",
-  "available_rewards_now": "Rewards you can get now:",
-  "reward_coupon_10": "10 Dinar Discount Coupon",
-  "reward_gift_free": "Free Gift",
-  "smart_ways_to_increase_points": "Smart ways to increase your points:",
-  "tip_scan_invoices": "Scan invoices from participating stores",
-  "tip_invite_friends": "Invite friends to the app",
-  "tip_use_public_coupons": "Use public coupons from other users",
-  "search_hint": "Search for coupons, stores...",
+  "my_rewards_nav": "My Rewards",
   "cars": "Cars",
   "jewelry": "Jewelry",
-  "hotels": "Hotels",
-  "clothing": "Clothing",
-  "clinics": "Clinics",
-  "all_categories": "All Categories"
+  "accommodation": "Accommodation",
+  "all_categories": "All Categories",
+  "home_hero_title": "Discover the nearest offers",
+  "home_hero_subtitle": "Choose a category, browse real offers, and benefit from your points easily.",
+  "nearby_stores": "Nearby Stores",
+  "home_last_updated_now": "Last update: now",
+  "home_search_hint": "Search by store name or offer type",
+  "active_offers": "Active Offers",
+  "available_points": "Available Points",
+  "categories": "Categories",
+  "choose_category_interest": "Choose the category you care about",
+  "featured_offers": "Featured Offers",
+  "best_three_offers_now": "Top 3 offers right now",
+  "view_all_offers": "View all offers",
+  "no_offers_available_now": "No offers are available now",
+  "no_search_results_current": "No matching results for current search.",
+  "new_offer": "New Offer",
+  "offer_category_value": "Category: {category}",
+  "map": "Map",
+  "nearest_stores_around_you": "Nearest stores around you",
+  "expand": "Expand",
+  "points_summary": "Points Summary",
+  "take_action_faster": "Take action faster",
+  "points_remaining_reward": "{points} points left to get a {reward} dinar coupon",
+  "coupon_value_label": "{value} dinar coupon",
+  "free_gift": "Free gift",
+  "expand_map": "Expand map",
+  "stores_map_title": "Stores Map",
+  "search_store_or_category_hint": "Search for a store or category...",
+  "offers_for_category": "{category} offers",
+  "no_offers_for_category": "No offers available for this category",
+  "featured_offer": "Featured Offer",
+  "offer": "Offer",
+  "ends_on": "Ends: {date}",
+  "view_details": "View Details",
+  "activity_log_fetch_error": "Failed to fetch activity log: {error}",
+  "activity_log_empty": "No activity log found.",
+  "transaction_amount_value": "Transaction amount: {amount}",
+  "transaction_date_value": "Transaction date: {date}",
+  "rewards_load_error": "Failed to load rewards data: {error}",
+  "ledger_cashback_earned": "Cashback earned",
+  "ledger_points_earned": "Points earned",
+  "ledger_points_redeemed": "Points redeemed",
+  "reward_invalid_value": "Invalid reward value.",
+  "reward_insufficient_points": "Insufficient points to redeem this reward.",
+  "reward_redeemed_success": "{reward} was redeemed successfully.",
+  "reward_generic": "reward",
+  "reward_redeem_error": "Failed to redeem reward: {error}",
+  "your_points_balance": "Your points balance",
+  "available_rewards": "Available rewards",
+  "no_rewards_available_now": "No rewards available now.",
+  "redeem_points_value": "Redeem {value}",
+  "transactions_log": "Transactions log",
+  "no_log_entries_yet": "No log entries yet.",
+  "points_value": "{points} points",
+  "currency_amount_value": "{amount} SAR",
+  "groups_tab": "Groups",
+  "private_messages_tab": "Private Messages",
+  "community_title": "Coupona Community",
+  "create_new_group": "Create new group",
+  "group_name": "Group name",
+  "group_description_optional": "Short description (optional)",
+  "cancel": "Cancel",
+  "group_created_success": "Group created successfully.",
+  "group_create_error": "Failed to create group: {error}",
+  "create": "Create",
+  "community_groups": "Community groups",
+  "groups_count_value": "Groups count: {count}",
+  "create_group": "Create group",
+  "search_group_hint": "Search groups by name or description",
+  "most_members": "Most members",
+  "alphabetical_order": "Alphabetical",
+  "no_group_results": "No matching results. Try changing search or create a new group.",
+  "send_message_error": "Failed to send message: {error}",
+  "user_generic": "User",
+  "open_private_chat_error": "Failed to open private chat: {error}",
+  "no_replies_yet": "No replies yet",
+  "write_reply_hint": "Write your reply...",
+  "send_reply": "Send reply",
+  "no_messages_yet": "No messages yet",
+  "reply": "Reply",
+  "like": "Like",
+  "heart": "Heart",
+  "message": "Message",
+  "replies_count": "Replies {count}",
+  "reply_to_value": "Reply to: {value}",
+  "write_message_hint": "Write a message...",
+  "chat_hidden": "Chat hidden.",
+  "chat_deleted_from_list": "Chat removed from your list.",
+  "chat_muted": "Chat notifications muted.",
+  "chat_unmuted": "Chat unmuted.",
+  "chat_pinned": "Chat pinned.",
+  "chat_unpinned": "Chat unpinned.",
+  "user_blocked": "{label} was blocked.",
+  "manage_blocked_users": "Manage blocked users",
+  "no_blocked_users": "No blocked users.",
+  "user_unblocked": "{email} was unblocked.",
+  "unblock_error": "Failed to unblock: {error}",
+  "unblock": "Unblock",
+  "close": "Close",
+  "no_private_chats_yet": "No private chats yet.",
+  "blocked_users": "Blocked Users",
+  "private_chat_default_title": "Private chat",
+  "peer_user_not_found": "Could not identify the other user in this chat.",
+  "action_failed": "Action failed: {error}",
+  "unpin_chat": "Unpin chat",
+  "pin_chat": "Pin chat",
+  "unmute_chat": "Unmute",
+  "mute_notifications": "Mute notifications",
+  "hide_chat": "Hide chat",
+  "delete_from_list": "Remove from my list",
+  "block_user": "Block user",
+  "write_private_message_hint": "Write a private message..."
+  ,"login_title": "Login"
+  ,"login_error": "Login error: {error}"
+  ,"enter_email": "Enter email."
+  ,"invalid_email_format": "Invalid email format."
+  ,"enter_password": "Enter password."
+  ,"password_min_length": "Password must be at least 8 characters."
+  ,"login_button": "Login"
+  ,"new_user_create_account": "New user? Create an account"
+  ,"signup_title": "Create new account"
+  ,"passwords_do_not_match": "Passwords do not match!"
+  ,"account_created_success": "Account created successfully."
+  ,"generic_error_with_message": "Error: {error}"
+  ,"confirm_password_prompt": "Confirm the password."
+  ,"signup_button": "Create account"
+  ,"available_offers_now_title": "Offers available now"
+  ,"untitled_offer": "Untitled"
+  ,"location_on_map": "Location on map"
+  ,"no_precise_coordinates_offer": "No precise coordinates for this offer"
+  ,"open_in_maps": "Open in maps"
+  ,"offer_details_title": "Offer details"
+  ,"conditions": "Conditions"
+  ,"phone_number": "Phone number"
+  ,"could_not_open_call": "Could not open call"
+  ,"call": "Call"
+  ,"share_offer": "Share offer"
+  ,"share_via": "Share via:"
+  ,"share_offer_text": "Offer from Coupona:\n{storeName}\n{description}\n{location}"
+  ,"whatsapp": "WhatsApp"
+  ,"facebook": "Facebook"
+  ,"telegram": "Telegram"
+  ,"shared_in_community_success": "Shared in Coupona community!"
+  ,"users_list_title": "Users list"
+  ,"no_users_found": "No users found"
+  ,"message": "Message"
+  ,"profile_no_data": "No profile data available"
+  ,"profile_email_value": "Email: {email}"
+  ,"profile_name_value": "Name: {name}"
+  ,"profile_gender_value": "Gender: {gender}"
+  ,"profile_city_value": "City: {city}"
+  ,"profile_country_value": "Country: {country}"
+  ,"report_issue_title": "Report an issue"
+  ,"report_issue_placeholder": "Report screen (under construction)"
+  ,"pick_location_on_map": "Pick location on map"
+  ,"choose_this_location": "Choose this location"
+  ,"my_points_value": "My points: {points}"
+  ,"day_value": "Day {day}"
+  ,"points_progress_last_7_days": "Your points progress over the last 7 days"
+  ,"reward_redeem_error": "Failed to redeem reward: {error}"
+  ,"complete_profile_title": "Complete profile"
+  ,"full_name": "Full name"
+  ,"male": "Male"
+  ,"female": "Female"
+  ,"gender": "Gender"
+  ,"city": "City"
+  ,"country": "Country"
+  ,"save_data": "Save data"
+  ,"profile_saved_success": "Data saved successfully!"
+  ,"profile_save_error": "Error saving data: {error}"
+  ,"coupon_lifecycle_title": "Coupon lifecycle engine"
+  ,"lifecycle_draft": "Draft"
+  ,"lifecycle_pending_review": "Pending review"
+  ,"lifecycle_approved": "Approved"
+  ,"lifecycle_rejected": "Rejected"
+  ,"lifecycle_active": "Active"
+  ,"lifecycle_redeemed": "Redeemed"
+  ,"lifecycle_expired": "Expired"
+  ,"lifecycle_archived": "Archived"
+  ,"offer_id_required": "Offer ID is required."
+  ,"lifecycle_load_success": "Offer lifecycle loaded successfully."
+  ,"lifecycle_bind_error": "Failed to bind offer: {error}"
+  ,"bind_offer_first": "Bind the offer first."
+  ,"lifecycle_changed_to": "Status changed to {status}."
+  ,"lifecycle_change_error": "Failed to change status: {error}"
+  ,"offer_id_label": "Offer ID"
+  ,"bind_offer": "Bind offer"
+  ,"lifecycle_reason_optional": "Action reason (optional)"
+  ,"offer_value": "Offer: {value}"
+  ,"last_updated_value": "Last updated: {value}"
+  ,"reason_value": "Reason: {value}"
+  ,"send_for_review": "Send for review"
+  ,"approve": "Approve"
+  ,"reject": "Reject"
+  ,"activate": "Activate"
+  ,"confirm_redemption": "Confirm redemption"
+  ,"expire": "Expire"
+  ,"archive": "Archive"
+  ,"lifecycle_note": "Note: this is an admin screen for managing offer states from draft to archive."
 }

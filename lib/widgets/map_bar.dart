@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:easy_localization/easy_localization.dart';
-import '../../screens/full_map_screen.dart';
+import '../screens/full_map_screen.dart';
+import '../services/company_server_service.dart';
 
 class MapBar extends StatefulWidget {
   final VoidCallback? onExpand;
-  const MapBar({Key? key, this.onExpand}) : super(key: key);
+  const MapBar({super.key, this.onExpand});
 
   @override
   State<MapBar> createState() => _MapBarState();
 }
 
 class _MapBarState extends State<MapBar> {
+  static const LatLng _tripoliDefaultCenter = LatLng(32.8872, 13.1913);
+  late final Future<List<Map<String, dynamic>>> _storesFuture;
+
   String searchText = '';
   String selectedCategory = '';
   Map<String, dynamic>? selectedStore;
@@ -39,16 +42,16 @@ class _MapBarState extends State<MapBar> {
     });
   }
 
+  @override
+  void initState() {
+    super.initState();
+    _storesFuture = CompanyServerService.getStores();
+  }
+
   void _expandMap() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const FullMapScreen()),
     );
-  }
-
-  void _shrinkMap() {
-    setState(() {
-      selectedStore = null;
-    });
   }
 
   void _showStoreDetails(Map<String, dynamic> store) {
@@ -69,7 +72,7 @@ class _MapBarState extends State<MapBar> {
             Text(store['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
             if (store['category'] != null) ...[
               const SizedBox(height: 8),
-              Chip(label: Text(store['category'])),
+              Chip(label: Text(_localizeCategory(store['category']))),
             ],
             if (store['description'] != null) ...[
               const SizedBox(height: 8),
@@ -91,112 +94,115 @@ class _MapBarState extends State<MapBar> {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    // فلترة حسب البحث والتصنيف
-    final filteredStores = stores.where((store) {
-      final matchesSearch = searchText.isEmpty || (store['name']?.toString().contains(searchText) ?? false);
-      final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
-      return matchesSearch && matchesCategory;
-    }).toList();
-    // قائمة التصنيفات المخصصة (مفاتيح ترجمة)
-    final List<String> categories = [
-      'restaurants',
-      'cars',
-      'jewelry',
-      'hotels',
-      'real_estate',
-      'clothing',
-      'clinics',
-      'electronics',
-      'activities',
-      'other',
-    ];
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        GestureDetector(
-          onTap: _expandMap,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              height: MediaQuery.of(context).size.height * 0.28,
-              width: double.infinity,
-              child: Stack(
-                children: [
-                  FlutterMap(
-                    options: MapOptions(
-                      center: filteredStores.isNotEmpty
-                          ? LatLng(filteredStores[0]['lat'], filteredStores[0]['lng'])
-                          : LatLng(24.7136, 46.6753),
-                      zoom: 12.0,
-                      interactiveFlags: InteractiveFlag.none,
-                    ),
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _storesFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final stores = snapshot.data!;
+        // فلترة حسب البحث والتصنيف
+        final filteredStores = stores.where((store) {
+          final matchesSearch = searchText.isEmpty || (store['name']?.toString().contains(searchText) ?? false);
+          final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
+          return matchesSearch && matchesCategory;
+        }).toList();
+        final categories = stores
+            .map((store) => (store['category'] ?? '').toString().trim())
+            .where((c) => c.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            GestureDetector(
+              onTap: _expandMap,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.28,
+                  width: double.infinity,
+                  child: Stack(
                     children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.example.coupona_app',
-                        tileProvider: CancellableNetworkTileProvider(),
-                      ),
-                      MarkerLayer(
-                        markers: [
-                          for (final store in filteredStores)
-                            Marker(
-                              width: 40,
-                              height: 40,
-                              point: LatLng(store['lat'], store['lng']),
-                              child: GestureDetector(
-                                onTap: () => _showStoreDetails(store),
-                                child: Icon(Icons.location_on, color: Colors.red, size: 36),
-                              ),
-                            ),
+                      FlutterMap(
+                        options: MapOptions(
+                          initialCenter: filteredStores.isNotEmpty
+                              ? LatLng(_toDouble(filteredStores[0]['lat']), _toDouble(filteredStores[0]['lng']))
+                              : _tripoliDefaultCenter,
+                          initialZoom: 12.0,
+                          interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+                        ),
+                        children: [
+                          TileLayer(
+                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.example.coupona_app',
+                            tileProvider: NetworkTileProvider(),
+                          ),
+                          MarkerLayer(
+                            markers: [
+                              for (final store in filteredStores)
+                                Marker(
+                                  width: 40,
+                                  height: 40,
+                                  point: LatLng(_toDouble(store['lat']), _toDouble(store['lng'])),
+                                  child: GestureDetector(
+                                    onTap: () => _showStoreDetails(store),
+                                    child: const Icon(Icons.location_on, color: Colors.red, size: 36),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
-                  Positioned(
-                    bottom: 12,
-                    right: 12,
-                    child: CircleAvatar(
-                      backgroundColor: Colors.white,
-                      child: IconButton(
-                        icon: Icon(Icons.fullscreen, color: Colors.deepPurple),
-                        onPressed: _expandMap,
-                        tooltip: 'تكبير الخريطة',
+                      Positioned(
+                        bottom: 12,
+                        right: 12,
+                        child: CircleAvatar(
+                          backgroundColor: Colors.white,
+                          child: IconButton(
+                            icon: Icon(Icons.fullscreen, color: Colors.deepPurple),
+                            onPressed: _expandMap,
+                            tooltip: 'expand_map'.tr(),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  // شريط التصنيفات
-                  Positioned(
-                    top: 95,
-                    left: 24,
-                    right: 24,
-                    child: IgnorePointer(
-                      ignoring: false,
-                      child: AnimatedOpacity(
-                        opacity: true ? 1.0 : 0.0,
-                        duration: Duration(milliseconds: 200),
-                        child: Material(
-                          elevation: 4,
-                          borderRadius: BorderRadius.circular(12),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.98),
+                      // شريط التصنيفات
+                      Positioned(
+                        top: 95,
+                        left: 24,
+                        right: 24,
+                        child: IgnorePointer(
+                          ignoring: false,
+                          child: AnimatedOpacity(
+                            opacity: 1.0,
+                            duration: Duration(milliseconds: 200),
+                            child: Material(
+                              elevation: 4,
                               borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  for (final cat in categories)
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                                      child: FilterChip(
-                                        label: Text(cat.tr()),
-                                        selected: selectedCategory == cat,
-                                        onSelected: (_) => setState(() => selectedCategory = selectedCategory == cat ? '' : cat),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.98),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      for (final cat in categories)
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                          child: FilterChip(
+                                            label: Text(_localizeCategory(cat)),
+                                            selected: selectedCategory == cat,
+                                            onSelected: (_) => setState(() => selectedCategory = selectedCategory == cat ? '' : cat),
+                                          ),
+                                        ),
+                                      FilterChip(
+                                        label: Text('all_categories'.tr()),
+                                        selected: selectedCategory == '',
+                                        onSelected: (_) => setState(() => selectedCategory = ''),
                                       ),
                                     ),
                                   FilterChip(
@@ -219,5 +225,53 @@ class _MapBarState extends State<MapBar> {
         ),
       ],
     );
+  }
+
+  double _toDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _localizeCategory(dynamic value) {
+    final raw = (value ?? '').toString().trim().toLowerCase();
+    switch (raw) {
+      case 'مطاعم':
+      case 'restaurants':
+        return 'restaurants'.tr();
+      case 'عقارات':
+      case 'real_estate':
+      case 'real estate':
+        return 'real_estate'.tr();
+      case 'ملابس':
+      case 'clothes':
+        return 'clothes'.tr();
+      case 'إلكترونيات':
+      case 'electronics':
+        return 'electronics'.tr();
+      case 'استراحات':
+      case 'resthouses':
+        return 'resthouses'.tr();
+      case 'صحة':
+      case 'health':
+        return 'health'.tr();
+      case 'أنشطة':
+      case 'activities':
+        return 'activities'.tr();
+      case 'أخرى':
+      case 'other':
+        return 'other'.tr();
+      case 'مجوهرات':
+      case 'jewelry':
+        return 'jewelry'.tr();
+      case 'سيارات':
+      case 'cars':
+        return 'cars'.tr();
+      case 'إقامة':
+      case 'accommodation':
+        return 'accommodation'.tr();
+      default:
+        return (value ?? '').toString();
+    }
   }
 }

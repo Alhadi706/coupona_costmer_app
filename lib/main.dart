@@ -1,32 +1,64 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:easy_localization/easy_localization.dart';
 
+import 'foundation/app_logger.dart';
 import 'screens/login_screen.dart'; // استيراد شاشة تسجيل الدخول
 import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart'; // استيراد الشاشة الرئيسية
-import 'firebase_options.dart';
-import 'services/supabase_service.dart';
-import 'services/supabase_invoice_service.dart'; // استيراد خدمة Supabase لحذف العروض
+import 'services/app_session.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await EasyLocalization.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  await SupabaseService.init();
-  runApp(
-    EasyLocalization(
-      supportedLocales: const [Locale('ar'), Locale('en'), Locale('fr'), Locale('es'), Locale('tr'), Locale('ru'), Locale('zh')],
-      path: 'assets/lang',
-      fallbackLocale: const Locale('ar'),
-      child: const MyApp(),
-    ),
-  );
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    FlutterError.onError = (FlutterErrorDetails details) {
+      AppLogger.error('Flutter framework error', details.exception, details.stack);
+      FlutterError.presentError(details);
+    };
+
+    PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+      AppLogger.error('Unhandled platform error', error, stack);
+      return true;
+    };
+
+    await EasyLocalization.ensureInitialized();
+    AppLogger.info('Booting in server-only mode.');
+
+    runApp(
+      EasyLocalization(
+        supportedLocales: const [
+          Locale('ar'),
+          Locale('en'),
+          Locale('fr'),
+          Locale('es'),
+          Locale('tr'),
+          Locale('ru'),
+          Locale('zh'),
+          Locale('de'),
+          Locale('it'),
+          Locale('pt'),
+          Locale('hi'),
+          Locale('id'),
+          Locale('ja'),
+          Locale('ko'),
+          Locale('bn'),
+          Locale('ur'),
+        ],
+        path: 'assets/lang',
+        fallbackLocale: const Locale('ar'),
+        saveLocale: true,
+        useOnlyLangCode: true,
+        child: const MyApp(),
+      ),
+    );
+  }, (Object error, StackTrace stack) {
+    AppLogger.error('Unhandled zoned error', error, stack);
+  });
 }
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -39,9 +71,15 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  Future<bool> _shouldShowOnboarding() async {
+  Future<Map<String, bool>> _resolveLaunchState() async {
     final prefs = await SharedPreferences.getInstance();
-    return !(prefs.getBool('onboarding_done') ?? false);
+    final shouldShowOnboarding = !(prefs.getBool('onboarding_done') ?? false);
+    final token = await AppSession.token();
+    final hasSession = token != null && token.trim().isNotEmpty;
+    return <String, bool>{
+      'shouldShowOnboarding': shouldShowOnboarding,
+      'hasSession': hasSession,
+    };
   }
 
   // زر مؤقت لإضافة فاتورة وهمية
@@ -76,10 +114,16 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final easy = EasyLocalization.of(context);
+
     return MaterialApp(
-      locale: context.locale, // استخدم locale من easy_localization
-      supportedLocales: context.supportedLocales,
-      localizationsDelegates: context.localizationDelegates,
+      locale: easy?.locale ?? const Locale('ar'),
+      supportedLocales: easy?.supportedLocales ?? const [Locale('ar')],
+      localizationsDelegates: easy?.delegates ?? const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       navigatorKey: navigatorKey,
       title: 'Coupona App',
       theme: ThemeData(
@@ -92,43 +136,45 @@ class _MyAppState extends State<MyApp> {
         primarySwatch: Colors.deepPurple,
         scaffoldBackgroundColor: const Color(0xFF181A20),
         cardColor: const Color(0xFF23242B),
-        dialogBackgroundColor: const Color(0xFF23242B),
+        dialogTheme:
+            const DialogThemeData(backgroundColor: Color(0xFF23242B)),
         appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF23242B)),
         textTheme: const TextTheme(bodyMedium: TextStyle(color: Colors.white)),
       ),
       themeMode: ThemeMode.system, // دعم الوضع الليلي تلقائي
-      home: Stack(
-        children: [
-          FutureBuilder<bool>(
-            future: _shouldShowOnboarding(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox.shrink();
-              }
-              if (snapshot.data == true) {
-                return OnboardingScreen(onFinish: () {});
-              } else {
-                return HomeScreen(phone: '000000000'); // رقم هاتف تجريبي
-              }
-            },
-          ),
-          Positioned(
-            bottom: 40,
-            right: 20,
-            child: FloatingActionButton.extended(
-              onPressed: _addTestInvoice,
-              label: const Text('فاتورة تجريبية'),
-              icon: const Icon(Icons.receipt_long),
-              backgroundColor: Colors.deepPurple,
-            ),
-          ),
-        ],
+      home: FutureBuilder<Map<String, bool>>(
+        future: _resolveLaunchState(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final state = snapshot.data!;
+          final shouldShowOnboarding = state['shouldShowOnboarding'] ?? true;
+          final hasSession = state['hasSession'] ?? false;
+
+          if (shouldShowOnboarding) {
+            return OnboardingScreen(
+              onFinish: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => LoginPage()),
+              ),
+            );
+          }
+
+          if (!hasSession) {
+            return LoginPage();
+          }
+
+          return const MainAppWithFeatures();
+        },
       ),
     );
   }
 }
 
 class MainAppWithFeatures extends StatefulWidget {
+  const MainAppWithFeatures({super.key});
+
   @override
   State<MainAppWithFeatures> createState() => _MainAppWithFeaturesState();
 }
@@ -165,8 +211,8 @@ class _MainAppWithFeaturesState extends State<MainAppWithFeatures> {
             child: Container(
               color: Colors.red,
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: const Center(
-                child: Text('لا يوجد اتصال بالإنترنت', style: TextStyle(color: Colors.white)),
+              child: Center(
+                child: Text('offline_no_internet'.tr(), style: const TextStyle(color: Colors.white)),
               ),
             ),
           ),

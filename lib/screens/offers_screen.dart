@@ -1,104 +1,257 @@
 // filepath: lib/screens/offers_screen.dart
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'offer_detail_screen.dart';
-import 'home_screen.dart';
+import '../services/company_server_service.dart';
 
 class OffersScreen extends StatelessWidget {
-  const OffersScreen({super.key});
+  final bool embedded;
+
+  const OffersScreen({super.key}) : embedded = false;
+
+  const OffersScreen.embedded({super.key}) : embedded = true;
+
+  Widget _buildOfferImage(String imageUrl) {
+    final String trimmed = imageUrl.trim();
+    final bool isAsset = trimmed.startsWith('assets/');
+    if (trimmed.isEmpty) {
+      return Container(
+        height: 170,
+        color: Colors.grey.shade200,
+        child: const Icon(Icons.image_outlined, color: Colors.grey, size: 52),
+      );
+    }
+    if (isAsset) {
+      return Image.asset(
+        trimmed,
+        height: 170,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
+    }
+    return Image.network(
+      trimmed,
+      height: 170,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        height: 170,
+        color: Colors.grey.shade200,
+        child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 52),
+      ),
+    );
+  }
+
+  Widget _buildOffersBody(BuildContext context) {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: Stream.periodic(const Duration(seconds: 5))
+          .asyncMap((_) => CompanyServerService.getOffers())
+          .startWithFuture(CompanyServerService.getOffers()),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(child: Text('no_offers_available_now'.tr()));
+        }
+        final offers = snapshot.data!;
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: offers.length,
+          itemBuilder: (context, i) {
+            final offer = offers[i];
+            final imageUrl =
+                (offer['imageUrl'] ?? offer['image'] ?? '').toString();
+            final storeName = (offer['storeName'] ?? 'عرض مميز').toString();
+            final offerType = (offer['offerType'] ?? '').toString();
+            final percent = (offer['percent'] ?? '').toString();
+            final endDate = (offer['endDate'] ?? '').toString();
+            final price = (offer['price'] ?? '').toString();
+            final location = (offer['location'] ?? '').toString();
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              elevation: 0,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                    child: Stack(
+                      children: [
+                        _buildOfferImage(imageUrl),
+                        Positioned(
+                          top: 10,
+                          left: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              offerType.isEmpty ? 'offer'.tr() : offerType,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          storeName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            if (percent.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple.shade50,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  percent,
+                                  style: TextStyle(
+                                    color: Colors.deepPurple.shade700,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            if (endDate.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                  child: Text(
+                                    'ends_on'.tr(namedArgs: {'date': endDate}),
+                                  style: TextStyle(
+                                    color: Colors.red.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        if (price.isNotEmpty || location.isNotEmpty)
+                          Row(
+                            children: [
+                              if (price.isNotEmpty)
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.sell_outlined, size: 16, color: Colors.black54),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          price,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(color: Colors.black87),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (location.isNotEmpty)
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.location_on_outlined, size: 16, color: Colors.black54),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          location,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(color: Colors.black54),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.deepPurple,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => OfferDetailScreen(offer: offer),
+                                ),
+                              );
+                            },
+                            child: Text('view_details'.tr()),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (embedded) {
+      return _buildOffersBody(context);
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('offers_title'.tr()),
+        title: Text('available_offers_now_title'.tr()),
         backgroundColor: Colors.deepPurple.shade700,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('offers').orderBy('createdAt', descending: true).snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text('offers_no_offers'.tr()));
-          }
-          final offers = snapshot.data!.docs;
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: offers.length,
-            itemBuilder: (context, i) {
-              final offer = offers[i].data() as Map<String, dynamic>;
-              return Card(
-                margin: const EdgeInsets.only(bottom: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                      child: offer['imageUrl'] != null && offer['imageUrl'] != ''
-                          ? Image.network(
-                              offer['imageUrl'],
-                              height: 140,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                height: 140,
-                                color: Colors.grey.shade200,
-                                child: Icon(Icons.image_not_supported, color: Colors.grey, size: 60),
-                              ),
-                            )
-                          : Container(
-                              height: 140,
-                              color: Colors.grey.shade200,
-                              child: Icon(Icons.image, color: Colors.grey, size: 60),
-                            ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(offer['storeName'] ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Chip(label: Text(offer['offerType'] ?? '')),
-                              if ((offer['percent'] ?? '').isNotEmpty) ...[
-                                const SizedBox(width: 8),
-                                Chip(label: Text(offer['percent'] ?? '')),
-                              ],
-                              const SizedBox(width: 8),
-                              Text('offers_expires'.tr(namedArgs: {'date': offer['endDate'] ?? ''}), style: const TextStyle(color: Colors.red)),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => OfferDetailScreen(offer: offer),
-                                  ),
-                                );
-                              },
-                              child: Text('offers_details_btn'.tr()),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+      body: _buildOffersBody(context),
     );
+  }
+}
+
+extension _StreamInit<T> on Stream<T> {
+  Stream<T> startWithFuture(Future<T> first) async* {
+    yield await first;
+    yield* this;
   }
 }
 

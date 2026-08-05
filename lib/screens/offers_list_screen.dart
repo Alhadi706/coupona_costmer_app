@@ -1,15 +1,15 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
+import '../services/company_server_service.dart';
 
 class OffersListScreen extends StatefulWidget {
-  const OffersListScreen({Key? key}) : super(key: key);
+  const OffersListScreen({super.key});
 
   @override
   State<OffersListScreen> createState() => _OffersListScreenState();
 }
 
 class _OffersListScreenState extends State<OffersListScreen> {
-  // ملاحظة: يجب لاحقًا استبدال منطق جلب العروض بمنطق Firestore
   late Future<List<Map<String, dynamic>>> _offersFuture;
 
   @override
@@ -20,8 +20,7 @@ class _OffersListScreenState extends State<OffersListScreen> {
 
   Future<List<Map<String, dynamic>>> fetchOffers() async {
     try {
-      final querySnapshot = await FirebaseFirestore.instance.collection('offers').get();
-      return querySnapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+      return CompanyServerService.getOffers();
     } catch (e) {
       debugPrint('Fetch offers error: $e');
       rethrow;
@@ -32,7 +31,7 @@ class _OffersListScreenState extends State<OffersListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('قائمة العروض'),
+        title: Text('offers_list'.tr()),
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _offersFuture,
@@ -40,9 +39,9 @@ class _OffersListScreenState extends State<OffersListScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('حدث خطأ: \n${snapshot.error}'));
+            return Center(child: Text('generic_error_with_message'.tr(namedArgs: {'error': '${snapshot.error}'})));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('لا يوجد عروض'));
+            return Center(child: Text('no_offers_available_now'.tr()));
           }
           final offers = snapshot.data!;
           return ListView.separated(
@@ -52,7 +51,7 @@ class _OffersListScreenState extends State<OffersListScreen> {
               final offer = offers[index];
               return ListTile(
                 leading: const Icon(Icons.local_offer),
-                title: Text(offer['title'] ?? 'بدون عنوان'),
+                title: Text((offer['title'] ?? 'untitled_offer'.tr()).toString()),
                 subtitle: Text(offer['description'] ?? ''),
                 trailing: Text(offer['id'].toString()),
               );

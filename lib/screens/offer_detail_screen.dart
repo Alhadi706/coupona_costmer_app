@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
@@ -7,7 +10,192 @@ import 'package:intl/intl.dart';
 
 class OfferDetailScreen extends StatefulWidget {
   final Map<String, dynamic> offer;
-  const OfferDetailScreen({Key? key, required this.offer}) : super(key: key);
+  const OfferDetailScreen({super.key, required this.offer});
+
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString().trim());
+  }
+
+  LatLng? _extractLatLng() {
+    final double? directLat = _toDouble(offer['lat']) ?? _toDouble(offer['latitude']);
+    final double? directLng = _toDouble(offer['lng']) ?? _toDouble(offer['longitude']);
+    if (directLat != null && directLng != null) {
+      return LatLng(directLat, directLng);
+    }
+
+    final String locationRaw = (offer['location'] ?? '').toString().trim();
+    final parts = locationRaw.split(',');
+    if (parts.length == 2) {
+      final maybeLat = _toDouble(parts[0]);
+      final maybeLng = _toDouble(parts[1]);
+      if (maybeLat != null && maybeLng != null) {
+        return LatLng(maybeLat, maybeLng);
+      }
+    }
+
+    return null;
+  }
+
+  Widget _buildOfferImage(String imageUrl) {
+    final String trimmed = imageUrl.trim();
+    final bool isAsset = trimmed.startsWith('assets/');
+    if (trimmed.isEmpty) {
+      return Container(
+        height: 220,
+        color: Colors.grey.shade200,
+        child: const Icon(Icons.image_outlined, color: Colors.grey, size: 58),
+      );
+    }
+    if (isAsset) {
+      return Image.asset(
+        trimmed,
+        height: 220,
+        width: double.infinity,
+        fit: BoxFit.cover,
+      );
+    }
+    return Image.network(
+      trimmed,
+      height: 220,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => Container(
+        height: 220,
+        color: Colors.grey.shade200,
+        child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 58),
+      ),
+    );
+  }
+
+  Future<void> _openMap(LatLng position) async {
+    final geoUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}');
+    if (await canLaunchUrl(geoUri)) {
+      await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _openMapByQuery(String query) async {
+    final geoUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(query)}');
+    if (await canLaunchUrl(geoUri)) {
+      await launchUrl(geoUri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Widget _buildMapCard(BuildContext context) {
+    final LatLng? point = _extractLatLng();
+    final String locationText = (offer['location'] ?? '').toString().trim();
+
+    if (point == null && locationText.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.map_outlined, size: 18, color: Colors.deepPurple),
+                SizedBox(width: 6),
+                Text(
+                  'location_on_map',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (point != null)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  height: 200,
+                  child: FlutterMap(
+                    options: MapOptions(
+                      initialCenter: point,
+                      initialZoom: 14,
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        userAgentPackageName: 'coupona_app',
+                      ),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: point,
+                            width: 40,
+                            height: 40,
+                            child: const Icon(
+                              Icons.location_pin,
+                              color: Colors.red,
+                              size: 34,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              Container(
+                height: 90,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'no_precise_coordinates_offer'.tr(),
+                  style: TextStyle(color: Colors.black54),
+                ),
+              ),
+            if (locationText.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.place_outlined, size: 16, color: Colors.black54),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      locationText,
+                      style: const TextStyle(color: Colors.black54),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  if (point != null) {
+                    await _openMap(point);
+                  } else if (locationText.isNotEmpty) {
+                    await _openMapByQuery(locationText);
+                  }
+                },
+                icon: const Icon(Icons.open_in_new, size: 18),
+                label: Text('open_in_maps'.tr()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   State<OfferDetailScreen> createState() => _OfferDetailScreenState();
@@ -79,90 +267,96 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final offer = widget.offer;
+    final imageUrl = (offer['imageUrl'] ?? offer['image'] ?? '').toString();
+    final storeName = (offer['storeName'] ?? '').toString();
+    final offerType = (offer['offerType'] ?? '').toString();
+    final percent = (offer['percent'] ?? '').toString();
+    final endDate = (offer['endDate'] ?? '').toString();
+    final description = (offer['description'] ?? '').toString();
+    final conditions = (offer['conditions'] ?? '').toString();
+    final location = (offer['location'] ?? '').toString();
+    final phone = (offer['phone'] ?? '').toString();
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('تفاصيل العرض'),
+        title: Text('offer_details_title'.tr()),
         backgroundColor: Colors.deepPurple.shade700,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          if (offer['image'] != null && offer['image'] != '')
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.network(
-                offer['image'],
-                height: 220,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 220,
-                  color: Colors.grey.shade200,
-                  child: Icon(Icons.image_not_supported, color: Colors.grey, size: 60),
-                ),
-              ),
-            ),
-          const SizedBox(height: 16),
-          Text(offer['storeName'] ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              if (offer['offerType'] != null && offer['offerType'] != '')
-                Chip(label: Text(offer['offerType'])),
-              if (offer['percent'] != null && offer['percent'] != '') ...[
-                const SizedBox(width: 8),
-                Chip(label: Text(offer['percent'])),
-              ],
-              const SizedBox(width: 8),
-              if (offer['endDate'] != null && offer['endDate'] != '')
-                Text(getEndDateText(offer['endDate']), style: const TextStyle(color: Colors.red)),
-            ],
+          ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: _buildOfferImage(imageUrl),
           ),
           const SizedBox(height: 16),
-          if (offer['description'] != null && offer['description'] != '') ...[
-            Text('الوصف:', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text(offer['description']),
+          Text(
+            storeName,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              if (offerType.isNotEmpty)
+                Chip(
+                  backgroundColor: Colors.deepPurple.shade50,
+                  label: Text(offerType),
+                ),
+              if (percent.isNotEmpty)
+                Chip(
+                  backgroundColor: Colors.green.shade50,
+                  label: Text(percent),
+                ),
+              if (endDate.isNotEmpty)
+                Chip(
+                  backgroundColor: Colors.red.shade50,
+                  label: Text('ends_on'.tr(namedArgs: {'date': endDate})),
+                ),
+            ],
+          ),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text('description'.tr(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            const SizedBox(height: 4),
+            Text(description),
             const SizedBox(height: 12),
           ],
-          if (offer['conditions'] != null && offer['conditions'] != '') ...[
-            Text('الشروط:', style: TextStyle(fontWeight: FontWeight.bold)),
-            Text(offer['conditions']),
+          if (conditions.isNotEmpty) ...[
+            Text('conditions'.tr(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            const SizedBox(height: 4),
+            Text(conditions),
             const SizedBox(height: 12),
           ],
-          if (offer['location'] != null && offer['location'] != '') ...[
-            Text('الموقع:', style: TextStyle(fontWeight: FontWeight.bold)),
-            if (isLoadingAddress)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4),
-                child: SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-              )
-            else if (address != null && address!.isNotEmpty)
-              Text(address!, style: const TextStyle(color: Colors.blue))
-            else
-              Text(offer['location']),
+          if (location.isNotEmpty) ...[
+            Text('location'.tr(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            const SizedBox(height: 4),
+            Text(location),
             const SizedBox(height: 12),
           ],
-          if (offer['phone'] != null && offer['phone'].toString().isNotEmpty) ...[
-            Text('رقم الهاتف:', style: TextStyle(fontWeight: FontWeight.bold)),
+          _buildMapCard(context),
+          if (phone.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Text('phone_number'.tr(), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            const SizedBox(height: 4),
             Row(
               children: [
-                Text(offer['phone']),
+                Text(phone),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: () async {
-                    final phone = offer['phone'].toString();
-                    final url = 'tel:$phone';
+                    final url = 'tel:$phone';
                     if (await canLaunchUrl(Uri.parse(url))) {
                       await launchUrl(Uri.parse(url));
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('تعذر فتح الاتصال')),
+                        SnackBar(content: Text('could_not_open_call'.tr())),
                       );
                     }
                   },
                   icon: Icon(Icons.phone),
-                  label: Text('اتصال'),
+                  label: Text('call'.tr()),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
@@ -189,7 +383,7 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
                   );
                 },
                 icon: const Icon(Icons.share),
-                label: const Text('مشاركة العرض'),
+                label: Text('share_offer'.tr()),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
                   foregroundColor: Colors.white,
@@ -207,18 +401,22 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
 
 class _ShareOptions extends StatelessWidget {
   final Map<String, dynamic> offer;
-  const _ShareOptions({Key? key, required this.offer}) : super(key: key);
+  const _ShareOptions({required this.offer});
 
   @override
   Widget build(BuildContext context) {
-    final shareText = 'عرض من كوبونا:\n${offer['storeName']}\n${offer['description']}\n${offer['location']}';
+    final shareText = 'share_offer_text'.tr(namedArgs: {
+      'storeName': '${offer['storeName']}',
+      'description': '${offer['description']}',
+      'location': '${offer['location']}',
+    });
     return Container(
       padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text('مشاركة عبر:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text('share_via'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -233,31 +431,31 @@ class _ShareOptions extends StatelessWidget {
                     Share.share(shareText);
                   }
                 },
-                tooltip: 'واتساب',
+                tooltip: 'whatsapp'.tr(),
               ),
               IconButton(
                 icon: const Icon(Icons.facebook, color: Colors.blue, size: 32),
                 onPressed: () {
                   Share.share(shareText);
                 },
-                tooltip: 'فيسبوك',
+                tooltip: 'facebook'.tr(),
               ),
               IconButton(
                 icon: const Icon(Icons.telegram, color: Colors.blueAccent, size: 32),
                 onPressed: () {
                   Share.share(shareText);
                 },
-                tooltip: 'تليجرام',
+                tooltip: 'telegram'.tr(),
               ),
               IconButton(
                 icon: const Icon(Icons.groups, color: Colors.deepPurple, size: 32),
                 onPressed: () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تمت المشاركة في مجتمع كوبونا!')),
+                    SnackBar(content: Text('shared_in_community_success'.tr())),
                   );
                 },
-                tooltip: 'مجتمع كوبونا',
+                tooltip: 'community_title'.tr(),
               ),
             ],
           ),

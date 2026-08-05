@@ -8,7 +8,7 @@ import 'map_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
 
 class ReportScreen extends StatefulWidget {
-  const ReportScreen({Key? key}) : super(key: key);
+  const ReportScreen({super.key});
 
   @override
   State<ReportScreen> createState() => _ReportScreenState();
@@ -78,7 +78,9 @@ class _ReportScreenState extends State<ReportScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: Text('report_sent'.tr()),
-          content: Text('report_sent_message'.tr()),
+          content: Text(
+            '${'report_sent_message'.tr()}\n${_storeName ?? ''}${_description == null || _description!.isEmpty ? '' : '\n${_description!}'}',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -91,28 +93,63 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    setState(() {}); // لإجبار الشاشة على إعادة البناء عند تغيير اللغة
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: context.locale.languageCode == 'ar' ? ui.TextDirection.rtl : ui.TextDirection.ltr,
-      child: Scaffold(
-        key: ValueKey(context.locale.languageCode),
-        appBar: AppBar(
-          title: Text('report_product_or_service'.tr()),
-          backgroundColor: Colors.deepPurple.shade700,
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+    final List<String> reportTypes = [
+      'expired',
+      'bad_service',
+      'inappropriate_treatment',
+      'price_not_matching_offer',
+      'misleading_advertisement',
+      'other_report',
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('report_product_or_service'.tr()),
+        backgroundColor: Colors.deepPurple.shade700,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  labelText: 'report_type'.tr(),
+                  border: OutlineInputBorder(),
+                ),
+                value: _selectedType,
+                items: reportTypes.map((type) => DropdownMenuItem(
+                  value: type,
+                  child: Text(type.tr()),
+                )).toList(),
+                onChanged: (val) => setState(() => _selectedType = val),
+                validator: (val) => val == null ? 'please_select_report_type'.tr() : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                decoration: InputDecoration(
+                  labelText: 'store_name_or_entity'.tr(),
+                  hintText: 'example_supermarket_rabea'.tr(),
+                  border: OutlineInputBorder(),
+                ),
+                onSaved: (val) => _storeName = val,
+                validator: (val) => (val == null || val.isEmpty) ? 'please_enter_store_name'.tr() : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                decoration: InputDecoration(
+                  labelText: 'report_description'.tr(),
+                  hintText: 'write_details_here'.tr(),
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 4,
+                onSaved: (val) => _description = val,
+                validator: (val) => (val == null || val.isEmpty) ? 'please_write_report_description'.tr() : null,
+              ),
+              const SizedBox(height: 16),
+              Row(
                 children: [
                   // اسم المحل أو العلامة التجارية
                   StreamBuilder<QuerySnapshot>(

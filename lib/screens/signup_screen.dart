@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:coupona_app/services/supabase_user_service.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:coupona_app/screens/home_screen.dart';
+import 'package:easy_localization/easy_localization.dart';
+import '../services/company_server_service.dart';
 
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({Key? key}) : super(key: key);
+  const SignUpScreen({super.key});
 
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
 }
 
 class _SignUpScreenState extends State<SignUpScreen> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   bool _loading = false;
   String? _selectedGender;
   Position? _userPosition;
@@ -70,15 +70,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _signUp() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
-    final gender = _selectedGender;
-    final age = _calculatedAge;
+
     if (password != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('كلمتا المرور غير متطابقتين!')),
+        SnackBar(content: Text('passwords_do_not_match'.tr())),
       );
       return;
     }
@@ -105,48 +116,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
     setState(() => _loading = true);
     try {
-      // إنشاء مستخدم في Firebase Auth
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      await CompanyServerService.signUp(
         email: email,
         password: password,
-      );
-      final user = userCredential.user;
-      // حفظ بيانات المستخدم في Firestore
-      await FirebaseFirestore.instance.collection('users').doc(user!.uid).set({
-        'email': email,
-        'role': 'customer',
-        'createdAt': DateTime.now().toIso8601String(),
-        'age': age,
-        'gender': gender,
-        'latitude': _userPosition!.latitude,
-        'longitude': _userPosition!.longitude,
-        'birthDate': _selectedBirthDate!.toIso8601String(),
-      });
-      // إضافة المستخدم في Supabase (اختياري)
-      await SupabaseUserService.addUser(
-        email: email,
         role: 'customer',
-        age: age,
-        gender: gender,
-        latitude: _userPosition!.latitude,
-        longitude: _userPosition!.longitude,
       );
+
       if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (_) => HomeScreen(
-              phone: user.email ?? '',
-              age: age.toString(),
-              gender: gender,
-            ),
-          ),
-          (route) => false,
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('account_created_success'.tr())),
         );
+        Navigator.pop(context);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ: $e')),
+        SnackBar(content: Text('generic_error_with_message'.tr(namedArgs: {'error': e.toString()}))),
       );
     } finally {
       setState(() => _loading = false);
@@ -156,95 +140,97 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('تسجيل حساب جديد')),
+      appBar: AppBar(title: Text('signup_title'.tr())),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            const SizedBox(height: 16),
-            TextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'البريد الإلكتروني',
-                prefixIcon: Icon(Icons.email),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'كلمة المرور',
-                prefixIcon: Icon(Icons.lock),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _confirmPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'تأكيد كلمة المرور',
-                prefixIcon: Icon(Icons.lock_outline),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            GestureDetector(
-              onTap: _pickBirthDate,
-              child: AbsorbPointer(
-                child: TextField(
-                  decoration: InputDecoration(
-                    labelText: 'تاريخ الميلاد',
-                    prefixIcon: const Icon(Icons.cake),
-                    border: const OutlineInputBorder(),
-                    hintText: _selectedBirthDate != null
-                        ? '${_selectedBirthDate!.year}-${_selectedBirthDate!.month.toString().padLeft(2, '0')}-${_selectedBirthDate!.day.toString().padLeft(2, '0')}'
-                        : 'اختر تاريخ الميلاد',
-                  ),
-                  controller: TextEditingController(
-                    text: _selectedBirthDate != null
-                        ? '${_selectedBirthDate!.year}-${_selectedBirthDate!.month.toString().padLeft(2, '0')}-${_selectedBirthDate!.day.toString().padLeft(2, '0')}'
-                        : '',
-                  ),
-                  readOnly: true,
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'email'.tr(),
+                  prefixIcon: Icon(Icons.email),
+                  border: OutlineInputBorder(),
                 ),
+                validator: (value) {
+                  final text = (value ?? '').trim();
+                  if (text.isEmpty) return 'enter_email'.tr();
+                  final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text);
+                  if (!ok) return 'invalid_email_format'.tr();
+                  return null;
+                },
               ),
-            ),
-            if (_calculatedAge != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text('العمر: $_calculatedAge سنة', style: const TextStyle(color: Colors.deepPurple)),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  labelText: 'password'.tr(),
+                  prefixIcon: const Icon(Icons.lock),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    onPressed: () {
+                      setState(() => _obscurePassword = !_obscurePassword);
+                    },
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                    ),
+                  ),
+                ),
+                validator: (value) {
+                  final text = (value ?? '').trim();
+                  if (text.isEmpty) return 'enter_password'.tr();
+                  if (text.length < 8) return 'password_min_length'.tr();
+                  return null;
+                },
               ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: _selectedGender,
-              items: const [
-                DropdownMenuItem(value: 'ذكر', child: Text('ذكر')),
-                DropdownMenuItem(value: 'أنثى', child: Text('أنثى')),
-              ],
-              onChanged: (val) => setState(() => _selectedGender = val),
-              decoration: const InputDecoration(
-                labelText: 'الجنس',
-                prefixIcon: Icon(Icons.person),
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _confirmPasswordController,
+                obscureText: _obscureConfirmPassword,
+                decoration: InputDecoration(
+                  labelText: 'confirm_password'.tr(),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    },
+                    icon: Icon(
+                      _obscureConfirmPassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
+                  ),
+                ),
+                validator: (value) {
+                  final text = (value ?? '').trim();
+                  if (text.isEmpty) return 'confirm_password_prompt'.tr();
+                  if (text != _passwordController.text.trim()) {
+                    return 'passwords_do_not_match'.tr();
+                  }
+                  return null;
+                },
               ),
-            ),
-            if (_locationError != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text(_locationError!, style: const TextStyle(color: Colors.red)),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _loading ? null : _signUp,
+                child: _loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text('signup_button'.tr()),
               ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _loading ? null : _signUp,
-              child: _loading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('تسجيل حساب جديد'),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

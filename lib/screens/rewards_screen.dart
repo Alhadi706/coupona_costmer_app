@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:easy_localization/easy_localization.dart';
+import '../services/company_server_service.dart';
 
 class RewardsScreen extends StatefulWidget {
   const RewardsScreen({super.key});
@@ -9,7 +10,7 @@ class RewardsScreen extends StatefulWidget {
 }
 
 class _RewardsScreenState extends State<RewardsScreen> {
-  List<dynamic> rewards = [];
+  List<Map<String, dynamic>> rewards = [];
   bool isLoading = true;
 
   @override
@@ -19,14 +20,20 @@ class _RewardsScreenState extends State<RewardsScreen> {
   }
 
   Future<void> fetchRewards() async {
-    // جلب الجوائز من Supabase
-    final response = await Supabase.instance.client
-        .from('rewards')
-        .select();
-    setState(() {
-      rewards = response;
-      isLoading = false;
-    });
+    try {
+      final response = await CompanyServerService.getRewards();
+      if (!mounted) return;
+      setState(() {
+        rewards = response;
+        isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        rewards = [];
+        isLoading = false;
+      });
+    }
   }
 
   @override
@@ -35,14 +42,14 @@ class _RewardsScreenState extends State<RewardsScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (rewards.isEmpty) {
-      return const Center(child: Text('لا توجد عروض متاحة حالياً'));
+      return Center(child: Text('no_offers_available_now'.tr()));
     }
     return ListView.builder(
       itemCount: rewards.length,
       itemBuilder: (context, index) {
         final reward = rewards[index];
         return ListTile(
-          title: Text(reward['reward_name']),
+          title: Text((reward['reward_name'] ?? 'reward_generic'.tr()).toString()),
           subtitle: Text(reward['description'] ?? ''),
           trailing: Text('${reward['value']}'),
         );
