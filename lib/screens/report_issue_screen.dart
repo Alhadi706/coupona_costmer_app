@@ -1,5 +1,6 @@
 // filepath: lib/screens/report_issue_screen.dart
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class ReportIssueScreen extends StatelessWidget { // تأكد من اسم الكلاس
   const ReportIssueScreen({super.key}); // تأكد من الكونستركتور
@@ -8,11 +9,11 @@ class ReportIssueScreen extends StatelessWidget { // تأكد من اسم الك
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('تبليغ عن مشكلة'),
+        title: Text('report_issue_title'.tr()),
         backgroundColor: Colors.deepPurple.shade700,
       ),
-      body: const Center(
-        child: Text('شاشة التبليغ (قيد الإنشاء)', style: TextStyle(fontSize: 20)),
+      body: Center(
+        child: Text('report_issue_placeholder'.tr(), style: const TextStyle(fontSize: 20)),
       ),
     );
   }

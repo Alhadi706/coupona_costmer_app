@@ -1,17 +1,63 @@
 import 'package:flutter/material.dart';
-import 'package:coupona_app/screens/add_coupon_screen.dart';
-import 'package:coupona_app/screens/scan_invoice_screen.dart';
-import 'package:coupona_app/screens/report_screen.dart';
 import 'package:coupona_app/screens/offers_list_screen.dart';
+import 'package:coupona_app/screens/wallet_engine_screen.dart';
+import 'package:coupona_app/screens/my_rewards_screen.dart';
 import 'users_screen.dart';
 import 'package:coupona_app/screens/login_screen.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:easy_localization/easy_localization.dart';
+import '../services/app_session.dart';
 
 class SettingsScreen extends StatelessWidget {
+  final bool embedded;
+
+  const SettingsScreen({super.key}) : embedded = false;
+
+  const SettingsScreen.embedded({super.key}) : embedded = true;
+
+  Widget _buildSettingsBody(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const _AccountSection(),
+        const Divider(height: 32),
+        _LanguageSection(),
+        const Divider(height: 32),
+        const _NotificationsSection(),
+        const Divider(height: 32),
+        const _LocationPrivacySection(),
+        const Divider(height: 32),
+        const _DownloadDataSection(),
+        const Divider(height: 32),
+        // زر لعرض قائمة العروض
+        ListTile(
+          leading: const Icon(Icons.local_offer, color: Colors.deepPurple),
+          title: Text('offers_list'.tr()),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const OffersListScreen()),
+            );
+          },
+        ),
+        ListTile(
+          leading: const Icon(Icons.account_balance_wallet, color: Colors.deepPurple),
+          title: Text('wallet_ledger'.tr()),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const WalletEngineScreen()),
+            );
+          },
+        ),
+        const Divider(height: 32),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (embedded) {
+      return _buildSettingsBody(context);
+    }
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
@@ -40,38 +86,20 @@ class SettingsScreen extends StatelessWidget {
         elevation: 2,
       ),
       drawer: AppDrawer(),
-      body: ListView(
-        padding: EdgeInsets.all(16),
-        children: [
-          _AccountSection(),
-          Divider(height: 32),
-          _LanguageSection(),
-          Divider(height: 32),
-          _NotificationsSection(),
-          Divider(height: 32),
-          _LocationPrivacySection(),
-          Divider(height: 32),
-          _DownloadDataSection(),
-          Divider(height: 32),
-          // زر لعرض قائمة العروض
-          ListTile(
-            leading: Icon(Icons.local_offer, color: Colors.deepPurple),
-            title: Text('offers_list'.tr()),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => OffersListScreen()),
-              );
-            },
-          ),
-          Divider(height: 32),
-          // ...existing code for other sections...
-        ],
-      ),
+      body: _buildSettingsBody(context),
     );
   }
 }
 
+void _showPlannedFeatureMessage(BuildContext context, String featureName) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text('planned_feature_coming_soon'.tr(namedArgs: {'feature': featureName}))),
+  );
+}
+
 class _AccountSection extends StatelessWidget {
+  const _AccountSection();
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -87,31 +115,30 @@ class _AccountSection extends StatelessWidget {
         SizedBox(height: 8),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.person),
+          leading: const Icon(Icons.person),
           title: Text('profile'.tr()),
           onTap: () {
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => UsersScreen()),
+              MaterialPageRoute(builder: (_) => const UsersScreen()),
             );
           },
         ),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.lock),
+          leading: const Icon(Icons.lock),
           title: Text('change_password'.tr()),
           onTap: () {
-            // Navigate to change password screen
+            _showPlannedFeatureMessage(context, 'change_password'.tr());
           },
         ),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.logout),
+          leading: const Icon(Icons.logout),
           title: Text('logout'.tr()),
           onTap: () async {
-            // تسجيل الخروج من Firebase
-            await FirebaseAuth.instance.signOut();
+            await AppSession.clear();
             Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => LoginPage()),
+              MaterialPageRoute(builder: (_) => const LoginPage()),
               (route) => false,
             );
           },
@@ -130,6 +157,15 @@ class _LanguageSection extends StatelessWidget {
     {'code': 'tr', 'name': 'Türkçe'},
     {'code': 'ru', 'name': 'Русский'},
     {'code': 'zh', 'name': '中文'},
+    {'code': 'de', 'name': 'Deutsch'},
+    {'code': 'it', 'name': 'Italiano'},
+    {'code': 'pt', 'name': 'Português'},
+    {'code': 'hi', 'name': 'हिन्दी'},
+    {'code': 'id', 'name': 'Bahasa Indonesia'},
+    {'code': 'ja', 'name': '日本語'},
+    {'code': 'ko', 'name': '한국어'},
+    {'code': 'bn', 'name': 'বাংলা'},
+    {'code': 'ur', 'name': 'اردو'},
   ];
 
   @override
@@ -171,6 +207,8 @@ class _LanguageSection extends StatelessWidget {
 }
 
 class _NotificationsSection extends StatelessWidget {
+  const _NotificationsSection();
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -186,10 +224,10 @@ class _NotificationsSection extends StatelessWidget {
         SizedBox(height: 8),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.notifications),
+          leading: const Icon(Icons.notifications),
           title: Text('notification_settings'.tr()),
           onTap: () {
-            // Navigate to notification settings screen
+            _showPlannedFeatureMessage(context, 'notification_settings'.tr());
           },
         ),
       ],
@@ -198,6 +236,8 @@ class _NotificationsSection extends StatelessWidget {
 }
 
 class _LocationPrivacySection extends StatelessWidget {
+  const _LocationPrivacySection();
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -213,18 +253,18 @@ class _LocationPrivacySection extends StatelessWidget {
         SizedBox(height: 8),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.location_on),
+          leading: const Icon(Icons.location_on),
           title: Text('location_settings'.tr()),
           onTap: () {
-            // Navigate to location settings screen
+            _showPlannedFeatureMessage(context, 'location_settings'.tr());
           },
         ),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.privacy_tip),
+          leading: const Icon(Icons.privacy_tip),
           title: Text('privacy_settings'.tr()),
           onTap: () {
-            // Navigate to privacy settings screen
+            _showPlannedFeatureMessage(context, 'privacy_settings'.tr());
           },
         ),
       ],
@@ -233,6 +273,8 @@ class _LocationPrivacySection extends StatelessWidget {
 }
 
 class _DownloadDataSection extends StatelessWidget {
+  const _DownloadDataSection();
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -248,10 +290,10 @@ class _DownloadDataSection extends StatelessWidget {
         SizedBox(height: 8),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.download),
+          leading: const Icon(Icons.download),
           title: Text('download_account_data'.tr()),
           onTap: () {
-            // Handle data download
+            _showPlannedFeatureMessage(context, 'download_account_data'.tr());
           },
         ),
       ],
@@ -260,6 +302,23 @@ class _DownloadDataSection extends StatelessWidget {
 }
 
 class AppDrawer extends StatelessWidget {
+  final ValueChanged<int>? onSelectHomeTab;
+
+  const AppDrawer({super.key, this.onSelectHomeTab});
+
+  void _selectHomeTabOrNavigate(
+    BuildContext context, {
+    required int tabIndex,
+    required VoidCallback fallback,
+  }) {
+    Navigator.of(context).pop();
+    if (onSelectHomeTab != null) {
+      onSelectHomeTab!(tabIndex);
+      return;
+    }
+    fallback();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Drawer(
@@ -274,12 +333,13 @@ class AppDrawer extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 40,
-                  backgroundImage: AssetImage('assets/images/profile.jpg'),
+                  backgroundColor: Colors.white,
+                  child: const Icon(Icons.person, size: 44, color: Colors.deepPurple),
                 ),
                 SizedBox(height: 8),
                 Text(
                   'drawer_username'.tr(),
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -287,7 +347,7 @@ class AppDrawer extends StatelessWidget {
                 ),
                 Text(
                   'drawer_email'.tr(),
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 14,
                   ),
@@ -296,48 +356,66 @@ class AppDrawer extends StatelessWidget {
             ),
           ),
           ListTile(
-            leading: Icon(Icons.home),
+            leading: const Icon(Icons.home),
             title: Text('drawer_home'.tr()),
             onTap: () {
-              Navigator.of(context).pushReplacementNamed('/');
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.category),
-            title: Text('drawer_categories'.tr()),
-            onTap: () {
-              Navigator.of(context).pushNamed('/categories');
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.favorite),
-            title: Text('drawer_favorites'.tr()),
-            onTap: () {
-              Navigator.of(context).pushNamed('/favorites');
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.settings),
-            title: Text('drawer_settings'.tr()),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => SettingsScreen()),
+              _selectHomeTabOrNavigate(
+                context,
+                tabIndex: 0,
+                fallback: () => Navigator.of(context).popUntil((route) => route.isFirst),
               );
             },
           ),
-          Divider(),
           ListTile(
-            leading: Icon(Icons.info),
-            title: Text('drawer_about'.tr()),
+            leading: const Icon(Icons.category),
+            title: Text('drawer_categories'.tr()),
             onTap: () {
-              // Navigate to about screen
+              _selectHomeTabOrNavigate(
+                context,
+                tabIndex: 1,
+                fallback: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const OffersListScreen()),
+                ),
+              );
             },
           ),
           ListTile(
-            leading: Icon(Icons.contact_mail),
+            leading: const Icon(Icons.favorite),
+            title: Text('drawer_favorites'.tr()),
+            onTap: () {
+              _selectHomeTabOrNavigate(
+                context,
+                tabIndex: 4,
+                fallback: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MyRewardsScreen()),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: Text('drawer_settings'.tr()),
+            onTap: () {
+              _selectHomeTabOrNavigate(
+                context,
+                tabIndex: 3,
+                fallback: () {},
+              );
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.info),
+            title: Text('drawer_about'.tr()),
+            onTap: () {
+              _showPlannedFeatureMessage(context, 'drawer_about'.tr());
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.contact_mail),
             title: Text('drawer_contact'.tr()),
             onTap: () {
-              // Navigate to contact screen
+              _showPlannedFeatureMessage(context, 'drawer_contact'.tr());
             },
           ),
         ],

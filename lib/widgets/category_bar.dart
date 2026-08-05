@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class CategoryBar extends StatelessWidget {
   final List<Map<String, dynamic>> categories;
@@ -8,13 +9,13 @@ class CategoryBar extends StatelessWidget {
   final void Function(Map<String, dynamic> category)? onCategoryTap;
 
   const CategoryBar({
-    Key? key,
+    super.key,
     required this.categories,
     this.height = 80,
     this.iconSize = 32,
     this.fontSize = 13,
     this.onCategoryTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,30 +29,35 @@ class CategoryBar extends StatelessWidget {
         separatorBuilder: (context, i) => const SizedBox(width: 12),
         itemBuilder: (context, i) {
           final cat = categories[i];
+          final avatarRadius = ((height - 30) / 3).clamp(11.0, 16.0).toDouble();
           return GestureDetector(
             onTap: () {
               if (onCategoryTap != null) onCategoryTap!(cat);
             },
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  backgroundColor: Colors.deepPurple.shade50,
-                  radius: iconSize / 1.5,
-                  child: Icon(cat['icon'], size: iconSize, color: Colors.deepPurple),
-                ),
-                const SizedBox(height: 6),
-                SizedBox(
-                  width: iconSize * 2,
-                  child: Text(
-                    cat['label'],
-                    style: TextStyle(fontSize: fontSize, color: Colors.deepPurple),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+            child: SizedBox(
+              height: height - 16,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    backgroundColor: Colors.deepPurple.shade50,
+                    radius: avatarRadius,
+                    child: Icon(cat['icon'], size: iconSize.clamp(16.0, 24.0), color: Colors.deepPurple),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    width: iconSize * 2,
+                    child: Text(
+                      cat['label'].toString().tr(),
+                      style: TextStyle(fontSize: fontSize.clamp(10.0, 12.0), color: Colors.deepPurple),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           );
         },

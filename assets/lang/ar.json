@@ -117,5 +117,247 @@
   "please_write_report_description": "يرجى كتابة وصف البلاغ",
   "attach_image_or_invoice": "إرفاق صورة أو فاتورة",
   "image_selected_report": "تم اختيار صورة",
-  "send_report": "إرسال البلاغ"
+  "send_report": "إرسال البلاغ",
+  "offline_no_internet": "لا يوجد اتصال بالإنترنت",
+  "wallet_ledger": "المحفظة والدفتر المحاسبي",
+  "planned_feature_coming_soon": "{feature} ستكون متاحة قريبًا.",
+  "scan_invoice_title": "مسح الفاتورة",
+  "scan_invoice_capture_error": "حدث خطأ أثناء التقاط الصورة.",
+  "scan_invoice_ocr_error": "تعذر قراءة نص الفاتورة (OCR): {error}",
+  "scan_invoice_no_text": "لم يتم اكتشاف نص واضح في الصورة. حاول إعادة التصوير بإضاءة أفضل.",
+  "scan_invoice_duplicate": "الفاتورة مكررة مسبقًا، لذلك لم يتم اعتمادها مرة أخرى.",
+  "scan_invoice_too_old": "تاريخ الفاتورة قديم حسب سياسة النظام، لذلك لم يتم اعتماد النقاط.",
+  "scan_invoice_rewards_save_error": "تمت قراءة الفاتورة، لكن تعذر تسجيل المكافآت: {error}",
+  "scan_invoice_total_unclear": "تم استخراج النص، لكن المجموع غير واضح. يمكنك إعادة تصوير أو إدخال المبلغ لاحقًا.",
+  "scan_invoice_frame_hint": "ضع الفاتورة داخل الإطار",
+  "scan_invoice_capture_photo": "التقاط صورة",
+  "scan_invoice_capture_long": "التقاط فاتورة طويلة",
+  "scan_invoice_engine_merchant_only": "محرك نشط الآن: التقاط اسم المحل فقط (Merchant Engine v2)",
+  "scan_invoice_total_detected": "الإجمالي المكتشف: {total}",
+  "scan_invoice_not_available": "غير متوفر",
+  "scan_invoice_invoice_number": "رقم الفاتورة: {value}",
+  "scan_invoice_order_number": "رقم الطلب: {value}",
+  "scan_invoice_store_name": "اسم المتجر: {value}",
+  "scan_invoice_confidence_high": "الثقة مرتفعة، لكن يمكنك التأكيد من المرشحين:",
+  "scan_invoice_confidence_low": "الثقة منخفضة، اختر الاسم الصحيح من المرشحين:",
+  "scan_invoice_date": "التاريخ: {value}",
+  "scan_invoice_category": "تصنيف الاستهلاك: {value}",
+  "scan_invoice_items_extracted": "الأصناف المستخرجة:",
+  "scan_invoice_quantity_label": "عدد",
+  "scan_invoice_unit_price_label": "سعر الوحدة",
+  "scan_invoice_line_total_label": "الإجمالي",
+  "scan_invoice_item_template": "- {name} | {qtyLabel}: {qty} | {unitLabel}: {unit} | {totalLabel}: {total}",
+  "scan_invoice_demo_mode": "وضع تجريبي: تم إيقاف حفظ الفاتورة والمكافآت مؤقتًا.",
+  "scan_invoice_reward_applied": "تم تسجيل الكاش باك والنقاط بنجاح.",
+  "scan_invoice_reward_not_applied": "لم يتم تطبيق النقاط تلقائيًا لهذه الفاتورة بعد.",
+  "scan_invoice_no_text_extracted": "لا يوجد نص مستخرج بعد.",
+  "scan_invoice_reanalyze": "إعادة التحليل",
+  "scan_invoice_new_image": "صورة جديدة",
+  "scan_invoice_pick_other_image": "اختيار صورة أخرى",
+  "app_name": "كوبونا",
+  "offers_nav": "العروض",
+  "community_nav": "المجتمع",
+  "my_rewards_nav": "جوائزي",
+  "cars": "سيارات",
+  "jewelry": "مجوهرات",
+  "accommodation": "إقامة",
+  "all_categories": "جميع الفئات",
+  "home_hero_title": "اكتشف العروض الأقرب لك",
+  "home_hero_subtitle": "اختر فئة، تصفح عروضًا حقيقية، واستفد من نقاطك بسهولة.",
+  "nearby_stores": "المتاجر القريبة",
+  "home_last_updated_now": "آخر تحديث: الآن",
+  "home_search_hint": "ابحث باسم متجر أو نوع عرض",
+  "active_offers": "عروض نشطة",
+  "available_points": "نقاط متاحة",
+  "categories": "الفئات",
+  "choose_category_interest": "اختر الفئة التي تهمك",
+  "featured_offers": "عروض مميزة",
+  "best_three_offers_now": "أفضل 3 عروض حاليًا",
+  "view_all_offers": "عرض كل العروض",
+  "no_offers_available_now": "لا توجد عروض متاحة حالياً",
+  "no_search_results_current": "لا توجد نتائج مطابقة للبحث الحالي.",
+  "new_offer": "عرض جديد",
+  "offer_category_value": "الفئة: {category}",
+  "map": "الخريطة",
+  "nearest_stores_around_you": "أقرب المتاجر حولك",
+  "expand": "تكبير",
+  "points_summary": "ملخص النقاط",
+  "take_action_faster": "اتخاذ إجراء أسرع",
+  "points_remaining_reward": "تبقّى {points} نقطة للحصول على قسيمة {reward} دينار",
+  "coupon_value_label": "قسيمة {value} دينار",
+  "free_gift": "هدية مجانية",
+  "expand_map": "تكبير الخريطة",
+  "stores_map_title": "خريطة المحلات",
+  "search_store_or_category_hint": "ابحث عن محل أو فئة...",
+  "offers_for_category": "عروض {category}",
+  "no_offers_for_category": "لا توجد عروض متاحة لهذه الفئة",
+  "featured_offer": "عرض مميز",
+  "offer": "عرض",
+  "ends_on": "ينتهي: {date}",
+  "view_details": "عرض التفاصيل",
+  "activity_log_fetch_error": "خطأ في جلب سجل النشاطات: {error}",
+  "activity_log_empty": "لا يوجد سجل نشاطات.",
+  "transaction_amount_value": "مبلغ العملية: {amount}",
+  "transaction_date_value": "تاريخ العملية: {date}",
+  "rewards_load_error": "تعذر تحميل بيانات الجوائز: {error}",
+  "ledger_cashback_earned": "كاش باك مكتسب",
+  "ledger_points_earned": "نقاط مكتسبة",
+  "ledger_points_redeemed": "استبدال نقاط",
+  "reward_invalid_value": "قيمة الجائزة غير صالحة.",
+  "reward_insufficient_points": "النقاط غير كافية لاستلام هذه الجائزة.",
+  "reward_redeemed_success": "تم استلام {reward} بنجاح.",
+  "reward_generic": "الجائزة",
+  "reward_redeem_error": "تعذر استلام الجائزة: {error}",
+  "your_points_balance": "رصيد نقاطك",
+  "available_rewards": "الجوائز المتاحة",
+  "no_rewards_available_now": "لا توجد جوائز متاحة حالياً.",
+  "redeem_points_value": "استبدال {value}",
+  "transactions_log": "سجل العمليات",
+  "no_log_entries_yet": "لا يوجد سجل بعد.",
+  "points_value": "{points} نقطة",
+  "currency_amount_value": "{amount} ر.س",
+  "groups_tab": "القروبات",
+  "private_messages_tab": "الرسائل الخاصة",
+  "community_title": "مجتمع كوبونا",
+  "create_new_group": "إنشاء قروب جديد",
+  "group_name": "اسم القروب",
+  "group_description_optional": "وصف مختصر (اختياري)",
+  "cancel": "إلغاء",
+  "group_created_success": "تم إنشاء القروب بنجاح.",
+  "group_create_error": "تعذر إنشاء القروب: {error}",
+  "create": "إنشاء",
+  "community_groups": "قروبات المجتمع",
+  "groups_count_value": "عدد القروبات: {count}",
+  "create_group": "إنشاء قروب",
+  "search_group_hint": "ابحث عن قروب بالاسم أو الوصف",
+  "most_members": "الأكثر أعضاء",
+  "alphabetical_order": "ترتيب أبجدي",
+  "no_group_results": "لا توجد نتائج مطابقة. جرّب تعديل البحث أو أنشئ قروب جديد.",
+  "send_message_error": "تعذر إرسال الرسالة: {error}",
+  "user_generic": "مستخدم",
+  "open_private_chat_error": "تعذر فتح المحادثة الخاصة: {error}",
+  "no_replies_yet": "لا توجد ردود بعد",
+  "write_reply_hint": "اكتب ردك...",
+  "send_reply": "إرسال الرد",
+  "no_messages_yet": "لا توجد رسائل بعد",
+  "reply": "رد",
+  "like": "إعجاب",
+  "heart": "قلب",
+  "message": "مراسلة",
+  "replies_count": "الردود {count}",
+  "reply_to_value": "رد على: {value}",
+  "write_message_hint": "اكتب رسالة...",
+  "chat_hidden": "تم إخفاء المحادثة.",
+  "chat_deleted_from_list": "تم مسح المحادثة من قائمتك.",
+  "chat_muted": "تم كتم إشعارات المحادثة.",
+  "chat_unmuted": "تم إلغاء كتم المحادثة.",
+  "chat_pinned": "تم تثبيت المحادثة.",
+  "chat_unpinned": "تم إلغاء تثبيت المحادثة.",
+  "user_blocked": "تم حظر {label}.",
+  "manage_blocked_users": "إدارة المستخدمين المحظورين",
+  "no_blocked_users": "لا يوجد مستخدمون محظورون.",
+  "user_unblocked": "تم فك الحظر عن {email}.",
+  "unblock_error": "تعذر فك الحظر: {error}",
+  "unblock": "فك الحظر",
+  "close": "إغلاق",
+  "no_private_chats_yet": "لا توجد محادثات خاصة بعد.",
+  "blocked_users": "المحظورون",
+  "private_chat_default_title": "محادثة خاصة",
+  "peer_user_not_found": "تعذر تحديد الطرف الآخر للمحادثة.",
+  "action_failed": "فشل تنفيذ الإجراء: {error}",
+  "unpin_chat": "إلغاء التثبيت",
+  "pin_chat": "تثبيت المحادثة",
+  "unmute_chat": "إلغاء الكتم",
+  "mute_notifications": "كتم الإشعارات",
+  "hide_chat": "إخفاء المحادثة",
+  "delete_from_list": "مسح من قائمتي",
+  "block_user": "حظر المستخدم",
+  "write_private_message_hint": "اكتب رسالة خاصة..."
+  ,"login_title": "تسجيل الدخول"
+  ,"login_error": "خطأ في تسجيل الدخول: {error}"
+  ,"enter_email": "أدخل البريد الإلكتروني."
+  ,"invalid_email_format": "صيغة البريد الإلكتروني غير صحيحة."
+  ,"enter_password": "أدخل كلمة المرور."
+  ,"password_min_length": "كلمة المرور يجب أن تكون 8 أحرف على الأقل."
+  ,"login_button": "دخول"
+  ,"new_user_create_account": "مستخدم جديد؟ أنشئ حساب"
+  ,"signup_title": "تسجيل حساب جديد"
+  ,"passwords_do_not_match": "كلمتا المرور غير متطابقتين!"
+  ,"account_created_success": "تم إنشاء الحساب بنجاح."
+  ,"generic_error_with_message": "خطأ: {error}"
+  ,"confirm_password_prompt": "أكد كلمة المرور."
+  ,"signup_button": "تسجيل حساب جديد"
+  ,"available_offers_now_title": "العروض المتوفرة حاليًا"
+  ,"untitled_offer": "بدون عنوان"
+  ,"location_on_map": "الموقع على الخريطة"
+  ,"no_precise_coordinates_offer": "لا توجد إحداثيات دقيقة لهذا العرض"
+  ,"open_in_maps": "فتح في الخرائط"
+  ,"offer_details_title": "تفاصيل العرض"
+  ,"conditions": "الشروط"
+  ,"phone_number": "رقم الهاتف"
+  ,"could_not_open_call": "تعذر فتح الاتصال"
+  ,"call": "اتصال"
+  ,"share_offer": "مشاركة العرض"
+  ,"share_via": "مشاركة عبر:"
+  ,"share_offer_text": "عرض من كوبونا:\n{storeName}\n{description}\n{location}"
+  ,"whatsapp": "واتساب"
+  ,"facebook": "فيسبوك"
+  ,"telegram": "تليجرام"
+  ,"shared_in_community_success": "تمت المشاركة في مجتمع كوبونا!"
+  ,"users_list_title": "قائمة المستخدمين"
+  ,"no_users_found": "لا يوجد مستخدمون"
+  ,"message": "مراسلة"
+  ,"profile_no_data": "لا توجد بيانات للملف الشخصي"
+  ,"profile_email_value": "البريد الإلكتروني: {email}"
+  ,"profile_name_value": "الاسم: {name}"
+  ,"profile_gender_value": "الجنس: {gender}"
+  ,"profile_city_value": "المدينة: {city}"
+  ,"profile_country_value": "الدولة: {country}"
+  ,"report_issue_title": "تبليغ عن مشكلة"
+  ,"report_issue_placeholder": "شاشة التبليغ (قيد الإنشاء)"
+  ,"pick_location_on_map": "تحديد الموقع على الخريطة"
+  ,"choose_this_location": "اختيار هذا الموقع"
+  ,"my_points_value": "نقاطي: {points}"
+  ,"day_value": "يوم {day}"
+  ,"points_progress_last_7_days": "تطور نقاطك خلال آخر 7 أيام"
+  ,"reward_redeem_error": "تعذر استلام الجائزة: {error}"
+  ,"complete_profile_title": "استكمال البيانات"
+  ,"full_name": "الاسم الكامل"
+  ,"male": "ذكر"
+  ,"female": "أنثى"
+  ,"gender": "الجنس"
+  ,"city": "المدينة"
+  ,"country": "الدولة"
+  ,"save_data": "حفظ البيانات"
+  ,"profile_saved_success": "تم حفظ البيانات بنجاح!"
+  ,"profile_save_error": "خطأ في حفظ البيانات: {error}"
+  ,"coupon_lifecycle_title": "محرك دورة حياة الكوبون"
+  ,"lifecycle_draft": "مسودة"
+  ,"lifecycle_pending_review": "بانتظار المراجعة"
+  ,"lifecycle_approved": "موافق عليه"
+  ,"lifecycle_rejected": "مرفوض"
+  ,"lifecycle_active": "نشط"
+  ,"lifecycle_redeemed": "مستعمل"
+  ,"lifecycle_expired": "منتهي"
+  ,"lifecycle_archived": "مؤرشف"
+  ,"offer_id_required": "رقم العرض مطلوب."
+  ,"lifecycle_load_success": "تم تحميل دورة حياة العرض بنجاح."
+  ,"lifecycle_bind_error": "فشل ربط العرض: {error}"
+  ,"bind_offer_first": "اربط العرض أولاً."
+  ,"lifecycle_changed_to": "تم تغيير الحالة إلى {status}."
+  ,"lifecycle_change_error": "فشل تغيير الحالة: {error}"
+  ,"offer_id_label": "رقم العرض (Offer ID)"
+  ,"bind_offer": "ربط العرض"
+  ,"lifecycle_reason_optional": "سبب الإجراء (اختياري)"
+  ,"offer_value": "العرض: {value}"
+  ,"last_updated_value": "آخر تحديث: {value}"
+  ,"reason_value": "السبب: {value}"
+  ,"send_for_review": "إرسال للمراجعة"
+  ,"approve": "موافقة"
+  ,"reject": "رفض"
+  ,"activate": "تفعيل"
+  ,"confirm_redemption": "تأكيد الاستخدام"
+  ,"expire": "إنهاء الصلاحية"
+  ,"archive": "أرشفة"
+  ,"lifecycle_note": "ملاحظة: هذه الشاشة إدارية لإدارة حالات العرض من المسودة حتى الأرشفة."
 }

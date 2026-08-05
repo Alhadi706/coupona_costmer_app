@@ -1,21 +1,39 @@
-// filepath: lib/screens/scan_invoice_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'dart:io';
+import 'dart:convert';
+
+import '../modules/invoice/services/invoice_ocr_service.dart';
+import '../modules/invoice/services/invoice_text_parser.dart';
+import '../services/company_server_service.dart';
 
 class ScanInvoiceScreen extends StatefulWidget {
-  const ScanInvoiceScreen({Key? key}) : super(key: key);
+  const ScanInvoiceScreen({super.key});
 
   @override
   State<ScanInvoiceScreen> createState() => _ScanInvoiceScreenState();
 }
 
 class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
+  final InvoiceOcrService _ocrService = createInvoiceOcrService();
   XFile? _capturedImage;
+  Uint8List? _webImageBytes;
   bool _isProcessing = false;
   String? _ocrResult;
   String? _error;
   bool _didAutoOpenCamera = false;
+  double _detectedTotal = 0;
+  String? _detectedInvoiceNumber;
+  String? _detectedOrderNumber;
+  String? _detectedStoreName;
+  List<String> _detectedStoreCandidates = const <String>[];
+  double _detectedStoreConfidence = 0;
+  String? _detectedDate;
+  String? _detectedCategory;
+  List<InvoiceLineItem> _detectedItems = const <InvoiceLineItem>[];
+  bool _rewardApplied = false;
 
   @override
   void didChangeDependencies() {
@@ -34,13 +52,18 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
     });
     final picker = ImagePicker();
     try {
-      final XFile? image = await picker.pickImage(source: ImageSource.camera);
+      final source = kIsWeb ? ImageSource.gallery : ImageSource.camera;
+      final XFile? image = await picker.pickImage(source: source);
       if (image != null) {
+        Uint8List? webImageBytes;
+        if (kIsWeb) {
+          webImageBytes = await image.readAsBytes();
+        }
         setState(() {
           _capturedImage = image;
+          _webImageBytes = webImageBytes;
         });
-        // هنا منطق دمج الصور إذا كان isPanorama = true
-        // ثم منطق قراءة الفاتورة (OCR)
+        // Placeholder for future long-invoice stitching.
         await _processInvoice(image);
       } else {
         setState(() {
@@ -50,27 +73,222 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
     } catch (e) {
       setState(() {
         _isProcessing = false;
-        _error = 'حدث خطأ أثناء التقاط الصورة';
+        _error = 'scan_invoice_capture_error'.tr();
       });
     }
   }
 
   Future<void> _processInvoice(XFile image) async {
-    // محاكاة معالجة OCR واستخراج البيانات
-    await Future.delayed(const Duration(seconds: 2));
-    // هنا تضع منطق OCR الحقيقي لاحقًا
-    // مثال نتيجة وهمية:
+    String extractedText;
+    var localError = '';
+    try {
+      extractedText = await _ocrService.extractText(image);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _error = 'scan_invoice_ocr_error'.tr(namedArgs: {'error': e.toString()});
+        _ocrResult = null;
+      });
+      return;
+    }
+
+    if (extractedText.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _error = 'scan_invoice_no_text'.tr();
+        _ocrResult = '';
+      });
+      return;
+    }
+
+    final parsed = InvoiceTextParser.parse(extractedText);
+    final merchantOnlyMode = InvoiceTextParser.isMerchantNameOnlyMode;
+    final localTotal = parsed.total;
+    final localInvoiceNumber = parsed.invoiceNumber;
+    final localOrderNumber = parsed.orderNumber;
+    final localStoreName = parsed.storeName;
+    final localItems = parsed.items;
+    final storeCandidates = parsed.storeCandidates;
+    final storeConfidence = parsed.storeConfidence;
+    final localInvoiceDate = parsed.invoiceDate;
+
+    String? imageBase64;
+    try {
+      final bytes = await image.readAsBytes();
+      imageBase64 = base64Encode(bytes);
+    } catch (_) {
+      imageBase64 = null;
+    }
+
+    final ai = await CompanyServerService.analyzeInvoiceWithAi(
+      rawText: extractedText,
+      imageBase64: imageBase64,
+      mimeType: 'image/jpeg',
+    );
+
+    final aiOk = ai != null && ai['ok'] == true;
+    final aiData = aiOk ? ai : null;
+    final double aiConfidence = aiOk ? (aiData?['confidence'] as num?)?.toDouble() ?? 0.0 : 0.0;
+    final aiStore = aiOk ? (aiData?['merchantName'] as String?)?.trim() : null;
+    final aiOrder = aiOk ? (aiData?['orderNumber'] as String?)?.trim() : null;
+    final aiInvoiceNo = aiOk ? (aiData?['invoiceNumber'] as String?)?.trim() : null;
+    final aiDate = aiOk ? (aiData?['invoiceDate'] as String?)?.trim() : null;
+    final aiCategory = aiOk ? (aiData?['category'] as String?)?.trim() : null;
+    final aiTotal = aiOk ? (aiData?['totalAmount'] as num?)?.toDouble() : null;
+    final aiItemsRaw = aiOk && aiData?['items'] is List ? (aiData?['items'] as List) : const [];
+    final aiItems = aiItemsRaw
+        .whereType<Map>()
+        .map((item) {
+          final name = (item['name'] ?? '').toString().trim();
+          final q = item['quantity'] as num?;
+          final u = item['unitPrice'] as num?;
+          final t = item['lineTotal'] as num?;
+          return InvoiceLineItem(
+            name: name,
+            quantity: q?.toInt(),
+            unitPrice: u?.toDouble(),
+            lineTotal: t?.toDouble(),
+          );
+        })
+        .where((e) => e.name.isNotEmpty)
+        .toList();
+
+    final total = aiConfidence >= 0.55 && aiTotal != null ? aiTotal : localTotal;
+    final invoiceNumber = aiConfidence >= 0.55 && (aiInvoiceNo ?? '').isNotEmpty ? aiInvoiceNo : localInvoiceNumber;
+    final orderNumber = aiConfidence >= 0.55 && (aiOrder ?? '').isNotEmpty ? aiOrder : localOrderNumber;
+    final storeName = aiConfidence >= 0.5 && (aiStore ?? '').isNotEmpty ? aiStore : localStoreName;
+    final invoiceDate = aiConfidence >= 0.55 && (aiDate ?? '').isNotEmpty ? aiDate : localInvoiceDate;
+    final finalItems = aiConfidence >= 0.5 && aiItems.isNotEmpty ? aiItems : localItems;
+    final String finalCategory = aiConfidence >= 0.55 && (aiCategory ?? '').isNotEmpty
+      ? aiCategory!
+      : parsed.category;
+    var rewardApplied = false;
+
+    if (!merchantOnlyMode) {
+      final saveResult = await CompanyServerService.saveInvoiceScan(
+        rawText: extractedText,
+        category: finalCategory,
+        totalAmount: total,
+        invoiceNumber: invoiceNumber,
+        orderNumber: orderNumber,
+        invoiceDate: invoiceDate,
+        merchantName: storeName,
+        items: finalItems
+            .map((item) => {
+                  'name': item.name,
+                  'quantity': item.quantity,
+                  'unitPrice': item.unitPrice,
+                  'lineTotal': item.lineTotal,
+                })
+            .toList(),
+        rewardApplied: false,
+      );
+
+      final isDuplicate = saveResult?['duplicate'] == true;
+      final isTooOld = saveResult?['tooOld'] == true;
+
+      if (isDuplicate) {
+        localError = 'scan_invoice_duplicate'.tr();
+      } else if (isTooOld) {
+        localError = 'scan_invoice_too_old'.tr();
+      } else if (total != null && total > 0) {
+        try {
+          await CompanyServerService.ensureAccountingDocuments();
+          await CompanyServerService.applyCashbackFromPurchase(
+            purchaseAmount: total,
+            reference: invoiceNumber != null && invoiceNumber.isNotEmpty
+                ? 'invoice:$invoiceNumber'
+                : (orderNumber != null && orderNumber.isNotEmpty
+                    ? 'order:$orderNumber'
+                    : 'invoice:${DateTime.now().millisecondsSinceEpoch}'),
+          );
+          rewardApplied = true;
+          await CompanyServerService.saveInvoiceScan(
+            rawText: extractedText,
+            category: finalCategory,
+            totalAmount: total,
+            invoiceNumber: invoiceNumber,
+            orderNumber: orderNumber,
+            invoiceDate: invoiceDate,
+            merchantName: storeName,
+            items: finalItems
+                .map((item) => {
+                      'name': item.name,
+                      'quantity': item.quantity,
+                      'unitPrice': item.unitPrice,
+                      'lineTotal': item.lineTotal,
+                    })
+                .toList(),
+            rewardApplied: true,
+          );
+        } catch (e) {
+          localError = 'scan_invoice_rewards_save_error'.tr(namedArgs: {'error': e.toString()});
+        }
+      } else {
+        localError = 'scan_invoice_total_unclear'.tr();
+      }
+    }
+
+    if (!mounted) return;
     setState(() {
       _isProcessing = false;
-      _ocrResult = '''\nرقم الفاتورة: 123456\nاسم المحل: سوبر ماركت ربيع\nالتاريخ: 2025-06-03\nالمنتجات:\n- عصير برتقال ×2 = 10 ريال\n- خبز ×1 = 3 ريال\nالمجموع: 13 ريال\n''';
+      _detectedTotal = total ?? 0;
+      _detectedInvoiceNumber = invoiceNumber;
+      _detectedOrderNumber = orderNumber;
+      _detectedStoreName = storeName;
+      _detectedStoreCandidates = (() {
+        final all = <String>[];
+        for (final c in storeCandidates) {
+          if (c.trim().isNotEmpty && !all.contains(c)) all.add(c);
+        }
+        if ((aiStore ?? '').isNotEmpty && !all.contains(aiStore)) {
+          all.insert(0, aiStore!);
+        }
+        return all;
+      })();
+      _detectedStoreConfidence = aiConfidence > 0 ? aiConfidence : storeConfidence;
+      _detectedDate = invoiceDate;
+      _detectedCategory = finalCategory;
+      _detectedItems = finalItems;
+      _rewardApplied = rewardApplied;
+      _error = localError.isEmpty ? null : localError;
+      _ocrResult = extractedText;
     });
+  }
+
+  Future<void> _reanalyzeCurrentImage() async {
+    if (_capturedImage == null) return;
+    setState(() {
+      _isProcessing = true;
+      _error = null;
+    });
+    await _processInvoice(_capturedImage!);
   }
 
   void _reset() {
     setState(() {
       _capturedImage = null;
+      _webImageBytes = null;
       _ocrResult = null;
       _error = null;
+      _detectedTotal = 0;
+      _detectedInvoiceNumber = null;
+      _detectedOrderNumber = null;
+      _detectedStoreName = null;
+      _detectedStoreCandidates = const <String>[];
+      _detectedStoreConfidence = 0;
+      _detectedDate = null;
+      _detectedCategory = null;
+      _detectedItems = const <InvoiceLineItem>[];
+      _rewardApplied = false;
+    });
+  }
+
+  void _selectMerchantCandidate(String candidate) {
+    setState(() {
+      _detectedStoreName = candidate;
     });
   }
 
@@ -78,7 +296,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('مسح الفاتورة'),
+        title: Text('scan_invoice_title'.tr()),
         backgroundColor: Colors.deepPurple.shade700,
       ),
       body: Padding(
@@ -96,8 +314,8 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                           border: Border.all(color: Colors.deepPurple, width: 2),
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: const Center(
-                          child: Text('ضع الفاتورة داخل الإطار', style: TextStyle(fontSize: 18)),
+                        child: Center(
+                          child: Text('scan_invoice_frame_hint'.tr(), style: TextStyle(fontSize: 18)),
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -107,13 +325,13 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                           ElevatedButton.icon(
                             onPressed: () => _captureImage(isPanorama: false),
                             icon: const Icon(Icons.camera_alt),
-                            label: const Text('التقاط صورة'),
+                            label: Text('scan_invoice_capture_photo'.tr()),
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, textStyle: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                           ElevatedButton.icon(
                             onPressed: () => _captureImage(isPanorama: true),
                             icon: const Icon(Icons.panorama),
-                            label: const Text('التقاط فاتورة طويلة'),
+                            label: Text('scan_invoice_capture_long'.tr()),
                             style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple.shade200),
                           ),
                         ],
@@ -124,54 +342,183 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                       ]
                     ],
                   )
-                : Column(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.file(
-                          File(_capturedImage!.path),
-                          height: 220,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
+                : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          height: 320,
+                          decoration: BoxDecoration(
+                            color: Colors.black12,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.deepPurple.shade100),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: kIsWeb
+                                ? (_webImageBytes == null
+                                    ? const SizedBox.shrink()
+                                    : Image.memory(
+                                        _webImageBytes!,
+                                        fit: BoxFit.contain,
+                                      ))
+                                : Image.file(File(_capturedImage!.path), fit: BoxFit.contain),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (_ocrResult != null) ...[
+                        const SizedBox(height: 16),
+                        if (_error != null)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: Text(_error!, style: TextStyle(color: Colors.red.shade900)),
+                          ),
+                        if (_error != null) const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DefaultTextStyle.merge(
+                            style: TextStyle(
+                              color: Colors.blueGrey.shade900,
+                              fontSize: 15,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  InvoiceTextParser.isMerchantNameOnlyMode
+                                      ? 'scan_invoice_engine_merchant_only'.tr()
+                                      : 'scan_invoice_total_detected'.tr(namedArgs: {
+                                          'total': _detectedTotal > 0 ? _detectedTotal.toStringAsFixed(2) : 'scan_invoice_not_available'.tr(),
+                                        }),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blueGrey.shade900,
+                                  ),
+                                ),
+                                if (!InvoiceTextParser.isMerchantNameOnlyMode && _detectedInvoiceNumber != null)
+                                  Text('scan_invoice_invoice_number'.tr(namedArgs: {'value': _detectedInvoiceNumber!})),
+                                if (!InvoiceTextParser.isMerchantNameOnlyMode && _detectedOrderNumber != null)
+                                  Text('scan_invoice_order_number'.tr(namedArgs: {'value': _detectedOrderNumber!})),
+                                if (_detectedStoreName != null)
+                                  Text('scan_invoice_store_name'.tr(namedArgs: {'value': _detectedStoreName!})),
+                                if (InvoiceTextParser.isMerchantNameOnlyMode && _detectedStoreCandidates.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _detectedStoreConfidence >= 0.7
+                                        ? 'scan_invoice_confidence_high'.tr()
+                                        : 'scan_invoice_confidence_low'.tr(),
+                                    style: TextStyle(
+                                      color: Colors.blueGrey.shade800,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: _detectedStoreCandidates.take(5).map((candidate) {
+                                      final isSelected = candidate == _detectedStoreName;
+                                      return ChoiceChip(
+                                        label: Text(candidate),
+                                        selected: isSelected,
+                                        onSelected: (_) => _selectMerchantCandidate(candidate),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                                if (!InvoiceTextParser.isMerchantNameOnlyMode && _detectedDate != null)
+                                  Text('scan_invoice_date'.tr(namedArgs: {'value': _detectedDate!})),
+                                if (!InvoiceTextParser.isMerchantNameOnlyMode && _detectedCategory != null)
+                                  Text('scan_invoice_category'.tr(namedArgs: {'value': _detectedCategory!})),
+                                if (!InvoiceTextParser.isMerchantNameOnlyMode && _detectedItems.isNotEmpty) ...[
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'scan_invoice_items_extracted'.tr(),
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  ..._detectedItems.take(8).map((item) {
+                                    final qty = item.quantity;
+                                    final unit = item.unitPrice;
+                                    final total = item.lineTotal;
+                                    final inferredUnit = (unit == null && qty != null && total != null && qty > 0)
+                                        ? (total / qty)
+                                        : unit;
+                                    return Text(
+                                      'scan_invoice_item_template'.tr(namedArgs: {
+                                        'name': item.name,
+                                        'qtyLabel': 'scan_invoice_quantity_label'.tr(),
+                                        'qty': (qty ?? '-').toString(),
+                                        'unitLabel': 'scan_invoice_unit_price_label'.tr(),
+                                        'unit': inferredUnit?.toStringAsFixed(2) ?? '-',
+                                        'totalLabel': 'scan_invoice_line_total_label'.tr(),
+                                        'total': total?.toStringAsFixed(2) ?? '-',
+                                      }),
+                                    );
+                                  }),
+                                ],
+                                if (InvoiceTextParser.isMerchantNameOnlyMode)
+                                  Text('scan_invoice_demo_mode'.tr())
+                                else
+                                  Text(
+                                    _rewardApplied
+                                        ? 'scan_invoice_reward_applied'.tr()
+                                        : 'scan_invoice_reward_not_applied'.tr(),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: Colors.green.shade50,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Text(_ocrResult!, style: const TextStyle(fontSize: 16)),
+                          child: SelectableText(
+                            (_ocrResult == null || _ocrResult!.isEmpty)
+                                ? 'scan_invoice_no_text_extracted'.tr()
+                                : _ocrResult!,
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.green.shade900,
+                              height: 1.4,
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _reset,
-                          child: const Text('إعادة التصوير'),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton.icon(
+                              onPressed: _capturedImage == null ? null : _reanalyzeCurrentImage,
+                              icon: const Icon(Icons.manage_search),
+                              label: Text('scan_invoice_reanalyze'.tr()),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: _reset,
+                              icon: const Icon(Icons.refresh),
+                              label: Text('scan_invoice_new_image'.tr()),
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: () => _captureImage(isPanorama: false),
+                              icon: const Icon(Icons.photo_library_outlined),
+                              label: Text('scan_invoice_pick_other_image'.tr()),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        ElevatedButton(
-                          onPressed: () {
-                            // هنا منطق المتابعة أو إضافة النقاط
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('تمت قراءة الفاتورة بنجاح!'),
-                                content: const Text('نقاطك أُضيفت.'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.of(context).pop(),
-                                    child: const Text('حسنًا'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                          child: const Text('متابعة'),
-                        ),
-                      ]
-                    ],
+                      ],
+                    ),
                   ),
       ),
     );

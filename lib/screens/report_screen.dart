@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ReportScreen extends StatefulWidget {
-  const ReportScreen({Key? key}) : super(key: key);
+  const ReportScreen({super.key});
 
   @override
   State<ReportScreen> createState() => _ReportScreenState();
@@ -33,7 +33,9 @@ class _ReportScreenState extends State<ReportScreen> {
         context: context,
         builder: (context) => AlertDialog(
           title: Text('report_sent'.tr()),
-          content: Text('report_sent_message'.tr()),
+          content: Text(
+            '${'report_sent_message'.tr()}\n${_storeName ?? ''}${_description == null || _description!.isEmpty ? '' : '\n${_description!}'}',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -48,7 +50,7 @@ class _ReportScreenState extends State<ReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final List<String> _reportTypes = [
+    final List<String> reportTypes = [
       'expired',
       'bad_service',
       'inappropriate_treatment',
@@ -74,7 +76,7 @@ class _ReportScreenState extends State<ReportScreen> {
                   border: OutlineInputBorder(),
                 ),
                 value: _selectedType,
-                items: _reportTypes.map((type) => DropdownMenuItem(
+                items: reportTypes.map((type) => DropdownMenuItem(
                   value: type,
                   child: Text(type.tr()),
                 )).toList(),

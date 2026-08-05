@@ -1,5 +1,6 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
+import '../services/company_server_service.dart';
 
 class ActivityLogScreen extends StatefulWidget {
   final String customerEmail; // البريد الإلكتروني للعميل
@@ -25,13 +26,11 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
       isLoading = true;
     });
     try {
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection('activity_logs')
-          .where('customerEmail', isEqualTo: widget.customerEmail)
-          .orderBy('transaction_date', descending: true)
-          .get();
+      final response = await CompanyServerService.getActivityLogs(
+        customerEmail: widget.customerEmail,
+      );
       setState(() {
-        activities = querySnapshot.docs.map((doc) => doc.data()).toList();
+        activities = response;
         isLoading = false;
       });
     } catch (e) {
@@ -39,7 +38,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         isLoading = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في جلب سجل النشاطات: $e')),
+        SnackBar(content: Text('activity_log_fetch_error'.tr(namedArgs: {'error': e.toString()}))),
       );
     }
   }
@@ -50,15 +49,15 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (activities.isEmpty) {
-      return const Center(child: Text('لا يوجد سجل نشاطات.'));
+      return Center(child: Text('activity_log_empty'.tr()));
     }
     return ListView.builder(
       itemCount: activities.length,
       itemBuilder: (context, index) {
         final activity = activities[index];
         return ListTile(
-          title: Text('مبلغ العملية: ${activity['amount']}'),
-          subtitle: Text('تاريخ العملية: ${activity['transaction_date']}'),
+          title: Text('transaction_amount_value'.tr(namedArgs: {'amount': '${activity['amount']}'})),
+          subtitle: Text('transaction_date_value'.tr(namedArgs: {'date': '${activity['transaction_date']}'})),
         );
       },
     );

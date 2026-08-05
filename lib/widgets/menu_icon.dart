@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class MenuIcon extends StatelessWidget {
   final VoidCallback? onTap;
   final double iconSize;
-  const MenuIcon({Key? key, required this.onTap, this.iconSize = 40}) : super(key: key);
+  const MenuIcon({super.key, required this.onTap, this.iconSize = 40});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +21,7 @@ class MenuIcon extends StatelessWidget {
           children: [
             Icon(Icons.menu, color: Colors.deepPurple, size: iconSize),
             SizedBox(height: 4),
-            Text('القائمة', style: TextStyle(color: Colors.deepPurple, fontSize: 12)),
+            Text('menu_tooltip'.tr(), style: TextStyle(color: Colors.deepPurple, fontSize: 12)),
           ],
         ),
       ),

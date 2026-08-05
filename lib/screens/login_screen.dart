@@ -1,67 +1,69 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'home_screen.dart';
 import 'signup_screen.dart';
+import '../services/app_session.dart';
+import '../services/company_server_service.dart';
 
 class LoginPage extends StatefulWidget {
+  const LoginPage({super.key});
+
   @override
-  _LoginPageState createState() => _LoginPageState();
+  State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  String? _selectedGender;
-  DateTime? _selectedBirthDate;
+  bool _obscurePassword = true;
   bool _loading = false;
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _signIn() async {
     final phoneOrEmail = _phoneController.text.trim();
     final password = _passwordController.text.trim();
+
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
     setState(() => _loading = true);
     try {
-      UserCredential userCredential;
-      if (phoneOrEmail.contains('@')) {
-        // تسجيل الدخول بالإيميل
-        userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: phoneOrEmail,
-          password: password,
-        );
-      } else {
-        // تسجيل الدخول برقم الهاتف (يجب أن يكون المستخدم فعّل مسبقًا)
-        // هنا نستخدم الإيميل كبديل أو نوجه المستخدم للتسجيل برقم الهاتف
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('يرجى استخدام البريد الإلكتروني لتسجيل الدخول.')),
-        );
-        setState(() => _loading = false);
-        return;
-      }
-      if (userCredential.user != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => HomeScreen(
-              phone: phoneOrEmail,
-              age: _selectedBirthDate?.toIso8601String() ?? '',
-              gender: _selectedGender ?? '',
-            ),
+      final auth = await CompanyServerService.signIn(
+        email: phoneOrEmail,
+        password: password,
+      );
+
+      await AppSession.save(
+        token: (auth['token'] ?? '').toString(),
+        userId: (auth['userId'] ?? '').toString(),
+        email: phoneOrEmail,
+        role: (auth['role'] ?? 'customer').toString(),
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(
+            phone: phoneOrEmail,
+            age: '',
+            gender: '',
           ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('بيانات الدخول غير صحيحة!')),
-        );
-      }
-    } on FirebaseAuthException catch (e) {
-      String msg = 'خطأ في تسجيل الدخول';
-      if (e.code == 'user-not-found') msg = 'المستخدم غير موجود';
-      if (e.code == 'wrong-password') msg = 'كلمة المرور غير صحيحة';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg)),
+        ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في تسجيل الدخول: $e')),
+        SnackBar(content: Text('login_error'.tr(namedArgs: {'error': e.toString()}))),
       );
     } finally {
       setState(() => _loading = false);
@@ -71,47 +73,77 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('تسجيل الدخول')),
+      appBar: AppBar(title: Text('login_title'.tr())),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            const SizedBox(height: 16),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'البريد الإلكتروني',
-                prefixIcon: Icon(Icons.email),
-                border: OutlineInputBorder(),
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _phoneController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'email'.tr(),
+                  prefixIcon: Icon(Icons.email),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  final text = (value ?? '').trim();
+                  if (text.isEmpty) return 'enter_email'.tr();
+                  final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text);
+                  if (!ok) return 'invalid_email_format'.tr();
+                  return null;
+                },
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'كلمة المرور',
-                prefixIcon: Icon(Icons.lock),
-                border: OutlineInputBorder(),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  labelText: 'password'.tr(),
+                  prefixIcon: const Icon(Icons.lock),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    onPressed: () {
+                      setState(() => _obscurePassword = !_obscurePassword);
+                    },
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                    ),
+                  ),
+                ),
+                validator: (value) {
+                  final text = (value ?? '').trim();
+                  if (text.isEmpty) return 'enter_password'.tr();
+                  if (text.length < 8) return 'password_min_length'.tr();
+                  return null;
+                },
               ),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _loading ? null : _signIn,
-              child: _loading ? const CircularProgressIndicator(color: Colors.white) : const Text('دخول'),
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SignUpScreen()),
-                );
-              },
-              child: const Text('مستخدم جديد؟ أنشئ حساب'),
-            ),
-          ],
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _loading ? null : _signIn,
+                child: _loading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text('login_button'.tr()),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SignUpScreen()),
+                  );
+                },
+                child: Text('new_user_create_account'.tr()),
+              ),
+            ],
+          ),
         ),
       ),
     );

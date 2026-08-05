@@ -1,19 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io' show File;
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:http/http.dart' as http;
 import 'package:coupona_app/services/imgur_service.dart';
-import 'package:coupona_app/services/supabase_offer_service.dart';
+import 'package:coupona_app/services/company_server_service.dart';
 import 'map_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'home_screen.dart';
-import '../../main.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class AddCouponScreen extends StatefulWidget {
@@ -83,9 +77,11 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
   Future<String?> _uploadImage() async {
     if (_pickedImage == null) return null;
     try {
-      return kIsWeb 
-          ? await SupabaseOfferService.uploadImage(_pickedImage!)
-          : await ImgurService.uploadImage(File(_pickedImage!.path));
+      final bytes = await _pickedImage!.readAsBytes();
+      if (bytes.isNotEmpty) {
+        return ImgurService.uploadImageFromBytes(bytes);
+      }
+      return ImgurService.uploadImage(File(_pickedImage!.path));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -115,11 +111,12 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final DateTime now = DateTime.now().toUtc();
       String? imageUrl = await _uploadImage();
       if (imageUrl == null || imageUrl.isEmpty) {
         imageUrl = 'assets/img/map_sample.png';
       }
-      await FirebaseFirestore.instance.collection('offers').add({
+      await CompanyServerService.createOffer({
         'offerType': _offerType!,
         'category': _category!,
         'titleType': _titleType,
@@ -131,20 +128,11 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
         'endDate': _endDate?.toIso8601String(),
         'location': _location,
         'imageUrl': imageUrl,
-        'createdAt': DateTime.now().toIso8601String(),
+        'createdAt': now.toIso8601String(),
+        'lifecycleStatus': 'pending_review',
+        'lifecycleUpdatedAt': now.toIso8601String(),
+        'lifecycleReason': 'created_from_add_coupon_screen',
       });
-      await SupabaseOfferService.addOffer(
-        offerType: _offerType!,
-        category: _category!,
-        titleType: _titleType,
-        discountValue: _discountValue,
-        price: _price,
-        description: _description,
-        startDate: _startDate?.toIso8601String(),
-        endDate: _endDate?.toIso8601String(),
-        location: _location,
-        imageUrl: imageUrl,
-      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

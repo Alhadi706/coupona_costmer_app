@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class ScanInvoiceIcon extends StatelessWidget {
   final VoidCallback? onTap;
   final double iconSize;
-  const ScanInvoiceIcon({Key? key, required this.onTap, this.iconSize = 40}) : super(key: key);
+  const ScanInvoiceIcon({super.key, required this.onTap, this.iconSize = 40});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +21,7 @@ class ScanInvoiceIcon extends StatelessWidget {
           children: [
             Icon(Icons.qr_code_scanner, color: Colors.green, size: iconSize),
             SizedBox(height: 4),
-            Text('مسح فاتورة', style: TextStyle(color: Colors.green, fontSize: 12)),
+            Text('scan_invoice'.tr(), style: TextStyle(color: Colors.green, fontSize: 12)),
           ],
         ),
       ),

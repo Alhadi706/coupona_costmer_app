@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 class MapPickerScreen extends StatefulWidget {
   final LatLng? initialLocation;
-  const MapPickerScreen({Key? key, this.initialLocation}) : super(key: key);
+  const MapPickerScreen({super.key, this.initialLocation});
 
   @override
   State<MapPickerScreen> createState() => _MapPickerScreenState();
@@ -21,12 +22,13 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final LatLng center = _pickedLocation ?? LatLng(32.8872, 13.1913);
     return Scaffold(
-      appBar: AppBar(title: const Text('تحديد الموقع على الخريطة')),
+      appBar: AppBar(title: Text('pick_location_on_map'.tr())),
       body: FlutterMap(
         options: MapOptions(
-          center: _pickedLocation,
-          zoom: 13.0,
+          initialCenter: center,
+          initialZoom: 13.0,
           onTap: (tapPosition, point) {
             setState(() {
               _pickedLocation = point;
@@ -37,6 +39,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           TileLayer(
             urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
             subdomains: ['a', 'b', 'c'],
+            tileProvider: NetworkTileProvider(),
           ),
           if (_pickedLocation != null)
             MarkerLayer(
@@ -59,7 +62,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               Navigator.of(context).pop(_pickedLocation);
             }
           },
-          child: const Text('اختيار هذا الموقع'),
+          child: Text('choose_this_location'.tr()),
         ),
       ),
     );

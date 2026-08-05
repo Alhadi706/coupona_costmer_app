@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -30,10 +31,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   void _playClickSound() {
+    if (kIsWeb) return;
     FlutterRingtonePlayer().playNotification();
   }
 
   void _playSuccessSound() {
+    if (kIsWeb) return;
     FlutterRingtonePlayer().play(
       android: AndroidSounds.notification,
       ios: IosSounds.triTone,
@@ -62,17 +65,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 controller: _controller,
                 itemCount: _pages.length,
                 onPageChanged: (i) => setState(() => _currentPage = i),
-                itemBuilder: (context, i) => Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.celebration, size: 80, color: Colors.blue.shade700),
-                      const SizedBox(height: 32),
-                      Text(_pages[i]['title']!, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      Text(_pages[i]['desc']!, style: const TextStyle(fontSize: 18, color: Colors.blueGrey), textAlign: TextAlign.center),
-                    ],
+                itemBuilder: (context, i) => LayoutBuilder(
+                  builder: (context, constraints) => SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.celebration, size: 76, color: Colors.blue.shade700),
+                            const SizedBox(height: 24),
+                            Text(
+                              _pages[i]['title']!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 14),
+                            Text(
+                              _pages[i]['desc']!,
+                              style: const TextStyle(fontSize: 17, color: Colors.blueGrey),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

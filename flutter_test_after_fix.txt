@@ -1,0 +1,24 @@
+﻿
+ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ
+Γöé A new version of Flutter is available!                  Γöé
+Γöé                                                         Γöé
+Γöé To update to the latest version, run "flutter upgrade". Γöé
+ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ
+00:00 +0: loading C:/Users/test/coupona_app/test/accounting_models_test.dart
+00:00 +0: C:/Users/test/coupona_app/test/accounting_models_test.dart: WalletAccount map roundtrip
+00:00 +1: C:/Users/test/coupona_app/test/accounting_models_test.dart: PointAccount map roundtrip
+00:00 +2: C:/Users/test/coupona_app/test/accounting_models_test.dart: LedgerEntry map roundtrip
+00:00 +3: C:/Users/test/coupona_app/test/accounting_rules_test.dart: AccountingRules normalizeAmount returns two decimal precision
+00:00 +4: C:/Users/test/coupona_app/test/accounting_rules_test.dart: AccountingRules calculateCashback returns 5 percent
+00:00 +5: C:/Users/test/coupona_app/test/accounting_rules_test.dart: AccountingRules calculatePoints floors to integer points
+00:00 +6: C:/Users/test/coupona_app/test/accounting_rules_test.dart: AccountingRules normalizeAmount throws on non-positive values
+00:00 +7: C:/Users/test/coupona_app/test/accounting_rules_test.dart: AccountingRules validateRedemption enforces available points
+00:00 +8: C:/Users/test/coupona_app/test/accounting_rules_test.dart: AccountingRules validateRedemption passes on valid request
+00:03 +9: C:/Users/test/coupona_app/test/coupon_lifecycle_model_test.dart: CouponLifecycleRecord map conversion
+00:05 +10: C:/Users/test/coupona_app/test/coupon_lifecycle_rules_test.dart: CouponLifecycleRules draft can move to pending review
+00:05 +11: C:/Users/test/coupona_app/test/coupon_lifecycle_rules_test.dart: CouponLifecycleRules pending review cannot move directly to redeemed
+00:05 +12: C:/Users/test/coupona_app/test/coupon_lifecycle_rules_test.dart: CouponLifecycleRules parse and storage mapping are stable
+00:07 +13: C:/Users/test/coupona_app/test/foundation_error_handling_test.dart: Logger handles error payloads without throwing
+00:09 +14: C:/Users/test/coupona_app/test/widget_test.dart: Foundation report is stable when required checks pass
+00:09 +15: C:/Users/test/coupona_app/test/widget_test.dart: Foundation report is unstable when required checks fail
+00:09 +16: All tests passed!

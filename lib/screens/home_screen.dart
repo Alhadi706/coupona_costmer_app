@@ -1,27 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:badges/badges.dart' as badges;
-import 'profile_screen.dart';
 import 'offers_screen.dart';
 import 'community_screen.dart';
 import 'settings_screen.dart';
-import 'points_screen.dart';
-import '../widgets/report_icon.dart';
-import '../widgets/scan_invoice_icon.dart';
-import '../widgets/add_invoice_icon.dart';
-import '../widgets/menu_icon.dart';
-import '../widgets/map_bar.dart';
-import 'ads_banner_slider.dart';
 import 'full_map_screen.dart'; // تأكد من استيراد الشاشة الجديدة
-import '../widgets/category_bar.dart';
 import 'report_screen.dart' show ReportScreen; // استورد فقط ReportScreen
 import 'scan_invoice_screen.dart'; // استيراد شاشة ScanInvoiceScreen
 import 'add_coupon_screen.dart'; // استيراد شاشة AddCouponScreen
 import 'category_offers_screen.dart'; // استيراد شاشة عروض الفئة
 import 'home_content_screen.dart'; // استيراد الشاشة الجديدة
 import 'my_rewards_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/badge_helper.dart';
+import '../services/company_server_service.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -44,7 +35,7 @@ class HomeScreen extends StatefulWidget {
   static final List<Map<String, dynamic>> categoriesStatic = [
     {
       'icon': Icons.restaurant,
-      'label': 'مطاعم',
+      'label': 'restaurants',
       'width': 80.0,
       'offers': [
         {
@@ -84,7 +75,7 @@ class HomeScreen extends StatefulWidget {
     },
     {
       'icon': Icons.directions_car,
-      'label': 'سيارات',
+      'label': 'cars',
       'width': 80.0,
       'offers': [
         {
@@ -124,7 +115,7 @@ class HomeScreen extends StatefulWidget {
     },
     {
       'icon': Icons.diamond,
-      'label': 'مجوهرات',
+      'label': 'jewelry',
       'width': 80.0,
       'offers': [
         {
@@ -164,7 +155,7 @@ class HomeScreen extends StatefulWidget {
     },
     {
       'icon': Icons.hotel,
-      'label': 'إقامة',
+      'label': 'accommodation',
       'width': 80.0,
       'offers': [
         {
@@ -204,7 +195,7 @@ class HomeScreen extends StatefulWidget {
     },
     {
       'icon': Icons.apartment,
-      'label': 'عقارات',
+      'label': 'real_estate',
       'width': 80.0,
       'offers': [
         {
@@ -244,7 +235,7 @@ class HomeScreen extends StatefulWidget {
     },
     {
       'icon': Icons.self_improvement,
-      'label': 'أنشطة',
+      'label': 'activities',
       'width': 80.0,
       'offers': [
         {
@@ -284,7 +275,7 @@ class HomeScreen extends StatefulWidget {
     },
     {
       'icon': Icons.local_hospital,
-      'label': 'صحة',
+      'label': 'health',
       'width': 80.0,
       'offers': [
         {
@@ -324,7 +315,7 @@ class HomeScreen extends StatefulWidget {
     },
     {
       'icon': Icons.category,
-      'label': 'جميع الفئات',
+      'label': 'all_categories',
       'width': 90.0,
       'offers': [],
     },
@@ -374,6 +365,13 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  @override
   @override
   Widget build(BuildContext context) {
     final List<Widget> widgetOptions = <Widget>[
@@ -393,16 +391,17 @@ class _HomeScreenState extends State<HomeScreen> {
             MaterialPageRoute(builder: (_) => FullMapScreen()),
           );
         },
+        onViewAllOffers: () => _onItemTapped(1),
       ),
-      OffersScreen(),
-      CommunityScreen(),
-      SettingsScreen(),
+      const OffersScreen.embedded(),
+      const CommunityScreen.embedded(),
+      const SettingsScreen.embedded(),
       MyRewardsScreen(),
     ];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('كوبونا', style: TextStyle(color: Colors.white)),
+        title: Text('app_name'.tr(), style: const TextStyle(color: Colors.white)),
         backgroundColor: Colors.deepPurple.shade700,
         elevation: 0,
         leading: Builder(
@@ -415,94 +414,78 @@ class _HomeScreenState extends State<HomeScreen> {
           // يمكنك إضافة أيقونات أخرى هنا إذا أردت
         ],
       ),
-      drawer: AppDrawer(),
+      drawer: AppDrawer(
+        onSelectHomeTab: _onItemTapped,
+      ),
       body: widgetOptions[_selectedIndex],
-      bottomNavigationBar: StreamBuilder(
-        stream: FirebaseFirestore.instance.collection('offers').snapshots(),
-        builder: (context, offersSnapshot) {
-          int offersBadgeCount = 0;
-          if (offersSnapshot.hasData) {
-            offersBadgeCount = offersSnapshot.data!.docs.length;
-            // تحديث عداد العروض غير المقروءة
+      bottomNavigationBar: StreamBuilder<Map<String, dynamic>>(
+        stream: Stream.periodic(const Duration(seconds: 6))
+            .asyncMap((_) => CompanyServerService.getCounts())
+            .startWithFuture(CompanyServerService.getCounts()),
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            final data = snapshot.data!;
+            final offersBadgeCount = _toInt(data['offers']);
+            final communityBadgeCount = _toInt(data['community']);
+            final rewardsBadgeCount = _toInt(data['rewards']);
+
             if (offersBadgeCount > offersUnread) {
               BadgeHelper.setLastCount(BadgeHelper.offersKey, offersBadgeCount);
-              setState(() => offersUnread = offersBadgeCount);
+              offersUnread = offersBadgeCount;
+            }
+            if (communityBadgeCount > communityUnread) {
+              BadgeHelper.setLastCount(BadgeHelper.communityKey, communityBadgeCount);
+              communityUnread = communityBadgeCount;
+            }
+            if (rewardsBadgeCount > rewardsUnread) {
+              BadgeHelper.setLastCount(BadgeHelper.rewardsKey, rewardsBadgeCount);
+              rewardsUnread = rewardsBadgeCount;
             }
           }
-          return StreamBuilder(
-            stream: FirebaseFirestore.instance.collection('groups').snapshots(),
-            builder: (context, groupsSnapshot) {
-              int communityBadgeCount = 0;
-              if (groupsSnapshot.hasData) {
-                communityBadgeCount = groupsSnapshot.data!.docs.length;
-                if (communityBadgeCount > communityUnread) {
-                  BadgeHelper.setLastCount(BadgeHelper.communityKey, communityBadgeCount);
-                  setState(() => communityUnread = communityBadgeCount);
-                }
+
+          return BottomNavigationBar(
+            items: [
+              BottomNavigationBarItem(icon: const Icon(Icons.home), label: 'drawer_home'.tr()),
+              BottomNavigationBarItem(
+                icon: badges.Badge(
+                  showBadge: offersUnread > 0,
+                  badgeContent: Text('$offersUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
+                  badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
+                  child: const Icon(Icons.card_giftcard),
+                ),
+                label: 'offers_nav'.tr(),
+              ),
+              BottomNavigationBarItem(
+                icon: badges.Badge(
+                  showBadge: communityUnread > 0,
+                  badgeContent: Text('$communityUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
+                  badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
+                  child: const Icon(Icons.groups),
+                ),
+                label: 'community_nav'.tr(),
+              ),
+              BottomNavigationBarItem(
+                icon: badges.Badge(
+                  showBadge: rewardsUnread > 0,
+                  badgeContent: Text('$rewardsUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
+                  badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
+                  child: const Icon(Icons.emoji_events),
+                ),
+                label: 'my_rewards_nav'.tr(),
+              ),
+            ],
+            currentIndex: _selectedIndex > 2 ? _selectedIndex - 1 : _selectedIndex,
+            onTap: (index) {
+              if (index == 3) {
+                _onItemTapped(4);
+              } else {
+                _onItemTapped(index);
               }
-              return StreamBuilder(
-                stream: FirebaseFirestore.instance
-                    .collection('user_rewards')
-                    .where('userPhone', isEqualTo: widget.phone)
-                    .snapshots(),
-                builder: (context, rewardsSnapshot) {
-                  int rewardsBadgeCount = 0;
-                  if (rewardsSnapshot.hasData) {
-                    rewardsBadgeCount = rewardsSnapshot.data!.docs.length;
-                    if (rewardsBadgeCount > rewardsUnread) {
-                      BadgeHelper.setLastCount(BadgeHelper.rewardsKey, rewardsBadgeCount);
-                      setState(() => rewardsUnread = rewardsBadgeCount);
-                    }
-                  }
-                  return BottomNavigationBar(
-                    items: [
-                      const BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
-                      BottomNavigationBarItem(
-                        icon: badges.Badge(
-                          showBadge: offersUnread > 0,
-                          badgeContent: Text('$offersUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                          badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                          child: const Icon(Icons.card_giftcard),
-                        ),
-                        label: 'العروض',
-                      ),
-                      BottomNavigationBarItem(
-                        icon: badges.Badge(
-                          showBadge: communityUnread > 0,
-                          badgeContent: Text('$communityUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                          badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                          child: const Icon(Icons.groups),
-                        ),
-                        label: 'المجتمع',
-                      ),
-                      // تم حذف أيقونة الضبط من البار السفلي
-                      BottomNavigationBarItem(
-                        icon: badges.Badge(
-                          showBadge: rewardsUnread > 0,
-                          badgeContent: Text('$rewardsUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                          badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                          child: const Icon(Icons.emoji_events),
-                        ),
-                        label: 'جوائزي',
-                      ),
-                    ],
-                    currentIndex: _selectedIndex > 2 ? _selectedIndex - 1 : _selectedIndex,
-                    onTap: (index) {
-                      // إذا ضغط المستخدم على العنصر الأخير (جوائزي) أو قبله، عدل الفهرس
-                      if (index == 3) {
-                        _onItemTapped(4);
-                      } else {
-                        _onItemTapped(index);
-                      }
-                    },
-                    selectedItemColor: Colors.deepPurple,
-                    unselectedItemColor: Colors.grey,
-                    backgroundColor: Colors.white,
-                    type: BottomNavigationBarType.fixed,
-                  );
-                },
-              );
             },
+            selectedItemColor: Colors.deepPurple,
+            unselectedItemColor: Colors.grey,
+            backgroundColor: Colors.white,
+            type: BottomNavigationBarType.fixed,
           );
         },
       ),
@@ -570,6 +553,7 @@ class CategoryShortcut extends StatelessWidget {
     this.width = 64
   });
 
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: width,
@@ -590,6 +574,13 @@ class CategoryShortcut extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+extension _StreamInit<T> on Stream<T> {
+  Stream<T> startWithFuture(Future<T> first) async* {
+    yield await first;
+    yield* this;
   }
 }
 

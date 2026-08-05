@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class AddInvoiceIcon extends StatelessWidget {
   final VoidCallback? onTap;
   final double iconSize;
-  const AddInvoiceIcon({Key? key, required this.onTap, this.iconSize = 40}) : super(key: key);
+  const AddInvoiceIcon({super.key, required this.onTap, this.iconSize = 40});
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +21,7 @@ class AddInvoiceIcon extends StatelessWidget {
           children: [
             Icon(Icons.add_box, color: Colors.blue, size: iconSize),
             SizedBox(height: 4),
-            Text('إضافة عرض', style: TextStyle(color: Colors.blue, fontSize: 12)),
+            Text('add_offer'.tr(), style: TextStyle(color: Colors.blue, fontSize: 12)),
           ],
         ),
       ),

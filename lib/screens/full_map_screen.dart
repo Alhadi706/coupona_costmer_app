@@ -1,23 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/company_server_service.dart';
 
 class FullMapScreen extends StatefulWidget {
-  const FullMapScreen({Key? key}) : super(key: key);
+  const FullMapScreen({super.key});
 
   @override
   State<FullMapScreen> createState() => _FullMapScreenState();
 }
 
 class _FullMapScreenState extends State<FullMapScreen> {
+  static const LatLng _tripoliDefaultCenter = LatLng(32.8872, 13.1913);
+
+  final MapController _mapController = MapController();
   String searchText = '';
   String selectedCategory = '';
   Map<String, dynamic>? selectedStore;
+  LatLng _mapCenter = _tripoliDefaultCenter;
+  double _mapZoom = 12.0;
+  Future<List<Map<String, dynamic>>>? _storesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _storesFuture = CompanyServerService.getStores();
+  }
 
   void _showStoreDetails(Map<String, dynamic> store) {
+    final LatLng storePoint = LatLng(_toDouble(store['lat']), _toDouble(store['lng']));
+    _mapController.move(storePoint, _mapZoom);
+
     setState(() {
       selectedStore = store;
+      _mapCenter = storePoint;
     });
     showModalBottomSheet(
       context: context,
@@ -33,7 +50,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
             Text(store['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
             if (store['category'] != null) ...[
               const SizedBox(height: 8),
-              Chip(label: Text(store['category'])),
+              Chip(label: Text(_localizeCategory(store['category']))),
             ],
             if (store['description'] != null) ...[
               const SizedBox(height: 8),
@@ -58,58 +75,52 @@ class _FullMapScreenState extends State<FullMapScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.deepPurple.shade700,
-        title: const Text('خريطة المحلات'),
+        title: Text('stores_map_title'.tr()),
         leading: IconButton(
           icon: Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('stores').snapshots(),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _storesFuture,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData) {
-            return const Center(child: Text('لا توجد بيانات متاحة'));
-          }
-          List<Map<String, dynamic>> stores = snapshot.data!.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            data['id'] = doc.id;
-            return data;
-          }).toList();
+          final stores = snapshot.data!;
           // فلترة حسب البحث والتصنيف
           final filteredStores = stores.where((store) {
             final matchesSearch = searchText.isEmpty || (store['name']?.toString().contains(searchText) ?? false);
             final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
             return matchesSearch && matchesCategory;
           }).toList();
-          // قائمة التصنيفات المخصصة
-          final List<String> categories = [
-            'غذائية',
-            'عيادات',
-            'ملابس',
-            'مجوهرات',
-            'مطاعم',
-            'إلكترونيات',
-            'استراحات',
-            'صحة',
-            'أنشطة',
-            'أخرى',
-          ];
+          final categories = stores
+              .map((store) => (store['category'] ?? '').toString().trim())
+              .where((c) => c.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
           return Stack(
             children: [
               FlutterMap(
+                mapController: _mapController,
                 options: MapOptions(
-                  center: filteredStores.isNotEmpty
-                      ? LatLng(filteredStores[0]['lat'], filteredStores[0]['lng'])
-                      : LatLng(24.7136, 46.6753),
-                  zoom: 12.0,
+                  initialCenter: _mapCenter,
+                  initialZoom: _mapZoom,
+                  onPositionChanged: (position, hasGesture) {
+                    final LatLng? center = position.center;
+                    if (center == null) {
+                      return;
+                    }
+                    _mapCenter = center;
+                    _mapZoom = position.zoom ?? _mapZoom;
+                  },
                 ),
                 children: [
                   TileLayer(
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.example.coupona_app',
+                    tileProvider: NetworkTileProvider(),
                   ),
                   MarkerLayer(
                     markers: [
@@ -117,7 +128,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
                         Marker(
                           width: 40,
                           height: 40,
-                          point: LatLng(store['lat'], store['lng']),
+                          point: LatLng(_toDouble(store['lat']), _toDouble(store['lng'])),
                           child: GestureDetector(
                             onTap: () => _showStoreDetails(store),
                             child: Icon(Icons.location_on, color: Colors.red, size: 36),
@@ -138,7 +149,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.98),
+                      color: Colors.white.withValues(alpha: 0.98),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -149,7 +160,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
                           child: TextField(
                             autofocus: false,
                             decoration: InputDecoration(
-                              hintText: 'ابحث عن محل أو فئة...',
+                              hintText: 'search_store_or_category_hint'.tr(),
                               border: InputBorder.none,
                             ),
                             onChanged: (val) => setState(() => searchText = val),
@@ -171,7 +182,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.98),
+                      color: Colors.white.withValues(alpha: 0.98),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: SingleChildScrollView(
@@ -182,13 +193,13 @@ class _FullMapScreenState extends State<FullMapScreen> {
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 4),
                               child: FilterChip(
-                                label: Text(cat),
+                                label: Text(_localizeCategory(cat)),
                                 selected: selectedCategory == cat,
                                 onSelected: (_) => setState(() => selectedCategory == cat ? selectedCategory = '' : selectedCategory = cat),
                               ),
                             ),
                           FilterChip(
-                            label: const Text('جميع الفئات'),
+                            label: Text('all_categories'.tr()),
                             selected: selectedCategory == '',
                             onSelected: (_) => setState(() => selectedCategory = ''),
                           ),
@@ -203,5 +214,53 @@ class _FullMapScreenState extends State<FullMapScreen> {
         },
       ),
     );
+  }
+
+  double _toDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  String _localizeCategory(dynamic value) {
+    final raw = (value ?? '').toString().trim().toLowerCase();
+    switch (raw) {
+      case 'مطاعم':
+      case 'restaurants':
+        return 'restaurants'.tr();
+      case 'عقارات':
+      case 'real_estate':
+      case 'real estate':
+        return 'real_estate'.tr();
+      case 'ملابس':
+      case 'clothes':
+        return 'clothes'.tr();
+      case 'إلكترونيات':
+      case 'electronics':
+        return 'electronics'.tr();
+      case 'استراحات':
+      case 'resthouses':
+        return 'resthouses'.tr();
+      case 'صحة':
+      case 'health':
+        return 'health'.tr();
+      case 'أنشطة':
+      case 'activities':
+        return 'activities'.tr();
+      case 'أخرى':
+      case 'other':
+        return 'other'.tr();
+      case 'مجوهرات':
+      case 'jewelry':
+        return 'jewelry'.tr();
+      case 'سيارات':
+      case 'cars':
+        return 'cars'.tr();
+      case 'إقامة':
+      case 'accommodation':
+        return 'accommodation'.tr();
+      default:
+        return (value ?? '').toString();
+    }
   }
 }
