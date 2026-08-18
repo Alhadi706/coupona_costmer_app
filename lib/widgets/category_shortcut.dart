@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/design_tokens.dart';
+
 class CategoryShortcut extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -9,14 +11,14 @@ class CategoryShortcut extends StatelessWidget {
   final double width;
 
   const CategoryShortcut({
-    Key? key,
     required this.icon,
     required this.label,
     this.onTap,
     this.iconSize = 24,
     this.fontSize = 10,
     this.width = 60,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,7 @@ class CategoryShortcut extends StatelessWidget {
         height: width, // تصغير ارتفاع وعرض الكونتينر ليطابق حجم الأيقونة
         margin: EdgeInsets.symmetric(horizontal: 2, vertical: 2), // تقليل الهوامش
         decoration: BoxDecoration(
-          color: Colors.deepPurple.shade50,
+          color: kSand,
           borderRadius: BorderRadius.circular(8), // تقليل نصف القطر
         ),
         child: Column(
@@ -48,13 +50,13 @@ class CategoryShortcut extends StatelessWidget {
                 ],
               ),
               child: Center(
-                child: Icon(icon, size: iconSize, color: Colors.deepPurple),
+                child: Icon(icon, size: iconSize, color: kTealDark),
               ),
             ),
             SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(fontSize: fontSize, color: Colors.deepPurple),
+              style: TextStyle(fontSize: fontSize, color: kTealDark),
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,

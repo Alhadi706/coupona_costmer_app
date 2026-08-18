@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 
+import '../theme/design_tokens.dart';
+
 class MenuIcon extends StatelessWidget {
   final VoidCallback? onTap;
   final double iconSize;
@@ -11,7 +13,7 @@ class MenuIcon extends StatelessWidget {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.deepPurple.shade100,
+        color: kSand,
         borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
@@ -19,9 +21,9 @@ class MenuIcon extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.menu, color: Colors.deepPurple, size: iconSize),
+            Icon(Icons.menu, color: kTealDark, size: iconSize),
             SizedBox(height: 4),
-            Text('menu_tooltip'.tr(), style: TextStyle(color: Colors.deepPurple, fontSize: 12)),
+            Text('menu_tooltip'.tr(), style: TextStyle(color: kTealDark, fontSize: 12)),
           ],
         ),
       ),

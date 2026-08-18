@@ -553,4 +553,36 @@
   ,"expire": "Expire"
   ,"archive": "Archive"
   ,"lifecycle_note": "Note: this is an admin screen for managing offer states from draft to archive."
+,
+  "my_roles_title": "My Roles",
+  "my_roles_active_role": "Current mode: {role}",
+  "role_customer": "Customer",
+  "role_merchant": "Merchant",
+  "role_brand": "Brand",
+  "role_cashier": "Cashier",
+  "role_status_active": "Active",
+  "role_status_inactive": "Inactive",
+  "role_switch": "Switch",
+  "activate_merchant_role": "Activate merchant role",
+  "activate_brand_role": "Activate brand role",
+  "role_request_coming_soon": "Role activation requests will be enabled in the next phase.",
+  "role_mode_customer": "Customer Mode",
+  "role_mode_merchant": "Merchant Mode",
+  "role_mode_brand": "Brand Mode",
+  "role_mode_cashier": "Cashier Mode",
+  "role_placeholder_merchant": "Merchant dashboard is under construction in this phase.",
+  "role_placeholder_brand": "Brand dashboard is under construction in this phase.",
+  "role_placeholder_cashier": "Cashier tools will be enabled in a later phase."
+,
+  "role_request_business_name": "Business name",
+  "role_request_commercial_registration": "Commercial registration",
+  "role_request_plan_type": "Plan type",
+  "role_request_submit": "Submit request",
+  "role_request_submitted": "Role request submitted for admin review.",
+  "role_request_status_title": "Role Request Status",
+  "role_request_no_items": "No role requests yet.",
+  "role_request_item_title": "Role: {role}",
+  "role_request_item_status": "Status: {status}",
+  "role_request_item_status_reason": "Status: {status} | Reason: {reason}",
+  "role_subscription_status": "Subscription status: {status}"
 }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import '../services/company_server_service.dart';
+import 'package:coupona_app/theme/design_tokens.dart';
 
 class FullMapScreen extends StatefulWidget {
   const FullMapScreen({super.key});
@@ -75,7 +75,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.deepPurple.shade700,
+        backgroundColor: kTeal,
         title: Text('stores_map_title'.tr()),
         leading: IconButton(
           icon: Icon(Icons.close),
@@ -132,7 +132,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
                           point: LatLng(_toDouble(store['lat']), _toDouble(store['lng'])),
                           child: GestureDetector(
                             onTap: () => _showStoreDetails(store),
-                            child: Icon(Icons.location_on, color: Colors.red, size: 36),
+                            child: Icon(Icons.location_on, color: kGold, size: 36),
                           ),
                         ),
                     ],
@@ -150,12 +150,12 @@ class _FullMapScreenState extends State<FullMapScreen> {
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.98),
+                      color: kWhite.withValues(alpha: 0.98),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.search, color: Colors.grey),
+                        Icon(Icons.search, color: kInk.withValues(alpha: 0.6)),
                         SizedBox(width: 8),
                         Expanded(
                           child: TextField(
@@ -183,7 +183,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.98),
+                      color: kWhite.withValues(alpha: 0.98),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: SingleChildScrollView(
@@ -196,12 +196,24 @@ class _FullMapScreenState extends State<FullMapScreen> {
                               child: FilterChip(
                                 label: Text(_localizeCategory(cat)),
                                 selected: selectedCategory == cat,
+                                backgroundColor: kSand,
+                                selectedColor: kTeal,
+                                checkmarkColor: kWhite,
+                                labelStyle: TextStyle(
+                                  color: selectedCategory == cat ? kWhite : kInk,
+                                ),
                                 onSelected: (_) => setState(() => selectedCategory == cat ? selectedCategory = '' : selectedCategory = cat),
                               ),
                             ),
                           FilterChip(
                             label: Text('all_categories'.tr()),
                             selected: selectedCategory == '',
+                            backgroundColor: kSand,
+                            selectedColor: kTeal,
+                            checkmarkColor: kWhite,
+                            labelStyle: TextStyle(
+                              color: selectedCategory == '' ? kWhite : kInk,
+                            ),
                             onSelected: (_) => setState(() => selectedCategory = ''),
                           ),
                         ],

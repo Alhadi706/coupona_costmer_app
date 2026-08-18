@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 
+import '../theme/design_tokens.dart';
+
 class CategoryBar extends StatelessWidget {
   final List<Map<String, dynamic>> categories;
   final double height;
@@ -41,16 +43,16 @@ class CategoryBar extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CircleAvatar(
-                    backgroundColor: Colors.deepPurple.shade50,
+                    backgroundColor: kSand,
                     radius: avatarRadius,
-                    child: Icon(cat['icon'], size: iconSize.clamp(16.0, 24.0), color: Colors.deepPurple),
+                    child: Icon(cat['icon'], size: iconSize.clamp(16.0, 24.0), color: kTealDark),
                   ),
                   const SizedBox(height: 4),
                   SizedBox(
                     width: iconSize * 2,
                     child: Text(
                       cat['label'].toString().tr(),
-                      style: TextStyle(fontSize: fontSize.clamp(10.0, 12.0), color: Colors.deepPurple),
+                      style: TextStyle(fontSize: fontSize.clamp(10.0, 12.0), color: kTealDark),
                       textAlign: TextAlign.center,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

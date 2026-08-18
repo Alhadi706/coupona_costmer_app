@@ -11,6 +11,7 @@ import 'screens/login_screen.dart'; // استيراد شاشة تسجيل الد
 import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart'; // استيراد الشاشة الرئيسية
 import 'services/app_session.dart';
+import 'theme/app_themes.dart';
 
 void main() async {
   runZonedGuarded(() async {
@@ -71,45 +72,17 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  Future<Map<String, bool>> _resolveLaunchState() async {
+  Future<Map<String, dynamic>> _resolveLaunchState() async {
     final prefs = await SharedPreferences.getInstance();
     final shouldShowOnboarding = !(prefs.getBool('onboarding_done') ?? false);
     final token = await AppSession.token();
+    final activeRole = await AppSession.role();
     final hasSession = token != null && token.trim().isNotEmpty;
-    return <String, bool>{
+    return <String, dynamic>{
       'shouldShowOnboarding': shouldShowOnboarding,
       'hasSession': hasSession,
+      'activeRole': activeRole,
     };
-  }
-
-  // زر مؤقت لإضافة فاتورة وهمية
-  void _addTestInvoice() async {
-    await SupabaseInvoiceService.addInvoice(
-      invoiceNumber: 'INV-2025-TEST-002',
-      storeName: 'الشعاب',
-      date: DateTime.parse('2025-07-09'),
-      products: [
-        {'name': 'لميس', 'quantity': 2, 'unit_price': 8, 'total_price': 16},
-        {'name': 'توري', 'quantity': 1, 'unit_price': 5, 'total_price': 5},
-        {'name': 'زبادي النسيم', 'quantity': 3, 'unit_price': 2, 'total_price': 6},
-        {'name': 'حفاظات ليلاس', 'quantity': 1, 'unit_price': 25, 'total_price': 25},
-        {'name': 'تن الجيد', 'quantity': 2, 'unit_price': 7, 'total_price': 14},
-        {'name': 'عصير الريحان', 'quantity': 4, 'unit_price': 1.5, 'total_price': 6},
-        {'name': 'عصير المزرعة', 'quantity': 2, 'unit_price': 2, 'total_price': 4},
-        {'name': 'مكرونة اللمة', 'quantity': 5, 'unit_price': 1, 'total_price': 5},
-        {'name': 'أزر المبروك', 'quantity': 1, 'unit_price': 18, 'total_price': 18},
-        {'name': 'طماطم الصفوة', 'quantity': 3, 'unit_price': 3, 'total_price': 9},
-      ],
-      total: 108,
-      userId: 'user_test_1', // ضع هنا user_id حقيقي أو تجريبي
-      merchantId: 'your-merchant-uuid-here',
-      uniqueHash: 'test-hash-002',
-    );
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تمت إضافة الفاتورة التجريبية بنجاح!')),
-      );
-    }
   }
 
   @override
@@ -117,6 +90,7 @@ class _MyAppState extends State<MyApp> {
     final easy = EasyLocalization.of(context);
 
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       locale: easy?.locale ?? const Locale('ar'),
       supportedLocales: easy?.supportedLocales ?? const [Locale('ar')],
       localizationsDelegates: easy?.delegates ?? const [
@@ -126,23 +100,10 @@ class _MyAppState extends State<MyApp> {
       ],
       navigatorKey: navigatorKey,
       title: 'Coupona App',
-      theme: ThemeData(
-        primarySwatch: Colors.deepPurple,
-        brightness: Brightness.light,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        primarySwatch: Colors.deepPurple,
-        scaffoldBackgroundColor: const Color(0xFF181A20),
-        cardColor: const Color(0xFF23242B),
-        dialogTheme:
-            const DialogThemeData(backgroundColor: Color(0xFF23242B)),
-        appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF23242B)),
-        textTheme: const TextTheme(bodyMedium: TextStyle(color: Colors.white)),
-      ),
-      themeMode: ThemeMode.system, // دعم الوضع الليلي تلقائي
-      home: FutureBuilder<Map<String, bool>>(
+      theme: customerTheme,
+      darkTheme: adminTheme,
+      themeMode: ThemeMode.light,
+      home: FutureBuilder<Map<String, dynamic>>(
         future: _resolveLaunchState(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
@@ -152,20 +113,28 @@ class _MyAppState extends State<MyApp> {
           final state = snapshot.data!;
           final shouldShowOnboarding = state['shouldShowOnboarding'] ?? true;
           final hasSession = state['hasSession'] ?? false;
+          final activeRole = (state['activeRole'] ?? 'customer').toString();
 
+          // Rebuild MaterialApp with the role-aware theme once launch state is resolved.
+          final roleTheme = themeForRole(activeRole);
+
+          Widget home;
           if (shouldShowOnboarding) {
-            return OnboardingScreen(
+            home = OnboardingScreen(
               onFinish: () => Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => LoginPage()),
               ),
             );
+          } else if (!hasSession) {
+            home = LoginPage();
+          } else {
+            home = const MainAppWithFeatures();
           }
 
-          if (!hasSession) {
-            return LoginPage();
-          }
-
-          return const MainAppWithFeatures();
+          return Theme(
+            data: roleTheme,
+            child: home,
+          );
         },
       ),
     );

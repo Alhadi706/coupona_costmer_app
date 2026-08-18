@@ -1,0 +1,240 @@
+{
+  "meta": {
+    "at": "2026-08-16T10:56:41.599Z",
+    "api": "http://127.0.0.1:3006/api"
+  },
+  "users": {
+    "ahmed": {
+      "name": "أحمد",
+      "email": "ahmed.stage7.20260816105641596@kupuna.test",
+      "phone": "0961641596",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1994-04-12",
+      "lat": 32.9012,
+      "lng": 13.205
+    },
+    "khaledMerchant": {
+      "name": "خالد التاجر",
+      "email": "khaledmerchant.stage7.20260816105641596@kupuna.test",
+      "phone": "0962641596",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1990-05-10",
+      "lat": 32.909,
+      "lng": 13.215
+    },
+    "sara": {
+      "name": "سارة",
+      "email": "sara.stage7.20260816105641596@kupuna.test",
+      "phone": "0963641596",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1997-08-22",
+      "lat": 32.9,
+      "lng": 13.2038
+    },
+    "yousef": {
+      "name": "يوسف",
+      "email": "yousef.stage7.20260816105641596@kupuna.test",
+      "phone": "0964641596",
+      "role": "admin",
+      "gender": "male",
+      "birthDate": "1988-01-09",
+      "lat": 32.889,
+      "lng": 13.1988
+    },
+    "toriOwner": {
+      "name": "مالك توري",
+      "email": "tori.stage7.20260816105641596@kupuna.test",
+      "phone": "0965641596",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1991-11-11",
+      "lat": 32.898,
+      "lng": 13.202
+    }
+  },
+  "ids": {
+    "ahmed": "4efd2253-4771-46fd-8ba3-2233ef58230c",
+    "khaledMerchant": "1d4fb087-9b17-4b41-9889-8b0b1011040b",
+    "sara": "33e51819-a017-4d05-9491-321f173b8d64",
+    "yousef": "e6bd28e3-800f-4962-a449-0f90915630ca",
+    "toriOwner": "4c22cbae-6ad4-43cb-9059-d6e852dc859e",
+    "ahmedMerchantId": "6e863302-1019-40dd-a50a-44140b6565b6",
+    "khaledMerchantId": "09c57374-af31-4859-bd06-1d88657320b3",
+    "toriBrandId": "13102936-57d4-4d29-a979-d33f09fe4f88"
+  },
+  "checks": {
+    "7.1": {
+      "ok": true,
+      "eligibleStores": {
+        "ok": true,
+        "status": 200,
+        "data": [
+          {
+            "storeId": "6e863302-1019-40dd-a50a-44140b6565b6",
+            "storeName": "مطعم أحمد",
+            "interactionsCount": 1,
+            "lastInteractedAt": "2026-08-16T10:57:00.991Z"
+          }
+        ]
+      },
+      "firstReport": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "ok": true,
+          "id": "76240bff-7e42-46fa-9701-e47dff341d80",
+          "status": "new",
+          "targetName": "مطعم أحمد",
+          "thankYouMessage": "We received your report and it is under review.",
+          "confirmationMessage": "Report for مطعم أحمد created (id: 76240bff-7e42-46fa-9701-e47dff341d80, status: new)."
+        }
+      }
+    },
+    "7.2": {
+      "ok": true,
+      "thankYouMessage": "We received your report and it is under review."
+    },
+    "7.3": {
+      "ok": true,
+      "confirmationMessage": "Report for مطعم أحمد created (id: 76240bff-7e42-46fa-9701-e47dff341d80, status: new).",
+      "reportId": "76240bff-7e42-46fa-9701-e47dff341d80",
+      "status": "new"
+    },
+    "7.4": {
+      "ok": true,
+      "reportInAhmedInbox": {
+        "id": "76240bff-7e42-46fa-9701-e47dff341d80",
+        "ownerId": "33e51819-a017-4d05-9491-321f173b8d64",
+        "ownerEmail": "sara.stage7.20260816105641596@kupuna.test",
+        "ownerName": "سارة",
+        "reportType": "خدمة سيئة",
+        "status": "new",
+        "targetStoreId": "6e863302-1019-40dd-a50a-44140b6565b6",
+        "targetBrandId": null,
+        "targetStoreName": "مطعم أحمد",
+        "targetBrandName": null,
+        "description": "تأخر شديد في الخدمة وسلوك غير مناسب من الموظف.",
+        "imageUrl": "https://example.com/report-stage7-1.jpg",
+        "rewardGranted": false,
+        "rewardPoints": 0,
+        "resolutionNote": null,
+        "visibilityReason": "store",
+        "createdAt": "2026-08-16T10:57:04.571Z",
+        "updatedAt": "2026-08-16T10:57:04.571Z"
+      }
+    },
+    "7.5": {
+      "ok": true,
+      "acceptWithReward": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "ok": true,
+          "id": "76240bff-7e42-46fa-9701-e47dff341d80",
+          "status": "reward_granted",
+          "rewardGranted": true,
+          "rewardPoints": 12
+        }
+      }
+    },
+    "7.6": {
+      "ok": true,
+      "saraPointsBefore": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "ownerId": "33e51819-a017-4d05-9491-321f173b8d64",
+          "availablePoints": 0,
+          "lifetimePoints": 0,
+          "updatedAt": "2026-08-16T10:57:05.484Z"
+        }
+      },
+      "saraPointsAfter": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "ownerId": "33e51819-a017-4d05-9491-321f173b8d64",
+          "availablePoints": 12,
+          "lifetimePoints": 12,
+          "updatedAt": "2026-08-16T10:57:05.804Z"
+        }
+      },
+      "finalNotification": {
+        "id": "e4567fb3-e2cd-4b36-a7c0-b22e7c144f52",
+        "type": "report_accepted_reward",
+        "title": "Report accepted with reward",
+        "body": "Your report was accepted by مطعم أحمد. Reward +12 points added.",
+        "targetScreen": null,
+        "payload": {
+          "status": "reward_granted",
+          "reportId": "76240bff-7e42-46fa-9701-e47dff341d80",
+          "rewardPoints": 12
+        },
+        "isRead": false,
+        "readAt": null,
+        "createdAt": "2026-08-16T10:57:05.804Z"
+      }
+    },
+    "7.7": {
+      "ok": true,
+      "secondReport": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "ok": true,
+          "id": "04ed8593-2e06-4a2b-864e-d3abbcd39e55",
+          "status": "new",
+          "targetName": "توري",
+          "thankYouMessage": "We received your report and it is under review.",
+          "confirmationMessage": "Report for توري created (id: 04ed8593-2e06-4a2b-864e-d3abbcd39e55, status: new)."
+        }
+      },
+      "inAhmed": {
+        "id": "04ed8593-2e06-4a2b-864e-d3abbcd39e55",
+        "ownerId": "33e51819-a017-4d05-9491-321f173b8d64",
+        "ownerEmail": "sara.stage7.20260816105641596@kupuna.test",
+        "ownerName": "سارة",
+        "reportType": "منتج منتهي الصلاحية",
+        "status": "new",
+        "targetStoreId": null,
+        "targetBrandId": "13102936-57d4-4d29-a979-d33f09fe4f88",
+        "targetStoreName": null,
+        "targetBrandName": "توري",
+        "description": "منتج توري منتهي الصلاحية في نقطة البيع.",
+        "imageUrl": "https://example.com/report-stage7-2.jpg",
+        "rewardGranted": false,
+        "rewardPoints": 0,
+        "resolutionNote": null,
+        "visibilityReason": "brand_product",
+        "createdAt": "2026-08-16T10:57:18.831Z",
+        "updatedAt": "2026-08-16T10:57:18.831Z"
+      },
+      "inKhaled": {
+        "id": "04ed8593-2e06-4a2b-864e-d3abbcd39e55",
+        "ownerId": "33e51819-a017-4d05-9491-321f173b8d64",
+        "ownerEmail": "sara.stage7.20260816105641596@kupuna.test",
+        "ownerName": "سارة",
+        "reportType": "منتج منتهي الصلاحية",
+        "status": "new",
+        "targetStoreId": null,
+        "targetBrandId": "13102936-57d4-4d29-a979-d33f09fe4f88",
+        "targetStoreName": null,
+        "targetBrandName": "توري",
+        "description": "منتج توري منتهي الصلاحية في نقطة البيع.",
+        "imageUrl": "https://example.com/report-stage7-2.jpg",
+        "rewardGranted": false,
+        "rewardPoints": 0,
+        "resolutionNote": null,
+        "visibilityReason": "brand_product",
+        "createdAt": "2026-08-16T10:57:18.831Z",
+        "updatedAt": "2026-08-16T10:57:18.831Z"
+      }
+    }
+  },
+  "notes": [
+    "Stage 7 validated via deterministic API assertions for report flow and rewards."
+  ]
+}

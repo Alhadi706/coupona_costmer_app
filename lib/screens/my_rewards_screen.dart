@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 import '../services/company_server_service.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/design_system/kupuna_top_tabs.dart';
 
 class MyRewardsScreen extends StatefulWidget {
   const MyRewardsScreen({super.key});
@@ -16,6 +18,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
   Map<String, dynamic> _points = const <String, dynamic>{};
   List<Map<String, dynamic>> _rewards = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _ledger = const <Map<String, dynamic>>[];
+  int _rewardTab = 0;
 
   @override
   void initState() {
@@ -119,6 +122,12 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     }
 
     final availablePoints = _toInt(_points['availablePoints']);
+    final kind = _rewardTab == 0 ? 'digital' : 'physical';
+    final visibleRewards = _rewards.where((reward) {
+      final rewardKind = (reward['rewardKind'] ?? reward['kind'] ?? '').toString().toLowerCase();
+      if (rewardKind.isEmpty) return _rewardTab == 0;
+      return rewardKind == kind;
+    }).toList();
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -142,7 +151,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                     style: const TextStyle(
                       fontSize: 34,
                       fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple,
+                      color: kTeal,
                     ),
                   ),
                 ],
@@ -150,12 +159,18 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
             ),
           ),
           const SizedBox(height: 14),
+          KupunaTopTabs(
+            tabs: const <String>['رقمي', 'مادي'],
+            activeIndex: _rewardTab,
+            onSelect: (index) => setState(() => _rewardTab = index),
+          ),
+          const SizedBox(height: 10),
           Text(
             'available_rewards'.tr(),
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 10),
-          if (_rewards.isEmpty)
+          if (visibleRewards.isEmpty)
             Card(
               child: Padding(
                 padding: EdgeInsets.all(14),
@@ -163,13 +178,13 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
               ),
             )
           else
-            ..._rewards.map((reward) {
+            ...visibleRewards.map((reward) {
               final cost = _toInt(reward['value']);
               final canRedeem = availablePoints >= cost;
               return Card(
                 margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
-                  leading: const Icon(Icons.card_giftcard, color: Colors.deepPurple),
+                  leading: const Icon(Icons.card_giftcard, color: kTeal),
                   title: Text((reward['reward_name'] ?? '').toString()),
                   subtitle: Text((reward['description'] ?? '').toString()),
                   trailing: ElevatedButton(

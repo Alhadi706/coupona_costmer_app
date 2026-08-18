@@ -4,6 +4,8 @@ import 'package:easy_localization/easy_localization.dart';
 import '../modules/coupon_lifecycle/coupon_lifecycle_rules.dart';
 import '../modules/coupon_lifecycle/models/coupon_lifecycle_record.dart';
 import '../modules/coupon_lifecycle/services/coupon_lifecycle_service.dart';
+import 'package:coupona_app/theme/design_tokens.dart';
+import 'package:coupona_app/widgets/design_system/kupuna_status_pill.dart';
 
 class CouponLifecycleScreen extends StatefulWidget {
   const CouponLifecycleScreen({super.key});
@@ -117,11 +119,27 @@ class _CouponLifecycleScreenState extends State<CouponLifecycleScreen> {
 
   Widget _statusChip(CouponLifecycleRecord record) {
     final String label = _statusLabel(record.status);
-    return Chip(
-      label: Text(label),
-      backgroundColor: Colors.deepPurple.shade50,
-      side: BorderSide(color: Colors.deepPurple.shade200),
+    return KupunaStatusPill(
+      kind: _pillKindForStatus(record.status),
+      labelOverride: label,
     );
+  }
+
+  StatusPillKind _pillKindForStatus(CouponLifecycleStatus status) {
+    switch (status) {
+      case CouponLifecycleStatus.draft:
+      case CouponLifecycleStatus.pendingReview:
+      case CouponLifecycleStatus.expired:
+      case CouponLifecycleStatus.archived:
+        return StatusPillKind.pending;
+      case CouponLifecycleStatus.rejected:
+        return StatusPillKind.rejected;
+      case CouponLifecycleStatus.approved:
+        return StatusPillKind.approvedTeal;
+      case CouponLifecycleStatus.active:
+      case CouponLifecycleStatus.redeemed:
+        return StatusPillKind.approvedMint;
+    }
   }
 
   @override
@@ -129,7 +147,7 @@ class _CouponLifecycleScreenState extends State<CouponLifecycleScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('coupon_lifecycle_title'.tr()),
-        backgroundColor: Colors.deepPurple.shade700,
+        backgroundColor: kTeal,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -207,7 +225,7 @@ class _CouponLifecycleScreenState extends State<CouponLifecycleScreen> {
             const SizedBox(height: 12),
             Text(
               'lifecycle_note'.tr(),
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              style: TextStyle(color: kInk.withValues(alpha: 0.65), fontSize: 12),
             ),
           ],
         ),
@@ -218,6 +236,10 @@ class _CouponLifecycleScreenState extends State<CouponLifecycleScreen> {
   Widget _statusButton(String text, CouponLifecycleStatus status) {
     return ElevatedButton(
       onPressed: _isSubmitting ? null : () => _moveTo(status),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: kTeal,
+        foregroundColor: kWhite,
+      ),
       child: Text(text),
     );
   }

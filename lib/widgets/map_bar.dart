@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_tile_provider.dart';
 import 'package:latlong2/latlong.dart';
 import '../screens/full_map_screen.dart';
 import '../services/company_server_service.dart';
+import '../theme/design_tokens.dart';
 
 class MapBar extends StatefulWidget {
   final VoidCallback? onExpand;
-  const MapBar({super.key, this.onExpand});
+  final ValueChanged<String>? onTargetLocationChanged;
+
+  const MapBar({super.key, this.onExpand, this.onTargetLocationChanged});
 
   @override
   State<MapBar> createState() => _MapBarState();
@@ -20,27 +22,8 @@ class _MapBarState extends State<MapBar> {
 
   String searchText = '';
   String selectedCategory = '';
+  String selectedLocation = '';
   Map<String, dynamic>? selectedStore;
-  List<Map<String, dynamic>> stores = [];
-  bool isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    fetchStores();
-  }
-
-  Future<void> fetchStores() async {
-    final snapshot = await FirebaseFirestore.instance.collection('stores').get();
-    setState(() {
-      stores = snapshot.docs.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id;
-        return data;
-      }).toList();
-      isLoading = false;
-    });
-  }
 
   @override
   void initState() {
@@ -105,10 +88,17 @@ class _MapBarState extends State<MapBar> {
         final filteredStores = stores.where((store) {
           final matchesSearch = searchText.isEmpty || (store['name']?.toString().contains(searchText) ?? false);
           final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
-          return matchesSearch && matchesCategory;
+          final matchesLocation = selectedLocation.isEmpty || (store['location']?.toString() == selectedLocation);
+          return matchesSearch && matchesCategory && matchesLocation;
         }).toList();
         final categories = stores
             .map((store) => (store['category'] ?? '').toString().trim())
+            .where((c) => c.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+        final locations = stores
+            .map((store) => (store['location'] ?? '').toString().trim())
             .where((c) => c.isNotEmpty)
             .toSet()
             .toList()
@@ -161,7 +151,7 @@ class _MapBarState extends State<MapBar> {
                         child: CircleAvatar(
                           backgroundColor: Colors.white,
                           child: IconButton(
-                            icon: Icon(Icons.fullscreen, color: Colors.deepPurple),
+                            icon: const Icon(Icons.fullscreen, color: kTealDark),
                             onPressed: _expandMap,
                             tooltip: 'expand_map'.tr(),
                           ),
@@ -204,26 +194,37 @@ class _MapBarState extends State<MapBar> {
                                         selected: selectedCategory == '',
                                         onSelected: (_) => setState(() => selectedCategory = ''),
                                       ),
-                                    ),
-                                  FilterChip(
-                                    label: Text('all_categories'.tr()),
-                                    selected: selectedCategory == '',
-                                    onSelected: (_) => setState(() => selectedCategory = ''),
+                                      const SizedBox(width: 8),
+                                      for (final loc in locations)
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                          child: FilterChip(
+                                            label: Text(loc),
+                                            selected: selectedLocation == loc,
+                                            onSelected: (_) {
+                                              setState(() {
+                                                selectedLocation = selectedLocation == loc ? '' : loc;
+                                              });
+                                              widget.onTargetLocationChanged?.call(selectedLocation);
+                                            },
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 

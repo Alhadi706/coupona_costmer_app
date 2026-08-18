@@ -19,6 +19,11 @@ class AppSession {
     await prefs.setString(_roleKey, role);
   }
 
+  static Future<void> setEmail(String email) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_emailKey, email);
+  }
+
   static Future<void> clear() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
@@ -45,5 +50,10 @@ class AppSession {
   static Future<String> role() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_roleKey) ?? 'customer';
+  }
+
+  static Future<void> setRole(String role) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_roleKey, role);
   }
 }

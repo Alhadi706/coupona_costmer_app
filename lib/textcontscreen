@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'theme/design_tokens.dart';
+
 class TextContentScreen extends StatelessWidget {
   final String title;
   final String content; // يمكن أن يكون هذا نصًا طويلاً أو حتى Markdown لاحقًا
@@ -15,7 +17,7 @@ class TextContentScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: kTealDark,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),

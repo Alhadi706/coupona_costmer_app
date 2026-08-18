@@ -1,326 +1,36 @@
-import 'dart:ui' as ui;
-import 'package:flutter/material.dart';
-import 'package:flutter_speed_dial/flutter_speed_dial.dart';
-import 'package:badges/badges.dart' as badges;
-import 'offers_screen.dart';
-import 'community_screen.dart';
-import 'settings_screen.dart';
-import 'full_map_screen.dart'; // تأكد من استيراد الشاشة الجديدة
-import 'report_screen.dart' show ReportScreen; // استورد فقط ReportScreen
-import 'scan_invoice_screen.dart'; // استيراد شاشة ScanInvoiceScreen
-import 'add_coupon_screen.dart'; // استيراد شاشة AddCouponScreen
-import 'category_offers_screen.dart'; // استيراد شاشة عروض الفئة
-import 'home_content_screen.dart'; // استيراد الشاشة الجديدة
-import 'my_rewards_screen.dart';
-import '../services/badge_helper.dart';
-import '../services/company_server_service.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+
+import '../services/app_session.dart';
+import '../services/company_server_service.dart';
+import '../theme/design_tokens.dart';
+import 'admin_dashboard_screen.dart';
+import 'brand_dashboard_screen.dart';
+import 'cashier_dashboard_screen.dart';
+import 'community_screen.dart';
+import 'home_content_screen.dart';
+import 'merchant_dashboard_screen.dart';
+import 'my_rewards_screen.dart';
+import 'my_roles_screen.dart';
+import 'report_issue_screen.dart';
+import 'scan_invoice_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String phone;
   final String age;
   final String gender;
-
-  // أضف متغير لتبديل نمط شريط الفئات
-  final int categoryBarType; // 1: ListView صف واحد، 2: GridView صفين
+  final String? initialRoleOverride;
+  final int categoryBarType;
 
   const HomeScreen({
     super.key,
     required this.phone,
     required this.age,
     required this.gender,
-    this.categoryBarType = 2, // الافتراضي GridView صفين
+    this.initialRoleOverride,
+    this.categoryBarType = 2,
   });
-
-  // قائمة الفئات (لإعادة الاستخدام)
-  static final List<Map<String, dynamic>> categoriesStatic = [
-    {
-      'icon': Icons.restaurant,
-      'label': 'restaurants',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'مطعم الذواقة',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 20%',
-          'endDate': '2025-06-10',
-          'description': 'تخفيض 20% على جميع الوجبات.',
-          'conditions': 'يسري العرض على الطلبات الداخلية فقط.',
-          'location': 'الرياض - حي العليا',
-          'phone': '0500000001',
-        },
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'مطعم البيت الشامي',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': '2025-06-15',
-          'description': 'هدية مجانية مع كل وجبة عائلية.',
-          'conditions': 'يسري العرض على الطلبات الداخلية فقط.',
-          'location': 'جدة - شارع فلسطين',
-          'phone': '0500000002',
-        },
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'مطعم برجر تايم',
-          'offerType': 'نقاط مضاعفة',
-          'percent': '',
-          'endDate': '2025-06-20',
-          'description': 'نقاط مضاعفة على كل طلب برجر.',
-          'conditions': 'يسري العرض على الطلبات الخارجية فقط.',
-          'location': 'الدمام - حي الشاطئ',
-          'phone': '0500000003',
-        },
-      ]
-    },
-    {
-      'icon': Icons.directions_car,
-      'label': 'cars',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'مغسلة سيارات النخبة',
-          'offerType': 'نقاط مضاعفة',
-          'percent': '',
-          'endDate': '2025-06-15',
-          'description': 'احصل على نقاط مضاعفة عند كل غسيل.',
-          'conditions': 'يسري العرض على غسيل السيارات الصغيرة فقط.',
-          'location': 'جدة - شارع التحلية',
-          'phone': '0500000004',
-        },
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'تبديل زيوت السريع',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 10%',
-          'endDate': '2025-06-18',
-          'description': 'خصم 10% على جميع أنواع الزيوت.',
-          'conditions': 'يسري العرض على الزيوت المستوردة فقط.',
-          'location': 'الرياض - حي المروج',
-          'phone': '0500000005',
-        },
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'قطع غيار الخليج',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': '2025-06-25',
-          'description': 'هدية مجانية مع كل عملية شراء فوق 500 ريال.',
-          'conditions': 'حتى نفاد الكمية.',
-          'location': 'الدمام - طريق الخليج',
-          'phone': '0500000006',
-        },
-      ]
-    },
-    {
-      'icon': Icons.diamond,
-      'label': 'jewelry',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'مجوهرات الألماس',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': 'دائم',
-          'description': 'هدية مجانية مع كل عملية شراء فوق 1000 ريال.',
-          'conditions': 'حتى نفاد الكمية.',
-          'location': 'الدمام - طريق الخليج',
-          'phone': '0500000007',
-        },
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'مجوهرات الفخامة',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 25%',
-          'endDate': '2025-06-30',
-          'description': 'خصم 25% على أطقم الذهب.',
-          'conditions': 'يسري العرض على الأطقم الكاملة فقط.',
-          'location': 'الرياض - حي العليا',
-          'phone': '0500000008',
-        },
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'ساعات النخبة',
-          'offerType': 'نقاط مضاعفة',
-          'percent': '',
-          'endDate': '2025-07-01',
-          'description': 'نقاط مضاعفة على جميع الساعات.',
-          'conditions': 'يسري العرض على الساعات السويسرية فقط.',
-          'location': 'جدة - شارع الأمير سلطان',
-          'phone': '0500000009',
-        },
-      ]
-    },
-    {
-      'icon': Icons.hotel,
-      'label': 'accommodation',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'فندق الراحة',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 15%',
-          'endDate': '2025-06-20',
-          'description': 'خصم 15% على جميع الغرف.',
-          'conditions': 'يشترط الحجز المسبق.',
-          'location': 'مكة - العزيزية',
-          'phone': '0500000010',
-        },
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'شقق النور',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 10%',
-          'endDate': '2025-07-05',
-          'description': 'خصم 10% على الشقق الفندقية.',
-          'conditions': 'يسري العرض على الإقامة لأسبوع أو أكثر.',
-          'location': 'الرياض - حي النرجس',
-          'phone': '0500000011',
-        },
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'منتجع الشاطئ',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': '2025-07-10',
-          'description': 'هدية مجانية مع كل حجز فيلا.',
-          'conditions': 'حتى نفاد الكمية.',
-          'location': 'جدة - حي الشاطئ',
-          'phone': '0500000012',
-        },
-      ]
-    },
-    {
-      'icon': Icons.apartment,
-      'label': 'real_estate',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'مكتب عقار الشرق',
-          'offerType': 'بيع',
-          'percent': '',
-          'endDate': '2025-07-01',
-          'description': 'شقة للبيع بسعر مميز.',
-          'conditions': 'السعر قابل للتفاوض.',
-          'location': 'الرياض - حي النرجس',
-          'phone': '0500000013',
-        },
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'مكتب عقارات الخليج',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 5%',
-          'endDate': '2025-07-15',
-          'description': 'خصم 5% على عمولات البيع.',
-          'conditions': 'يسري العرض على العقارات السكنية فقط.',
-          'location': 'جدة - حي الروضة',
-          'phone': '0500000014',
-        },
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'مكتب إيجار الشرق',
-          'offerType': 'إيجار',
-          'percent': '',
-          'endDate': '2025-07-20',
-          'description': 'عروض إيجار شقق بأسعار منافسة.',
-          'conditions': 'يشترط عقد سنوي.',
-          'location': 'الدمام - حي الفيصلية',
-          'phone': '0500000015',
-        },
-      ]
-    },
-    {
-      'icon': Icons.self_improvement,
-      'label': 'activities',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'نادي اللياقة',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 10%',
-          'endDate': '2025-06-30',
-          'description': 'خصم 10% على الاشتراكات السنوية.',
-          'conditions': 'يسري العرض على الاشتراك الجديد فقط.',
-          'location': 'جدة - حي الروضة',
-          'phone': '0500000016',
-        },
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'مركز الأنشطة الصيفية',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': '2025-07-10',
-          'description': 'هدية مجانية لكل مشترك جديد.',
-          'conditions': 'حتى نفاد الكمية.',
-          'location': 'الرياض - حي الربيع',
-          'phone': '0500000017',
-        },
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'مخيم المغامرات',
-          'offerType': 'نقاط مضاعفة',
-          'percent': '',
-          'endDate': '2025-07-15',
-          'description': 'نقاط مضاعفة على كل اشتراك.',
-          'conditions': 'يسري العرض على المخيمات الصيفية فقط.',
-          'location': 'مكة - حي الشوقية',
-          'phone': '0500000018',
-        },
-      ]
-    },
-    {
-      'icon': Icons.local_hospital,
-      'label': 'health',
-      'width': 80.0,
-      'offers': [
-        {
-          'image': 'assets/ads/ad1.png',
-          'storeName': 'صيدلية الشفاء',
-          'offerType': 'نقاط مضاعفة',
-          'percent': '',
-          'endDate': '2025-06-12',
-          'description': 'نقاط مضاعفة على جميع المشتريات.',
-          'conditions': 'يسري العرض على المنتجات غير المخفضة.',
-          'location': 'الرياض - حي الملك فهد',
-          'phone': '0500000019',
-        },
-        {
-          'image': 'assets/ads/ad2.png',
-          'storeName': 'مركز الصحة الشاملة',
-          'offerType': 'تخفيض',
-          'percent': 'خصم 8%',
-          'endDate': '2025-07-05',
-          'description': 'خصم 8% على جميع الخدمات الطبية.',
-          'conditions': 'يسري العرض على الخدمات غير التأمينية.',
-          'location': 'جدة - حي الصفا',
-          'phone': '0500000020',
-        },
-        {
-          'image': 'assets/ads/ad3.png',
-          'storeName': 'مركز العلاج الطبيعي',
-          'offerType': 'هدية',
-          'percent': '',
-          'endDate': '2025-07-15',
-          'description': 'هدية مجانية مع كل جلسة علاجية.',
-          'conditions': 'حتى نفاد الكمية.',
-          'location': 'مكة - حي العزيزية',
-          'phone': '0500000021',
-        },
-      ]
-    },
-    {
-      'icon': Icons.category,
-      'label': 'all_categories',
-      'width': 90.0,
-      'offers': [],
-    },
-  ];
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -328,260 +38,293 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  int offersUnread = 0;
-  int communityUnread = 0;
-  int rewardsUnread = 0;
+  String _activeRole = 'customer';
+  List<Map<String, dynamic>> _notifications = const <Map<String, dynamic>>[];
+  int _unreadNotifications = 0;
+  int _groupMessageUnread = 0;
+
+  String _tx(String key, String fallback) {
+    final value = key.tr();
+    return value == key ? fallback : value;
+  }
 
   @override
   void initState() {
     super.initState();
-    _loadUnreadCounts();
-  }
-
-  Future<void> _loadUnreadCounts() async {
-    final offersLast = await BadgeHelper.getLastCount(BadgeHelper.offersKey);
-    final communityLast = await BadgeHelper.getLastCount(BadgeHelper.communityKey);
-    final rewardsLast = await BadgeHelper.getLastCount(BadgeHelper.rewardsKey);
-    setState(() {
-      offersUnread = offersLast;
-      communityUnread = communityLast;
-      rewardsUnread = rewardsLast;
-    });
-  }
-
-  void _onItemTapped(int index, {int? offersCount}) async {
-    setState(() {
-      _selectedIndex = index;
-    });
-    // تصفير العداد عند فتح الشاشة
-    if (index == 1 && offersCount != null) {
-      await BadgeHelper.setLastCount(BadgeHelper.offersKey, offersCount);
-      setState(() => offersUnread = offersCount);
-    } else if (index == 2) {
-      BadgeHelper.setLastCount(BadgeHelper.communityKey, 0);
-      setState(() => communityUnread = 0);
-    } else if (index == 4) {
-      BadgeHelper.setLastCount(BadgeHelper.rewardsKey, 0);
-      setState(() => rewardsUnread = 0);
+    _activeRole = widget.initialRoleOverride ?? 'customer';
+    _loadNotifications();
+    if (widget.initialRoleOverride == null) {
+      _loadActiveRole();
     }
   }
 
-  int _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? 0;
+  Future<void> _loadNotifications() async {
+    try {
+      final rows = await CompanyServerService.getMyNotifications();
+      if (!mounted) return;
+      final unread = rows.where((n) => n['isRead'] != true).length;
+      final groupUnread = rows.where((n) {
+        if (n['isRead'] == true) return false;
+        final type = (n['type'] ?? '').toString();
+        return type == 'group_message' || type == 'group_message_new';
+      }).length;
+      setState(() {
+        _notifications = rows;
+        _unreadNotifications = unread;
+        _groupMessageUnread = groupUnread;
+      });
+    } catch (_) {
+      // Keep shell usable even if notifications endpoint is temporarily unavailable.
+    }
+  }
+
+  Future<void> _openNotificationsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.65,
+            child: _notifications.isEmpty
+                ? Center(child: Text('notifications_empty'.tr()))
+                : ListView.separated(
+                    itemCount: _notifications.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final n = _notifications[index];
+                      final isRead = n['isRead'] == true;
+                      final title = (n['title'] ?? 'notifications_default_title'.tr()).toString();
+                      final body = (n['body'] ?? '').toString();
+                      return ListTile(
+                        leading: Icon(
+                          isRead ? Icons.notifications_none : Icons.notifications_active,
+                          color: isRead ? kInk.withValues(alpha: 0.6) : Colors.red,
+                        ),
+                        title: Text(title),
+                        subtitle: Text(body),
+                        trailing: isRead ? null : const Icon(Icons.fiber_manual_record, color: Colors.red, size: 10),
+                        onTap: () async {
+                          final id = (n['id'] ?? '').toString();
+                          if (id.isNotEmpty && !isRead) {
+                            await CompanyServerService.markNotificationRead(id);
+                            await _loadNotifications();
+                          }
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                      );
+                    },
+                  ),
+          ),
+        );
+      },
+    );
+    await _loadNotifications();
+  }
+
+  Future<void> _loadActiveRole() async {
+    final role = await AppSession.role();
+    if (!mounted) return;
+    setState(() {
+      _activeRole = role;
+    });
+  }
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    _loadNotifications();
+  }
+
+  Color _roleColor() {
+    switch (_activeRole) {
+      case 'admin':
+        return kInk;
+      default:
+        return kTealDark;
+    }
+  }
+
+  Future<void> _openRolesScreen() async {
+    final selected = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => MyRolesScreen(currentRole: _activeRole),
+      ),
+    );
+
+    if (selected == null || selected.isEmpty || selected == _activeRole) {
+      return;
+    }
+
+    await AppSession.setRole(selected);
+    if (!mounted) return;
+    setState(() {
+      _activeRole = selected;
+      _selectedIndex = 0;
+    });
+  }
+
+  Widget _buildRoleSurface() {
+    switch (_activeRole) {
+      case 'merchant':
+        return const KeyedSubtree(
+          key: ValueKey<String>('merchant_mode_surface'),
+          child: MerchantDashboardScreen.embedded(),
+        );
+      case 'brand':
+        return const KeyedSubtree(
+          key: ValueKey<String>('brand_mode_surface'),
+          child: BrandDashboardScreen.embedded(),
+        );
+      case 'cashier':
+        return const KeyedSubtree(
+          key: ValueKey<String>('cashier_mode_surface'),
+          child: CashierDashboardScreen.embedded(),
+        );
+      case 'admin':
+        return const KeyedSubtree(
+          key: ValueKey<String>('admin_mode_surface'),
+          child: AdminDashboardScreen.embedded(),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
-    final langKey = ValueKey(context.locale.languageCode);
-    final List<Widget> widgetOptions = <Widget>[
+    final List<Widget> customerTabs = <Widget>[
       HomeContentScreen(
-        categories: HomeScreen.categoriesStatic,
-        onCategoryTap: (category) {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => CategoryOffersScreen(
-                categoryName: category['label'],
-              ),
-            ),
-          );
-        },
-        onMapTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => FullMapScreen()),
-          );
-        },
-        onViewAllOffers: () => _onItemTapped(1),
+        onOpenOffersTab: () => _onItemTapped(1),
+        onOpenPeerAdsTab: () => _onItemTapped(2),
       ),
-      const OffersScreen.embedded(),
-      const CommunityScreen.embedded(),
-      const SettingsScreen.embedded(),
       MyRewardsScreen(),
+      const CommunityScreen.embedded(),
+      const ReportIssueScreen(),
+      const SettingsScreen.embedded(),
     ];
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('app_name'.tr(), style: const TextStyle(color: Colors.white)),
-        backgroundColor: Colors.deepPurple.shade700,
+        title: Text('app_name'.tr(), style: const TextStyle(color: kWhite)),
+        backgroundColor: _roleColor(),
         elevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
-            icon: Icon(Icons.menu),
+            icon: const Icon(Icons.menu),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
-          actions: [
-            // يمكنك إضافة أيقونات أخرى هنا إذا أردت
-          ],
         ),
         actions: [
-          // يمكنك إضافة أيقونات أخرى هنا إذا أردت
+          IconButton(
+            onPressed: _openNotificationsSheet,
+            tooltip: 'notifications_title'.tr(),
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_outlined),
+                if (_unreadNotifications > 0)
+                  Positioned(
+                    right: -1,
+                    top: -1,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: _openRolesScreen,
+            icon: const Icon(Icons.swap_horiz),
+            tooltip: 'my_roles_title'.tr(),
+          ),
         ],
       ),
       drawer: AppDrawer(
         onSelectHomeTab: _onItemTapped,
+        currentRole: _activeRole,
       ),
-      body: widgetOptions[_selectedIndex],
-      bottomNavigationBar: StreamBuilder<Map<String, dynamic>>(
-        stream: Stream.periodic(const Duration(seconds: 6))
-            .asyncMap((_) => CompanyServerService.getCounts())
-            .startWithFuture(CompanyServerService.getCounts()),
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            final data = snapshot.data!;
-            final offersBadgeCount = _toInt(data['offers']);
-            final communityBadgeCount = _toInt(data['community']);
-            final rewardsBadgeCount = _toInt(data['rewards']);
-
-            if (offersBadgeCount > offersUnread) {
-              BadgeHelper.setLastCount(BadgeHelper.offersKey, offersBadgeCount);
-              offersUnread = offersBadgeCount;
-            }
-            if (communityBadgeCount > communityUnread) {
-              BadgeHelper.setLastCount(BadgeHelper.communityKey, communityBadgeCount);
-              communityUnread = communityBadgeCount;
-            }
-            if (rewardsBadgeCount > rewardsUnread) {
-              BadgeHelper.setLastCount(BadgeHelper.rewardsKey, rewardsBadgeCount);
-              rewardsUnread = rewardsBadgeCount;
-            }
-          }
-
-          return BottomNavigationBar(
-            items: [
-              BottomNavigationBarItem(icon: const Icon(Icons.home), label: 'drawer_home'.tr()),
-              BottomNavigationBarItem(
-                icon: badges.Badge(
-                  showBadge: offersUnread > 0,
-                  badgeContent: Text('$offersUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                  badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                  child: const Icon(Icons.card_giftcard),
+      body: _activeRole == 'customer'
+          ? KeyedSubtree(
+              key: const ValueKey<String>('customer_mode_surface'),
+              child: customerTabs[_selectedIndex],
+            )
+          : _buildRoleSurface(),
+      floatingActionButton: _activeRole == 'customer'
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ScanInvoiceScreen()),
+                );
+              },
+              backgroundColor: kTeal,
+              child: const Icon(Icons.camera_alt, color: kWhite),
+            )
+          : null,
+      bottomNavigationBar: _activeRole != 'customer'
+          ? null
+          : BottomNavigationBar(
+              currentIndex: _selectedIndex,
+              onTap: _onItemTapped,
+              type: BottomNavigationBarType.fixed,
+              selectedItemColor: kTeal,
+              unselectedItemColor: kInk.withValues(alpha: 0.6),
+              backgroundColor: kWhite,
+              items: [
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.home_outlined),
+                  activeIcon: const Icon(Icons.home),
+                  label: _tx('home_bottom_home', 'Home'),
                 ),
-                label: 'offers_nav'.tr(),
-              ),
-              BottomNavigationBarItem(
-                icon: badges.Badge(
-                  showBadge: communityUnread > 0,
-                  badgeContent: Text('$communityUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                  badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                  child: const Icon(Icons.groups),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.account_balance_wallet_outlined),
+                  activeIcon: const Icon(Icons.account_balance_wallet),
+                  label: _tx('home_bottom_wallet', 'Wallet'),
                 ),
-                label: 'community_nav'.tr(),
-              ),
-              BottomNavigationBarItem(
-                icon: badges.Badge(
-                  showBadge: rewardsUnread > 0,
-                  badgeContent: Text('$rewardsUnread', style: const TextStyle(color: Colors.white, fontSize: 10)),
-                  badgeStyle: badges.BadgeStyle(badgeColor: Colors.red),
-                  child: const Icon(Icons.emoji_events),
+                BottomNavigationBarItem(
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.groups_outlined),
+                      if (_groupMessageUnread > 0)
+                        Positioned(
+                          right: -8,
+                          top: -6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              _groupMessageUnread > 99 ? '99+' : '$_groupMessageUnread',
+                              style: const TextStyle(color: kWhite, fontSize: 10, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  activeIcon: const Icon(Icons.groups),
+                  label: _tx('home_bottom_communities', 'Communities'),
                 ),
-                label: 'my_rewards_nav'.tr(),
-              ),
-            ],
-            currentIndex: _selectedIndex > 2 ? _selectedIndex - 1 : _selectedIndex,
-            onTap: (index) {
-              if (index == 3) {
-                _onItemTapped(4);
-              } else {
-                _onItemTapped(index);
-              }
-            },
-            selectedItemColor: Colors.deepPurple,
-            unselectedItemColor: Colors.grey,
-            backgroundColor: Colors.white,
-            type: BottomNavigationBarType.fixed,
-          );
-        },
-      ),
-    );
-  }
-
-  SpeedDial _buildSpeedDial() {
-    return SpeedDial(
-      icon: Icons.add,
-      backgroundColor: Colors.deepPurple,
-      foregroundColor: Colors.white,
-      activeBackgroundColor: Colors.deepPurple.shade700,
-      activeForegroundColor: Colors.white,
-      spacing: 12,
-      children: [
-        SpeedDialChild(
-          label: 'scan_invoice'.tr(),
-          child: Icon(Icons.camera_alt),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => ScanInvoiceScreen()),
-            );
-          },
-        ),
-        SpeedDialChild(
-          label: 'add_offer'.tr(),
-          child: Icon(Icons.local_offer),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => AddCouponScreen()),
-            );
-          },
-        ),
-        SpeedDialChild(
-          label: 'report'.tr(),
-          child: Icon(Icons.report),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => ReportScreen()),
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class CategoryShortcut extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final double iconSize;
-  final double fontSize;
-  final double width;
-
-  const CategoryShortcut({
-    super.key,
-    required this.icon,
-    required this.label,
-    this.iconSize = 24.0,
-    this.fontSize = 14.0,
-    this.width = 64
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: iconSize, color: Colors.deepPurple),
-          SizedBox(height: 4),
-          Flexible(
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: fontSize, color: Colors.deepPurple),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.flag_outlined),
+                  activeIcon: const Icon(Icons.flag),
+                  label: _tx('home_bottom_reports', 'Reports'),
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.person_outline),
+                  activeIcon: const Icon(Icons.person),
+                  label: _tx('home_bottom_account', 'My Account'),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 }
-
-extension _StreamInit<T> on Stream<T> {
-  Stream<T> startWithFuture(Future<T> first) async* {
-    yield await first;
-    yield* this;
-  }
-}
-

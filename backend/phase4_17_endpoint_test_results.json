@@ -1,0 +1,93 @@
+﻿{
+    "base":  "http://154.12.117.175:3002/api",
+    "ranAt":  "2026-08-07T11:18:49.8156211+02:00",
+    "health":  {
+                   "ok":  true
+               },
+    "phases":  {
+                   "phase_4":  {
+                                   "ok":  true,
+                                   "notes":  [
+                                                 "branch/team endpoints passed"
+                                             ]
+                               },
+                   "phase_5":  {
+                                   "ok":  true,
+                                   "notes":  [
+                                                 "points v2 + refund + expire runner passed"
+                                             ]
+                               },
+                   "phase_6":  {
+                                   "ok":  true,
+                                   "notes":  [
+                                                 "cashier binding and branch grant passed"
+                                             ]
+                               },
+                   "phase_7":  {
+                                   "ok":  true,
+                                   "notes":  [
+                                                 "fraud/retention scan guards passed"
+                                             ]
+                               },
+                   "phase_8":  {
+                                   "ok":  true,
+                                   "notes":  [
+                                                 "product 5c249cd8-9b26-405a-b273-3a9fae6b004d, line-items passed"
+                                             ]
+                               },
+                   "phase_9":  {
+                                   "ok":  true,
+                                   "notes":  [
+                                                 "community auto-create/join + moderation + targeted offers + notifications passed"
+                                             ]
+                               },
+                   "phase_10":  {
+                                    "ok":  true,
+                                    "notes":  [
+                                                  "reports lifecycle + notifications passed"
+                                              ]
+                                },
+                   "phase_11":  {
+                                    "ok":  true,
+                                    "notes":  [
+                                                  "escrow + exchange + reward claim/redeem passed"
+                                              ]
+                                },
+                   "phase_12":  {
+                                    "ok":  true,
+                                    "notes":  [
+                                                  "peer ads moderation + sourcing inquiry passed"
+                                              ]
+                                },
+                   "phase_13":  {
+                                    "ok":  true,
+                                    "notes":  [
+                                                  "subscription transitions runner + payment webhook passed"
+                                              ]
+                                },
+                   "phase_14":  {
+                                    "ok":  true,
+                                    "notes":  [
+                                                  "predictive + loyalty health passed"
+                                              ]
+                                },
+                   "phase_15":  {
+                                    "ok":  true,
+                                    "notes":  [
+                                                  "role-based access checks passed"
+                                              ]
+                                },
+                   "phase_16":  {
+                                    "ok":  true,
+                                    "notes":  [
+                                                  "admin observability endpoints passed"
+                                              ]
+                                },
+                   "phase_17":  {
+                                    "ok":  true,
+                                    "notes":  [
+                                                  "e2e simulate endpoint passed"
+                                              ]
+                                }
+               }
+}

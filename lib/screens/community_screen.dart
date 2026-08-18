@@ -3,6 +3,8 @@ import 'package:easy_localization/easy_localization.dart';
 
 import '../services/app_session.dart';
 import '../services/company_server_service.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/design_system/kupuna_chat_bubble.dart';
 
 class CommunityScreen extends StatefulWidget {
   final bool embedded;
@@ -47,16 +49,16 @@ class _CommunityScreenState extends State<CommunityScreen>
           right: 0,
           bottom: 0,
           child: Container(
-            color: Colors.white,
+            color: kWhite,
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: TabBar(
               controller: _tabController,
-              labelColor: Colors.deepPurple,
-              unselectedLabelColor: Colors.black87,
-              indicatorColor: Colors.amber,
+              labelColor: kTeal,
+              unselectedLabelColor: kInk,
+              indicatorColor: kGold,
               indicatorWeight: 3,
               indicator: BoxDecoration(
-                color: Colors.amber.shade100,
+                color: kGold.withValues(alpha: 0.22),
                 borderRadius: BorderRadius.circular(12),
               ),
               tabs: [
@@ -76,7 +78,7 @@ class _CommunityScreenState extends State<CommunityScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text('community_title'.tr()),
-        backgroundColor: Colors.deepPurple.shade700,
+        backgroundColor: kTealDark,
       ),
       body: body,
     );
@@ -198,8 +200,21 @@ class _GroupsTabState extends State<_GroupsTab> {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: kWhite,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: kGold, width: 1.2),
+              ),
+              child: Text(
+                'إعلانات الأفراد مثبتة أولاً',
+                style: kBodyTextStyle(weight: FontWeight.w600, color: kInk),
+              ),
+            ),
+            const SizedBox(height: 8),
             Card(
-              color: Colors.deepPurple.shade50,
+              color: kSand,
               child: Padding(
                 padding: const EdgeInsets.all(12),
                 child: Row(
@@ -215,8 +230,8 @@ class _GroupsTabState extends State<_GroupsTab> {
                       icon: const Icon(Icons.add),
                       label: Text('create_group'.tr()),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        foregroundColor: Colors.white,
+                        backgroundColor: kTeal,
+                        foregroundColor: kWhite,
                       ),
                     ),
                   ],
@@ -272,7 +287,7 @@ class _GroupsTabState extends State<_GroupsTab> {
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   child: ListTile(
-                    leading: const Icon(Icons.groups, color: Colors.deepPurple, size: 32),
+                    leading: const Icon(Icons.groups, color: kTeal, size: 32),
                     title: Text(
                       (group['name'] ?? '').toString(),
                       style: const TextStyle(fontWeight: FontWeight.bold),
@@ -631,7 +646,7 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.groupName),
-        backgroundColor: Colors.deepPurple.shade700,
+        backgroundColor: kTealDark,
       ),
       body: FutureBuilder<String?>(
         future: AppSession.userId(),
@@ -663,14 +678,17 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
                         final senderName = (msg['senderName'] ?? 'user_generic'.tr()).toString();
                         return Align(
                           alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isMe ? Colors.deepPurple : Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
+                          child: Column(
+                            crossAxisAlignment:
+                                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                            children: [
+                              KupunaChatBubble(
+                                message: _cleanMessageText(msg),
+                                isCurrentUser: isMe,
+                                senderKind: ChatSenderKind.customer,
+                              ),
+                              const SizedBox(height: 6),
+                              Column(
                               crossAxisAlignment:
                                   isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                               children: [
@@ -683,13 +701,6 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                Text(
-                                  _cleanMessageText(msg),
-                                  style: TextStyle(
-                                    color: isMe ? Colors.white : Colors.black,
-                                    fontSize: 15,
-                                  ),
-                                ),
                                 const SizedBox(height: 8),
                                 Wrap(
                                   spacing: 6,
@@ -757,6 +768,7 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
                                   ),
                               ],
                             ),
+                            ],
                           ),
                         );
                       },
@@ -779,9 +791,9 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
                               margin: const EdgeInsets.only(bottom: 8),
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.deepPurple.shade50,
+                                color: kSand,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.deepPurple.shade100),
+                                border: Border.all(color: kLine),
                               ),
                               child: Row(
                                 children: [
@@ -811,7 +823,7 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+                      style: ElevatedButton.styleFrom(backgroundColor: kTeal),
                       onPressed: _sending ? null : _sendMessage,
                       child: _sending
                           ? const SizedBox(
@@ -1022,7 +1034,7 @@ class _PrivateChatsTabState extends State<_PrivateChatsTab> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
-                  leading: const Icon(Icons.person, color: Colors.deepPurple),
+                  leading: const Icon(Icons.person, color: kTeal),
                   title: Row(
                     children: [
                       Expanded(child: Text(title)),
@@ -1196,7 +1208,7 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
         return Scaffold(
           appBar: AppBar(
             title: Text(widget.title),
-            backgroundColor: Colors.deepPurple.shade700,
+            backgroundColor: kTealDark,
           ),
           body: Column(
             children: [
@@ -1224,17 +1236,10 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
                         final isMe = senderId.isNotEmpty && senderId == currentUserId;
                         return Align(
                           alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(vertical: 4),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isMe ? Colors.deepPurple : Colors.grey.shade300,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              (msg['text'] ?? '').toString(),
-                              style: TextStyle(color: isMe ? Colors.white : Colors.black),
-                            ),
+                          child: KupunaChatBubble(
+                            message: (msg['text'] ?? '').toString(),
+                            isCurrentUser: isMe,
+                            senderKind: ChatSenderKind.customer,
                           ),
                         );
                       },
@@ -1259,7 +1264,7 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
                     const SizedBox(width: 8),
                     ElevatedButton(
                       onPressed: _sending ? null : _sendPrivateMessage,
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+                      style: ElevatedButton.styleFrom(backgroundColor: kTeal),
                       child: _sending
                           ? const SizedBox(
                               width: 18,

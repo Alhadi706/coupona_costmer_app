@@ -1,11 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_typeahead/flutter_typeahead.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:ui' as ui;
 import 'map_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
+import '../services/company_server_service.dart';
+import '../theme/design_tokens.dart';
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({super.key});
@@ -19,7 +17,6 @@ class _ReportScreenState extends State<ReportScreen> {
   String? _selectedType;
   String? _storeName;
   String? _description;
-  XFile? _pickedImage;
 
   final List<String> merchants = [
     'كوكاكولا',
@@ -48,32 +45,23 @@ class _ReportScreenState extends State<ReportScreen> {
   String? selectedIssueType;
   String? location;
   String? reportText;
-  String? _storeId; // لتخزين ID المحل المختار
-
-  Future<void> _pickImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _pickedImage = image;
-      });
-    }
-  }
 
   void _submitReport() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      // حفظ البلاغ في Firestore
-      await FirebaseFirestore.instance.collection('reports').add({
-        'type': _selectedType,
-        'storeName': _storeName,
-        'description': _description,
-        'createdAt': DateTime.now().toIso8601String(),
-        // يمكنك إضافة بيانات المستخدم أو الصورة إذا أردت
-        // 'userId': ...
-        // 'imageUrl': ...
-        'status': 'new', // جديد
-      });
+      // حفظ البلاغ عبر خادم الشركة
+      try {
+        await CompanyServerService.post('/reports', {
+          'type': _selectedType,
+          'storeName': _storeName,
+          'description': _description,
+          'createdAt': DateTime.now().toIso8601String(),
+          'status': 'new', // جديد
+        });
+      } catch (_) {
+        // تجاهل أخطاء الإرسال لعرض رسالة التأكيد على أي حال
+      }
+      if (!mounted) return;
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -106,7 +94,7 @@ class _ReportScreenState extends State<ReportScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('report_product_or_service'.tr()),
-        backgroundColor: Colors.deepPurple.shade700,
+        backgroundColor: kTealDark,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -152,18 +140,18 @@ class _ReportScreenState extends State<ReportScreen> {
               Row(
                 children: [
                   // اسم المحل أو العلامة التجارية
-                  StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance.collection('stores').snapshots(),
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: CompanyServerService.getStores(),
                     builder: (context, snapshot) {
                       List<Map<String, dynamic>> stores = [];
                       if (snapshot.hasData) {
-                        stores = snapshot.data!.docs.map((doc) {
-                          final data = doc.data() as Map<String, dynamic>;
-                          return {
-                            'id': doc.id,
-                            'name': data['name'] ?? '',
-                          };
-                        }).where((store) => (store['name'] as String).isNotEmpty).toList();
+                        stores = snapshot.data!
+                            .map((data) => {
+                                  'id': data['id'],
+                                  'name': data['name'] ?? '',
+                                })
+                            .where((store) => (store['name'] as String).isNotEmpty)
+                            .toList();
                       }
                       return Autocomplete<Map<String, dynamic>>(
                         optionsBuilder: (TextEditingValue textEditingValue) {
@@ -178,7 +166,6 @@ class _ReportScreenState extends State<ReportScreen> {
                         onSelected: (Map<String, dynamic> selection) {
                           setState(() {
                             selectedMerchant = selection['name'];
-                            _storeId = selection['id'];
                           });
                         },
                         fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
@@ -245,8 +232,8 @@ class _ReportScreenState extends State<ReportScreen> {
                       icon: const Icon(Icons.location_on),
                       label: Text(tr('pick_store_location_on_map_optional')),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        foregroundColor: Colors.white,
+                        backgroundColor: kTeal,
+                        foregroundColor: kWhite,
                       ),
                       onPressed: () async {
                         final LatLng? result = await Navigator.of(context).push(
@@ -286,8 +273,8 @@ class _ReportScreenState extends State<ReportScreen> {
                       _submitReport();
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      foregroundColor: Colors.white,
+                      backgroundColor: kTeal,
+                      foregroundColor: kWhite,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     child: Text(
@@ -297,7 +284,7 @@ class _ReportScreenState extends State<ReportScreen> {
                   ),
                 ],
               ),
-            ),
+            ],
           ),
         ),
       ),

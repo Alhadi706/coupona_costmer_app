@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:coupona_app/services/imgur_service.dart';
 import 'package:coupona_app/services/company_server_service.dart';
+import 'package:coupona_app/theme/design_tokens.dart';
 import 'map_picker_screen.dart';
 import 'package:latlong2/latlong.dart';
-import 'home_screen.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 class AddCouponScreen extends StatefulWidget {
-  const AddCouponScreen({Key? key}) : super(key: key);
+  const AddCouponScreen({super.key});
 
   @override
   State<AddCouponScreen> createState() => _AddCouponScreenState();
@@ -178,7 +178,7 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
         key: ValueKey(context.locale.languageCode),
         appBar: AppBar(
           title: Text('add_coupon_title'.tr()),
-          backgroundColor: Colors.deepPurple.shade700,
+          backgroundColor: kTeal,
         ),
         body: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -283,7 +283,7 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
                       Expanded(
                         child: Text(
                           'image_selected'.tr(),
-                          style: TextStyle(color: Colors.green.shade700),
+                          style: TextStyle(color: kTeal),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -342,12 +342,12 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _submit,
                     style: ElevatedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: kWhite,
+                      backgroundColor: kTeal,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     child: _isLoading
-                        ? const CircularProgressIndicator(color: Colors.white)
+                        ? const CircularProgressIndicator(color: kWhite)
                         : Text('publish_offer'.tr(), style: const TextStyle(fontSize: 18)),
                   ),
                 ),

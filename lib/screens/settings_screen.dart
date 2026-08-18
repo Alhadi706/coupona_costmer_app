@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:coupona_app/screens/offers_list_screen.dart';
+import 'package:coupona_app/screens/community_screen.dart';
+import 'package:coupona_app/screens/report_issue_screen.dart';
 import 'package:coupona_app/screens/wallet_engine_screen.dart';
 import 'package:coupona_app/screens/my_rewards_screen.dart';
 import 'users_screen.dart';
 import 'package:coupona_app/screens/login_screen.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../services/app_session.dart';
+import 'package:coupona_app/theme/design_tokens.dart';
+import 'admin_dashboard_screen.dart';
+import 'brand_dashboard_screen.dart';
+import 'cashier_dashboard_screen.dart';
+import 'merchant_dashboard_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   final bool embedded;
@@ -30,7 +37,7 @@ class SettingsScreen extends StatelessWidget {
         const Divider(height: 32),
         // زر لعرض قائمة العروض
         ListTile(
-          leading: const Icon(Icons.local_offer, color: Colors.deepPurple),
+          leading: const Icon(Icons.local_offer, color: kTeal),
           title: Text('offers_list'.tr()),
           onTap: () {
             Navigator.of(context).push(
@@ -39,7 +46,7 @@ class SettingsScreen extends StatelessWidget {
           },
         ),
         ListTile(
-          leading: const Icon(Icons.account_balance_wallet, color: Colors.deepPurple),
+          leading: const Icon(Icons.account_balance_wallet, color: kTeal),
           title: Text('wallet_ledger'.tr()),
           onTap: () {
             Navigator.of(context).push(
@@ -125,10 +132,13 @@ class _AccountSection extends StatelessWidget {
         ),
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.lock),
-          title: Text('change_password'.tr()),
-          onTap: () {
-            _showPlannedFeatureMessage(context, 'change_password'.tr());
+          leading: const Icon(Icons.manage_accounts),
+          title: const Text('Account settings'),
+          onTap: () async {
+            await showDialog(
+              context: context,
+              builder: (_) => const _AccountSettingsDialog(),
+            );
           },
         ),
         ListTile(
@@ -142,6 +152,115 @@ class _AccountSection extends StatelessWidget {
               (route) => false,
             );
           },
+        ),
+      ],
+    );
+  }
+}
+
+class _AccountSettingsDialog extends StatefulWidget {
+  const _AccountSettingsDialog();
+
+  @override
+  State<_AccountSettingsDialog> createState() => _AccountSettingsDialogState();
+}
+
+class _AccountSettingsDialogState extends State<_AccountSettingsDialog> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _currentPasswordController = TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final email = _emailController.text.trim();
+    final currentPassword = _currentPasswordController.text.trim();
+    final newPassword = _newPasswordController.text.trim();
+
+    if (email.isEmpty || !email.contains('@')) {
+      _showError('Please enter a valid email address.');
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      final currentEmail = await AppSession.email() ?? '';
+      if (email != currentEmail && currentEmail.isNotEmpty) {
+        await CompanyServerService.updateProfile(email: email);
+        await AppSession.setEmail(email);
+      }
+      if (currentPassword.isNotEmpty || newPassword.isNotEmpty) {
+        if (currentPassword.isEmpty || newPassword.isEmpty) {
+          throw StateError('Both current and new password are required to change the password.');
+        }
+        await CompanyServerService.changePassword(
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        );
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account settings updated successfully.')),
+      );
+    } catch (e) {
+      _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Account settings'),
+      content: SizedBox(
+        width: 420,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(labelText: 'Email address'),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _currentPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Current password'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _newPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'New password'),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _saving ? null : _save,
+          child: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
         ),
       ],
     );
@@ -303,8 +422,9 @@ class _DownloadDataSection extends StatelessWidget {
 
 class AppDrawer extends StatelessWidget {
   final ValueChanged<int>? onSelectHomeTab;
+  final String currentRole;
 
-  const AppDrawer({super.key, this.onSelectHomeTab});
+  const AppDrawer({super.key, this.onSelectHomeTab, this.currentRole = 'customer'});
 
   void _selectHomeTabOrNavigate(
     BuildContext context, {
@@ -317,6 +437,28 @@ class AppDrawer extends StatelessWidget {
       return;
     }
     fallback();
+  }
+
+  bool get _isCustomer => currentRole == 'customer';
+
+  void _pushScreen(BuildContext context, Widget screen) {
+    Navigator.of(context).pop();
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  Widget _roleHomeScreen() {
+    switch (currentRole) {
+      case 'merchant':
+        return const MerchantDashboardScreen();
+      case 'brand':
+        return const BrandDashboardScreen();
+      case 'cashier':
+        return const CashierDashboardScreen();
+      case 'admin':
+        return const AdminDashboardScreen();
+      default:
+        return const OffersListScreen();
+    }
   }
 
   @override
@@ -334,7 +476,7 @@ class AppDrawer extends StatelessWidget {
                 CircleAvatar(
                   radius: 40,
                   backgroundColor: Colors.white,
-                  child: const Icon(Icons.person, size: 44, color: Colors.deepPurple),
+                  child: const Icon(Icons.person, size: 44, color: kInk),
                 ),
                 SizedBox(height: 8),
                 Text(
@@ -359,6 +501,10 @@ class AppDrawer extends StatelessWidget {
             leading: const Icon(Icons.home),
             title: Text('drawer_home'.tr()),
             onTap: () {
+              if (!_isCustomer) {
+                _pushScreen(context, _roleHomeScreen());
+                return;
+              }
               _selectHomeTabOrNavigate(
                 context,
                 tabIndex: 0,
@@ -367,25 +513,33 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.category),
-            title: Text('drawer_categories'.tr()),
+            leading: const Icon(Icons.account_balance_wallet),
+            title: Text('home_bottom_wallet'.tr()),
             onTap: () {
+              if (!_isCustomer) {
+                _pushScreen(context, const WalletEngineScreen());
+                return;
+              }
               _selectHomeTabOrNavigate(
                 context,
                 tabIndex: 1,
                 fallback: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const OffersListScreen()),
+                  MaterialPageRoute(builder: (_) => const WalletEngineScreen()),
                 ),
               );
             },
           ),
           ListTile(
-            leading: const Icon(Icons.favorite),
-            title: Text('drawer_favorites'.tr()),
+            leading: const Icon(Icons.groups),
+            title: Text('home_bottom_communities'.tr()),
             onTap: () {
+              if (!_isCustomer) {
+                _pushScreen(context, const CommunityScreen());
+                return;
+              }
               _selectHomeTabOrNavigate(
                 context,
-                tabIndex: 4,
+                tabIndex: 2,
                 fallback: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const MyRewardsScreen()),
                 ),
@@ -393,14 +547,40 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.settings),
-            title: Text('drawer_settings'.tr()),
+            leading: const Icon(Icons.flag),
+            title: Text('home_bottom_reports'.tr()),
             onTap: () {
+              if (!_isCustomer) {
+                _pushScreen(context, const ReportIssueScreen());
+                return;
+              }
               _selectHomeTabOrNavigate(
                 context,
                 tabIndex: 3,
                 fallback: () {},
               );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.person),
+            title: Text('home_bottom_account'.tr()),
+            onTap: () {
+              if (!_isCustomer) {
+                _pushScreen(context, const SettingsScreen.embedded());
+                return;
+              }
+              _selectHomeTabOrNavigate(
+                context,
+                tabIndex: 4,
+                fallback: () {},
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: Text('settings_title'.tr()),
+            onTap: () {
+              _pushScreen(context, const SettingsScreen.embedded());
             },
           ),
           const Divider(),

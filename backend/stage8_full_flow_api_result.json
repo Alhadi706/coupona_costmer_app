@@ -1,0 +1,187 @@
+{
+  "meta": {
+    "at": "2026-08-16T11:03:35.906Z",
+    "api": "http://127.0.0.1:3006/api"
+  },
+  "users": {
+    "ahmed": {
+      "name": "أحمد",
+      "email": "ahmed.stage8.20260816110335905@kupuna.test",
+      "phone": "0971335905",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1994-04-12",
+      "lat": 32.9012,
+      "lng": 13.205
+    },
+    "khaled": {
+      "name": "خالد",
+      "email": "khaled.stage8.20260816110335905@kupuna.test",
+      "phone": "0972335905",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1992-12-03",
+      "lat": 32.9008,
+      "lng": 13.2046
+    },
+    "yousef": {
+      "name": "يوسف",
+      "email": "yousef.stage8.20260816110335905@kupuna.test",
+      "phone": "0973335905",
+      "role": "admin",
+      "gender": "male",
+      "birthDate": "1988-01-09",
+      "lat": 32.889,
+      "lng": 13.1988
+    }
+  },
+  "ids": {
+    "ahmed": "ce9fb633-097c-4a96-a9f6-fb1998c15795",
+    "khaled": "62f2b324-32ca-468c-850b-7f4e452e1592",
+    "yousef": "d59a8ef5-e3d7-4775-b8f1-76fe91972024",
+    "ahmedMerchantId": "9cf6f11a-b1fc-4cec-b203-037950d725ff",
+    "communityGroupId": "bf44fb84-7a53-4cf1-b527-4b56b0693f0d"
+  },
+  "checks": {
+    "8.1": {
+      "ok": true,
+      "bellBadgeAfterAccum": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadTotal": 3,
+          "unreadGroupMessages": 1,
+          "unreadNonGroup": 2,
+          "hasRedDot": true
+        }
+      }
+    },
+    "8.2": {
+      "ok": true,
+      "sortedDesc": true,
+      "types": [
+        "group_message",
+        "report_thank_you",
+        "invoice_approved"
+      ],
+      "topNotifications": [
+        {
+          "id": "8151a4d1-17ed-446c-8098-5acbfaaa7e91",
+          "type": "group_message",
+          "title": "New community message",
+          "body": "A new message was posted in one of your communities.",
+          "targetScreen": "community_group",
+          "payload": {
+            "groupId": "bf44fb84-7a53-4cf1-b527-4b56b0693f0d",
+            "messageId": "fd358765-094e-4ea8-828a-6bb668bab39c",
+            "targetScreen": "community_group"
+          },
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-08-16T11:03:50.812Z"
+        },
+        {
+          "id": "4972a696-099d-4bd8-b5b4-6ad26b8b14cc",
+          "type": "report_thank_you",
+          "title": "Thank you for your report",
+          "body": "We received your report and it is under review.",
+          "targetScreen": "reports",
+          "payload": {
+            "reportId": "8a769fbc-a387-4a64-a32b-e3cff7d7aee5",
+            "targetScreen": "reports"
+          },
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-08-16T11:03:49.652Z"
+        },
+        {
+          "id": "883c91cc-493c-4b7d-b175-83a36f272406",
+          "type": "invoice_approved",
+          "title": "Invoice approved",
+          "body": "Your invoice has been approved.",
+          "targetScreen": null,
+          "payload": {
+            "invoiceId": "d507e529-e4e1-4f2d-839c-f7a9e32ec173"
+          },
+          "isRead": false,
+          "readAt": null,
+          "createdAt": "2026-08-16T11:03:45.963Z"
+        }
+      ]
+    },
+    "8.3": {
+      "ok": true,
+      "clickedNotification": {
+        "id": "8151a4d1-17ed-446c-8098-5acbfaaa7e91",
+        "type": "group_message",
+        "title": "New community message",
+        "body": "A new message was posted in one of your communities.",
+        "targetScreen": "community_group",
+        "payload": {
+          "groupId": "bf44fb84-7a53-4cf1-b527-4b56b0693f0d",
+          "messageId": "fd358765-094e-4ea8-828a-6bb668bab39c",
+          "targetScreen": "community_group"
+        },
+        "isRead": false,
+        "readAt": null,
+        "createdAt": "2026-08-16T11:03:50.812Z"
+      },
+      "linkedTarget": "community_group"
+    },
+    "8.4": {
+      "ok": true,
+      "bellBadgeAfterRead": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadTotal": 0,
+          "unreadGroupMessages": 0,
+          "unreadNonGroup": 0,
+          "hasRedDot": false
+        }
+      }
+    },
+    "8.5": {
+      "ok": true,
+      "bellBeforeOpen": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadTotal": 2,
+          "unreadGroupMessages": 1,
+          "unreadNonGroup": 1,
+          "hasRedDot": true
+        }
+      },
+      "communityBeforeOpen": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadCount": 1
+        }
+      },
+      "bellAfterOpen": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadTotal": 1,
+          "unreadGroupMessages": 0,
+          "unreadNonGroup": 1,
+          "hasRedDot": true
+        }
+      },
+      "communityAfterOpen": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadCount": 0
+        }
+      },
+      "groupMessageId": "fd358765-094e-4ea8-828a-6bb668bab39c",
+      "firstReportId": "8a769fbc-a387-4a64-a32b-e3cff7d7aee5"
+    }
+  },
+  "notes": [
+    "Stage 8 validated with deterministic notification and badge assertions."
+  ]
+}

@@ -1,20 +1,22 @@
-import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import '../widgets/category_bar.dart'; // استيراد صحيح حسب هيكل المشروع
-import '../widgets/map_bar.dart'; // استيراد صحيح حسب هيكل المشروع
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
+
 import '../services/company_server_service.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/design_system/kupuna_offer_card.dart';
+import '../widgets/design_system/kupuna_top_tabs.dart';
 
 class HomeContentScreen extends StatefulWidget {
-  final List<Map<String, dynamic>> categories;
-  final void Function(Map<String, dynamic> category) onCategoryTap;
-  final VoidCallback onMapTap;
-  final VoidCallback onViewAllOffers;
+  final VoidCallback onOpenOffersTab;
+  final VoidCallback onOpenPeerAdsTab;
+
   const HomeContentScreen({
     super.key,
-    required this.categories,
-    required this.onCategoryTap,
-    required this.onMapTap,
-    required this.onViewAllOffers,
+    required this.onOpenOffersTab,
+    required this.onOpenPeerAdsTab,
   });
 
   @override
@@ -22,7 +24,65 @@ class HomeContentScreen extends StatefulWidget {
 }
 
 class _HomeContentScreenState extends State<HomeContentScreen> {
+  static const LatLng _tripoliDefaultCenter = LatLng(32.8872, 13.1913);
+
   final TextEditingController _searchController = TextEditingController();
+  int _activeTab = 0;
+  int _bannerIndex = 0;
+  bool _discoverMapMode = false;
+  String _selectedDiscoverCategory = '';
+  double? _customerLat;
+  double? _customerLng;
+
+  static const List<String> _bannerKeys = <String>[
+    'home_banner_1',
+    'home_banner_2',
+    'home_banner_3',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveCustomerLocation();
+  }
+
+  Future<void> _resolveCustomerLocation() async {
+    try {
+      final stored = await CompanyServerService.getMyCustomerLocation();
+      final storedLat = stored['latitude'] == null ? null : _toDouble(stored['latitude']);
+      final storedLng = stored['longitude'] == null ? null : _toDouble(stored['longitude']);
+      if (storedLat != null && storedLng != null && mounted) {
+        setState(() {
+          _customerLat = storedLat;
+          _customerLng = storedLng;
+        });
+      }
+
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition();
+      await CompanyServerService.updateMyCustomerLocation(
+        latitude: position.latitude,
+        longitude: position.longitude,
+      );
+      if (!mounted) return;
+      setState(() {
+        _customerLat = position.latitude;
+        _customerLng = position.longitude;
+      });
+    } catch (_) {
+      // Fallback to default map center when location permission is unavailable.
+    }
+  }
 
   @override
   void dispose() {
@@ -35,9 +95,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [Color(0xFFf4fbff), Color(0xFFdbeeff)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: <Color>[kSand, kWhite],
         ),
       ),
       child: SafeArea(
@@ -46,20 +106,13 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeroHeader(),
-              const SizedBox(height: 14),
+              _buildBanner(),
+              const SizedBox(height: 12),
               _buildSearchBar(),
-              const SizedBox(height: 14),
-              _buildQuickStats(),
-              const SizedBox(height: 14),
-              _buildCategorySection(),
-              const SizedBox(height: 14),
-              _buildFeaturedOffersSection(),
-              const SizedBox(height: 14),
-              _buildMapSection(),
-              const SizedBox(height: 14),
-              _buildPointsSummary(),
-              const SizedBox(height: 20),
+              const SizedBox(height: 12),
+              _buildTopTabs(),
+              const SizedBox(height: 12),
+              _buildTabBody(),
             ],
           ),
         ),
@@ -67,53 +120,51 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     );
   }
 
-  Widget _buildHeroHeader() {
+  Widget _buildBanner() {
+    final String bannerText = _bannerKeys[_bannerIndex].tr();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: const LinearGradient(
-          colors: [Color(0xFF0D5C8D), Color(0xFF2A8FBF)],
+          colors: <Color>[kTealDark, kTeal],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
-        boxShadow: const [
-          BoxShadow(color: Color(0x33000000), blurRadius: 10, offset: Offset(0, 5)),
-        ],
+        boxShadow: kShadowFloating,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'home_hero_title'.tr(),
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700),
+            'home_banner_title'.tr(),
+            style: kDisplayTextStyle(size: 20, weight: FontWeight.w700, color: kWhite),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            'home_hero_subtitle'.tr(),
-            style: TextStyle(color: Color(0xFFE5F6FF), height: 1.35),
+            bannerText,
+            style: kBodyTextStyle(size: 13, color: kWhite.withValues(alpha: 0.92), height: 1.35),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Row(
             children: [
-              ElevatedButton.icon(
-                onPressed: widget.onMapTap,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: const Color(0xFF0D5C8D),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _bannerIndex = (_bannerIndex + 1) % _bannerKeys.length;
+                  });
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kWhite,
+                  side: BorderSide(color: kWhite.withValues(alpha: 0.8)),
                 ),
-                icon: const Icon(Icons.near_me),
-                label: Text('nearby_stores'.tr()),
+                child: Text('home_banner_next'.tr()),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'home_last_updated_now'.tr(),
-                  textAlign: TextAlign.end,
-                  style: TextStyle(color: Colors.blue.shade100, fontSize: 12),
-                ),
+              const SizedBox(width: 8),
+              Text(
+                '${_bannerIndex + 1}/${_bannerKeys.length}',
+                style: kBodyTextStyle(size: 12, color: kWhite.withValues(alpha: 0.86)),
               ),
             ],
           ),
@@ -124,85 +175,246 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
 
   Widget _buildSearchBar() {
     return Material(
-      elevation: 1.5,
-      borderRadius: BorderRadius.circular(28),
+      elevation: 1,
+      borderRadius: BorderRadius.circular(14),
       child: TextField(
         controller: _searchController,
         onChanged: (_) => setState(() {}),
         decoration: InputDecoration(
           hintText: 'home_search_hint'.tr(),
-          prefixIcon: Icon(Icons.search, color: Colors.blue.shade700),
+          prefixIcon: const Icon(Icons.search, color: kTeal),
           filled: true,
-          fillColor: Colors.white,
+          fillColor: kWhite,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
         ),
       ),
     );
   }
 
-  Widget _buildQuickStats() {
-    return StreamBuilder<Map<String, dynamic>>(
-      stream: Stream.periodic(const Duration(seconds: 6))
-          .asyncMap((_) => CompanyServerService.getCounts())
-          .startWithFuture(CompanyServerService.getCounts()),
-      builder: (context, snapshot) {
-        final data = snapshot.data ?? const <String, dynamic>{};
-        final offersCount = _toInt(data['offers']);
-        final rewardsCount = _toInt(data['rewards']);
-
-        return Row(
-          children: [
-            Expanded(
-              child: _InfoTile(
-                icon: Icons.local_offer,
-                title: 'active_offers'.tr(),
-                value: offersCount > 0 ? '$offersCount' : '--',
-                color: const Color(0xFF0A7C9E),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _InfoTile(
-                icon: Icons.emoji_events,
-                title: 'available_points'.tr(),
-                value: rewardsCount > 0 ? '$rewardsCount' : '--',
-                color: const Color(0xFF1E8A63),
-              ),
-            ),
-          ],
-        );
+  Widget _buildTopTabs() {
+    return KupunaTopTabs(
+      tabs: <String>[
+        'home_tab_discover'.tr(),
+        'home_tab_offers'.tr(),
+        'home_tab_peer_ads'.tr(),
+      ],
+      activeIndex: _activeTab,
+      onSelect: (index) {
+        setState(() {
+          _activeTab = index;
+        });
       },
     );
   }
 
-  Widget _buildCategorySection() {
+  Widget _buildTabBody() {
+    switch (_activeTab) {
+      case 1:
+        return _buildOffersList(
+          heading: 'home_offers_section_title'.tr(),
+          sourceType: 'brand',
+          emptyKey: 'home_offers_empty',
+          onHeaderAction: widget.onOpenOffersTab,
+        );
+      case 2:
+        return _buildPeerAdsList();
+      default:
+        return _buildDiscoverTab();
+    }
+  }
+
+  Widget _buildDiscoverTab() {
     return _SectionCard(
-      title: 'categories'.tr(),
-      subtitle: 'choose_category_interest'.tr(),
-      child: CategoryBar(
-        categories: widget.categories,
-        height: 96,
-        iconSize: 34,
-        fontSize: 13,
-        onCategoryTap: widget.onCategoryTap,
+      title: 'home_discover_section_title'.tr(),
+      subtitle: 'home_list_live_subtitle'.tr(),
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: CompanyServerService.getStores(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final keyword = _searchController.text.trim().toLowerCase();
+          final sourceRows = List<Map<String, dynamic>>.from(snapshot.data!);
+          final categories = sourceRows
+              .map((e) => (e['category'] ?? '').toString().trim())
+              .where((v) => v.isNotEmpty)
+              .toSet()
+              .toList()
+            ..sort();
+
+          final filteredRows = sourceRows.where((store) {
+            final name = (store['name'] ?? '').toString().toLowerCase();
+            final category = (store['category'] ?? '').toString();
+            final matchesKeyword = keyword.isEmpty || name.contains(keyword);
+            final matchesCategory = _selectedDiscoverCategory.isEmpty || category == _selectedDiscoverCategory;
+            return matchesKeyword && matchesCategory;
+          }).toList(growable: false)
+            ..sort((a, b) {
+              final distanceA = _distanceKm(_customerLat, _customerLng, _toDouble(a['lat']), _toDouble(a['lng']));
+              final distanceB = _distanceKm(_customerLat, _customerLng, _toDouble(b['lat']), _toDouble(b['lng']));
+              return distanceA.compareTo(distanceB);
+            });
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: Text('home_discover_all_categories'.tr()),
+                    selected: _selectedDiscoverCategory.isEmpty,
+                    onSelected: (_) {
+                      setState(() {
+                        _selectedDiscoverCategory = '';
+                      });
+                    },
+                  ),
+                  ...categories.map(
+                    (cat) => ChoiceChip(
+                      label: Text(cat),
+                      selected: _selectedDiscoverCategory == cat,
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedDiscoverCategory = _selectedDiscoverCategory == cat ? '' : cat;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SegmentedButton<bool>(
+                segments: <ButtonSegment<bool>>[
+                  ButtonSegment<bool>(value: false, icon: const Icon(Icons.view_list), label: Text('home_discover_list'.tr())),
+                  ButtonSegment<bool>(value: true, icon: const Icon(Icons.map_outlined), label: Text('home_discover_map'.tr())),
+                ],
+                selected: <bool>{_discoverMapMode},
+                onSelectionChanged: (value) {
+                  setState(() {
+                    _discoverMapMode = value.first;
+                  });
+                },
+              ),
+              const SizedBox(height: 10),
+              if (filteredRows.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text('home_discover_empty'.tr()),
+                )
+              else if (_discoverMapMode)
+                _buildDiscoverMap(filteredRows)
+              else
+                _buildDiscoverList(filteredRows),
+            ],
+          );
+        },
       ),
     );
   }
 
-  Widget _buildFeaturedOffersSection() {
-    return _SectionCard(
-      title: 'featured_offers'.tr(),
-      subtitle: 'best_three_offers_now'.tr(),
-      action: TextButton(
-        onPressed: widget.onViewAllOffers,
-        child: Text('view_all_offers'.tr()),
+  Widget _buildDiscoverMap(List<Map<String, dynamic>> stores) {
+    final center = stores.isNotEmpty
+        ? LatLng(_toDouble(stores.first['lat']), _toDouble(stores.first['lng']))
+        : (_customerLat == null || _customerLng == null)
+            ? _tripoliDefaultCenter
+            : LatLng(_customerLat!, _customerLng!);
+
+    return SizedBox(
+      height: 260,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: FlutterMap(
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom: 12,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.example.coupona_app',
+              tileProvider: NetworkTileProvider(),
+            ),
+            MarkerLayer(
+              markers: stores
+                  .map(
+                    (store) => Marker(
+                      width: 42,
+                      height: 42,
+                      point: LatLng(_toDouble(store['lat']), _toDouble(store['lng'])),
+                      child: Tooltip(
+                        message: (store['name'] ?? '').toString(),
+                        child: const Icon(Icons.location_on, color: Colors.red, size: 36),
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildDiscoverList(List<Map<String, dynamic>> stores) {
+    final sourceLat = _customerLat;
+    final sourceLng = _customerLng;
+    return Column(
+      children: stores.take(10).map((store) {
+        final distance = _distanceKm(sourceLat, sourceLng, _toDouble(store['lat']), _toDouble(store['lng']));
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: const Icon(Icons.storefront_outlined, color: kTealDark),
+            title: Text((store['name'] ?? '').toString()),
+            subtitle: Text(
+              'home_discover_store_distance'.tr(namedArgs: {
+                'category': (store['category'] ?? '-').toString(),
+                'distance': distance.toStringAsFixed(2),
+              }),
+            ),
+          ),
+        );
+      }).toList(growable: false),
+    );
+  }
+
+  double _toDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse((value ?? '').toString()) ?? 0;
+  }
+
+  double _distanceKm(double? fromLat, double? fromLng, double toLat, double toLng) {
+    final originLat = fromLat ?? _tripoliDefaultCenter.latitude;
+    final originLng = fromLng ?? _tripoliDefaultCenter.longitude;
+    return Geolocator.distanceBetween(originLat, originLng, toLat, toLng) / 1000;
+  }
+
+  Widget _buildOffersList({
+    required String heading,
+    required String emptyKey,
+    required String? sourceType,
+    required VoidCallback? onHeaderAction,
+  }) {
+    return _SectionCard(
+      title: heading,
+      subtitle: 'home_list_live_subtitle'.tr(),
+      action: onHeaderAction == null
+          ? null
+          : TextButton(
+              onPressed: onHeaderAction,
+              child: Text('home_open_tab'.tr()),
+            ),
       child: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: Stream.periodic(const Duration(seconds: 6))
+        stream: Stream.periodic(const Duration(seconds: 8))
             .asyncMap((_) => CompanyServerService.getOffers())
             .startWithFuture(CompanyServerService.getOffers()),
         builder: (context, snapshot) {
@@ -212,127 +424,109 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
               child: Center(child: CircularProgressIndicator()),
             );
           }
-          final offers = snapshot.data!;
-          if (offers.isEmpty) {
-            return Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('no_offers_available_now'.tr()),
-            );
-          }
 
           final keyword = _searchController.text.trim().toLowerCase();
-          final filtered = offers.where((offer) {
-            if (keyword.isEmpty) return true;
-            final description = (offer['description'] ?? '').toString().toLowerCase();
-            final category = (offer['category'] ?? '').toString().toLowerCase();
-            final storeName = (offer['storeName'] ?? '').toString().toLowerCase();
-            return description.contains(keyword) || category.contains(keyword) || storeName.contains(keyword);
-          }).toList();
+          final rows = snapshot.data!.where((row) {
+            final title = (row['description'] ?? row['title'] ?? '').toString().toLowerCase();
+            final category = (row['category'] ?? '').toString().toLowerCase();
+            final ownerType = (row['ownerType'] ?? row['sourceType'] ?? '').toString().toLowerCase();
 
-          if (filtered.isEmpty) {
+            if (sourceType != null && !ownerType.contains(sourceType)) {
+              return false;
+            }
+
+            if (keyword.isEmpty) {
+              return true;
+            }
+            return title.contains(keyword) || category.contains(keyword);
+          }).toList(growable: false);
+
+          if (rows.isEmpty) {
             return Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('no_search_results_current'.tr()),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(emptyKey.tr()),
             );
           }
 
           return Column(
-            children: filtered.take(3).map((offer) {
-              final discount = (offer['discountValue'] ?? offer['percent'] ?? '').toString();
-              return ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-                leading: CircleAvatar(
-                  backgroundColor: const Color(0xFFE6F5FF),
-                  child: Icon(Icons.local_offer, color: Colors.blue.shade700),
+            children: rows.take(6).map((offer) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: KupunaOfferCard(
+                  offer: <String, dynamic>{
+                    ...offer,
+                    'title': (offer['description'] ?? offer['title'] ?? 'new_offer'.tr()).toString(),
+                    'subtitle': (offer['category'] ?? '').toString(),
+                  },
                 ),
-                title: Text((offer['description'] ?? 'new_offer'.tr()).toString()),
-                subtitle: Text(
-                  'offer_category_value'.tr(namedArgs: {
-                    'category': ((offer['category'] ?? 'other').toString()).tr(),
-                  }),
-                ),
-                trailing: discount.isEmpty
-                    ? const Icon(Icons.arrow_forward_ios, size: 16)
-                    : Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF2D6),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          discount,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                      ),
               );
-            }).toList(),
+            }).toList(growable: false),
           );
         },
       ),
     );
   }
 
-  Widget _buildMapSection() {
+  Widget _buildPeerAdsList() {
     return _SectionCard(
-      title: 'map'.tr(),
-      subtitle: 'nearest_stores_around_you'.tr(),
+      title: 'home_peer_ads_section_title'.tr(),
+      subtitle: 'home_peer_ads_section_subtitle'.tr(),
       action: TextButton(
-        onPressed: widget.onMapTap,
-        child: Text('expand'.tr()),
+        onPressed: widget.onOpenPeerAdsTab,
+        child: Text('home_open_tab'.tr()),
       ),
-      child: SizedBox(
-        height: 170,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: MapBar(onExpand: widget.onMapTap),
-        ),
+      child: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: Stream.periodic(const Duration(seconds: 8))
+            .asyncMap((_) => CompanyServerService.getOffers())
+            .startWithFuture(CompanyServerService.getOffers()),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final keyword = _searchController.text.trim().toLowerCase();
+          final rows = snapshot.data!.where((row) {
+            final ownerType = (row['ownerType'] ?? row['sourceType'] ?? '').toString().toLowerCase();
+            final title = (row['description'] ?? row['title'] ?? '').toString().toLowerCase();
+            final category = (row['category'] ?? '').toString().toLowerCase();
+            final isPeer = ownerType.contains('peer') || ownerType.contains('individual');
+            if (!isPeer) {
+              return false;
+            }
+            if (keyword.isEmpty) {
+              return true;
+            }
+            return title.contains(keyword) || category.contains(keyword);
+          }).toList(growable: false);
+
+          if (rows.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text('home_peer_ads_empty'.tr()),
+            );
+          }
+
+          return Column(
+            children: rows.take(6).map((offer) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: KupunaOfferCard(
+                  offer: <String, dynamic>{
+                    ...offer,
+                    'title': (offer['content'] ?? offer['description'] ?? 'new_offer'.tr()).toString(),
+                    'subtitle': (offer['targetValue'] ?? offer['category'] ?? '').toString(),
+                    'sourceType': 'peer',
+                  },
+                ),
+              );
+            }).toList(growable: false),
+          );
+        },
       ),
     );
-  }
-
-  Widget _buildPointsSummary() {
-    return _SectionCard(
-      title: 'points_summary'.tr(),
-      subtitle: 'take_action_faster'.tr(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('points_remaining_reward'.tr(namedArgs: {'points': '12', 'reward': '30'})),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: LinearProgressIndicator(
-              minHeight: 10,
-              value: 0.6,
-              backgroundColor: const Color(0xFFDCEBFF),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF1E8A63)),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            children: [
-              Chip(
-                backgroundColor: const Color(0xFFEAF7EF),
-                label: Text('coupon_value_label'.tr(namedArgs: {'value': '10'})),
-                avatar: const Icon(Icons.card_giftcard, size: 18),
-              ),
-              Chip(
-                backgroundColor: const Color(0xFFFFF4E3),
-                label: Text('free_gift'.tr()),
-                avatar: const Icon(Icons.redeem, size: 18),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  int _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 }
 
@@ -352,6 +546,7 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
+      color: kWhite,
       elevation: 1.5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
@@ -365,9 +560,9 @@ class _SectionCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      Text(title, style: kDisplayTextStyle(size: 16, weight: FontWeight.w700, color: kInk)),
                       const SizedBox(height: 2),
-                      Text(subtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                      Text(subtitle, style: kBodyTextStyle(color: kInk.withValues(alpha: 0.6), size: 12)),
                     ],
                   ),
                 ),
@@ -378,52 +573,6 @@ class _SectionCard extends StatelessWidget {
             child,
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String value;
-  final Color color;
-
-  const _InfoTile({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: Colors.white,
-        border: Border.all(color: color.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: color.withValues(alpha: 0.12),
-            child: Icon(icon, color: color, size: 18),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
-                const SizedBox(height: 2),
-                Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

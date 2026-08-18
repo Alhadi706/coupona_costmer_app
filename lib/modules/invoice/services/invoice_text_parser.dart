@@ -169,7 +169,6 @@ class InvoiceTextParser {
     digitMap.forEach((k, v) {
       out = out.replaceAll(k, v);
     });
-    out = out.replaceAll('ـ', '');
     out = out.replaceAll('٫', '.').replaceAll('٬', ',');
     out = out.replaceAll(RegExp(r'[ \t]+'), ' ');
     return out.trim();
@@ -469,11 +468,11 @@ class InvoiceTextParser {
       result.add(cleaned);
     }
 
-    addCandidate(_resolveCanonicalMerchant(ctx.rawText));
-
     if (ranked.isNotEmpty) {
       addCandidate(ranked.first.value);
     }
+
+    addCandidate(_resolveCanonicalMerchant(ctx.rawText));
 
     for (final candidate in ranked.take(5)) {
       addCandidate(candidate.value);
@@ -559,7 +558,6 @@ class InvoiceTextParser {
 
   static String _normalizeMerchantLabel(String line) {
     var out = line.replaceAll(RegExp(r'[\|*_\u00A0]'), ' ');
-    out = out.replaceAll('ـ', '');
     out = out.replaceAll(RegExp(r'\s+'), ' ').trim();
     out = out.replaceAll(RegExp(r'^(?:فرع\s*)+', caseSensitive: false), '').trim();
     out = out.replaceAll('سنسايو', 'شنابو');

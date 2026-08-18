@@ -8,6 +8,7 @@ import 'dart:convert';
 import '../modules/invoice/services/invoice_ocr_service.dart';
 import '../modules/invoice/services/invoice_text_parser.dart';
 import '../services/company_server_service.dart';
+import '../theme/design_tokens.dart';
 
 class ScanInvoiceScreen extends StatefulWidget {
   const ScanInvoiceScreen({super.key});
@@ -297,7 +298,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('scan_invoice_title'.tr()),
-        backgroundColor: Colors.deepPurple.shade700,
+        backgroundColor: kTealDark,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -311,30 +312,37 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                         height: 220,
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.deepPurple, width: 2),
+                          border: Border.all(color: kTeal, width: 2),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(
-                          child: Text('scan_invoice_frame_hint'.tr(), style: TextStyle(fontSize: 18)),
+                          child: Text(
+                            'scan_invoice_frame_hint'.tr(),
+                            style: kBodyTextStyle(size: 18, color: kInk),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton.icon(
-                            onPressed: () => _captureImage(isPanorama: false),
-                            icon: const Icon(Icons.camera_alt),
-                            label: Text('scan_invoice_capture_photo'.tr()),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple, foregroundColor: Colors.white, textStyle: TextStyle(fontWeight: FontWeight.bold)),
+                      GestureDetector(
+                        onTap: () => _captureImage(isPanorama: false),
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: const BoxDecoration(
+                            color: kTeal,
+                            shape: BoxShape.circle,
                           ),
-                          ElevatedButton.icon(
-                            onPressed: () => _captureImage(isPanorama: true),
-                            icon: const Icon(Icons.panorama),
-                            label: Text('scan_invoice_capture_long'.tr()),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple.shade200),
-                          ),
-                        ],
+                          child: const Icon(Icons.qr_code_scanner, color: kWhite, size: 44),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton.icon(
+                        onPressed: () => _captureImage(isPanorama: true),
+                        icon: Icon(Icons.upload_file, color: kInk.withValues(alpha: 0.6)),
+                        label: Text(
+                          'scan_invoice_capture_long'.tr(),
+                          style: kBodyTextStyle(color: kInk.withValues(alpha: 0.65), size: 12),
+                        ),
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 16),
@@ -351,7 +359,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                           decoration: BoxDecoration(
                             color: Colors.black12,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.deepPurple.shade100),
+                            border: Border.all(color: kLine),
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(16),

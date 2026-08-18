@@ -1,0 +1,20 @@
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS escrow_accounts (
+  id TEXT PRIMARY KEY,
+  source_type TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  balance NUMERIC NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS settlements (
+  id TEXT PRIMARY KEY,
+  escrow_account_id TEXT NOT NULL,
+  amount NUMERIC NOT NULL,
+  settlement_type TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMIT;

@@ -1,0 +1,263 @@
+{
+  "meta": {
+    "at": "2026-08-16T10:29:28.963Z",
+    "api": "http://127.0.0.1:3006/api"
+  },
+  "users": {
+    "ahmed": {
+      "name": "أحمد",
+      "email": "ahmed.stage5.20260816102928961@kupuna.test",
+      "phone": "0941928961",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1994-04-12",
+      "lat": 32.9012,
+      "lng": 13.205
+    },
+    "fatima": {
+      "name": "فاطمة",
+      "email": "fatima.stage5.20260816102928961@kupuna.test",
+      "phone": "0942928961",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1990-06-18",
+      "lat": 32.9017,
+      "lng": 13.206
+    },
+    "khaled": {
+      "name": "خالد",
+      "email": "khaled.stage5.20260816102928961@kupuna.test",
+      "phone": "0943928961",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1992-12-03",
+      "lat": 32.9008,
+      "lng": 13.2046
+    },
+    "sara": {
+      "name": "سارة",
+      "email": "sara.stage5.20260816102928961@kupuna.test",
+      "phone": "0944928961",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1997-08-22",
+      "lat": 32.9,
+      "lng": 13.2038
+    },
+    "yousef": {
+      "name": "يوسف",
+      "email": "yousef.stage5.20260816102928961@kupuna.test",
+      "phone": "0945928961",
+      "role": "admin",
+      "gender": "male",
+      "birthDate": "1988-01-09",
+      "lat": 32.889,
+      "lng": 13.1988
+    },
+    "toriOwner": {
+      "name": "مالك توري",
+      "email": "tori.stage5.20260816102928961@kupuna.test",
+      "phone": "0946928961",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1991-11-11",
+      "lat": 32.898,
+      "lng": 13.202
+    },
+    "grocer": {
+      "name": "تاجر غذائي",
+      "email": "grocer.stage5.20260816102928961@kupuna.test",
+      "phone": "0947928961",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1989-05-09",
+      "lat": 32.9003,
+      "lng": 13.2049
+    },
+    "cashier": {
+      "name": "كاشير أحمد",
+      "email": "cashier.stage5.20260816102928961@kupuna.test",
+      "phone": "0948928961",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1996-01-01",
+      "lat": 32.9012,
+      "lng": 13.205
+    }
+  },
+  "ids": {
+    "ahmed": "a3e7df35-05ed-4e78-ace0-76351e11beef",
+    "fatima": "071da2a6-5ee6-467a-bf9e-85650dcb8f61",
+    "khaled": "f8946a2c-8ad8-4ead-a2dd-c6b925d63937",
+    "sara": "1c68bc9a-1da9-481f-8b3e-67c0a19f37f3",
+    "yousef": "82a45978-20d8-4d39-86b7-5c314530ab50",
+    "toriOwner": "74c3b45c-def0-4871-9901-689f91f7e994",
+    "grocer": "ef97fb96-df61-461f-9320-87f31f86293f",
+    "cashier": "4c5b0f9e-e2ff-4e57-910c-ed7a3290e0b2",
+    "ahmedMerchantId": "0232fd84-0562-4de7-8aaf-09e22ab57eb3",
+    "fatimaMerchantId": "53de4d1c-10f5-4cc2-ad2b-37bc8515ac9e",
+    "toriBrandId": "cb6720e3-6295-4456-aac1-06601cfbd620",
+    "grocerMerchantId": "11ef9b3f-fa8c-4f36-b5a2-12c18cc97a29",
+    "ahmedBranchId": "80dd4dfa-27dc-41ee-b67f-ef084f1f9ad5",
+    "peerAdId": "8801ff99-bd6d-4aad-88f5-c8f37179407e"
+  },
+  "checks": {
+    "5.1": {
+      "ok": true,
+      "khaledSources": {
+        "ownerId": "f8946a2c-8ad8-4ead-a2dd-c6b925d63937",
+        "merchantSources": [
+          {
+            "sourceId": "0232fd84-0562-4de7-8aaf-09e22ab57eb3",
+            "sourceName": "مطعم أحمد",
+            "activePoints": 20,
+            "lifetimePoints": 20
+          }
+        ],
+        "brandSources": [
+          {
+            "sourceId": "cb6720e3-6295-4456-aac1-06601cfbd620",
+            "sourceName": "توري",
+            "activePoints": 3,
+            "lifetimePoints": 3
+          }
+        ]
+      },
+      "setExchangeRate": {
+        "ok": true,
+        "sourceType": "merchant",
+        "sourceId": "0232fd84-0562-4de7-8aaf-09e22ab57eb3",
+        "destinationType": "merchant",
+        "destinationId": "53de4d1c-10f5-4cc2-ad2b-37bc8515ac9e",
+        "sourcePointValue": 10,
+        "destinationPointValue": 5,
+        "rate": 2,
+        "formula": "destinationPoints = sourcePoints * sourcePointValue / destinationPointValue"
+      }
+    },
+    "5.2": {
+      "ok": true,
+      "exchange": {
+        "ok": true,
+        "destinationPoints": 24,
+        "sourcePoints": 12,
+        "sourcePointValue": 10,
+        "destinationPointValue": 5,
+        "formula": "destinationPoints = sourcePoints * sourcePointValue / destinationPointValue",
+        "usedConfiguredRate": true
+      },
+      "expectedDestinationPoints": 24
+    },
+    "5.3": {
+      "ok": true,
+      "ad": {
+        "ok": true,
+        "id": "8801ff99-bd6d-4aad-88f5-c8f37179407e",
+        "status": "pending_admin_review",
+        "targetCategory": "محلات غذائية",
+        "targetGeo": {
+          "centerLat": 32.9003,
+          "centerLng": 13.2049,
+          "maxDistanceKm": 3
+        }
+      }
+    },
+    "5.4": {
+      "ok": true,
+      "pendingListContainsAd": true,
+      "visibleBeforeApproval": false
+    },
+    "5.5": {
+      "ok": true,
+      "approveAd": {
+        "ok": true,
+        "status": "active"
+      }
+    },
+    "5.6": {
+      "ok": true,
+      "peerAdVisibleForTargetMerchant": {
+        "id": "8801ff99-bd6d-4aad-88f5-c8f37179407e",
+        "ownerUserId": "1c68bc9a-1da9-481f-8b3e-67c0a19f37f3",
+        "content": "هريسة منزلية",
+        "targetType": "merchant_category_geo",
+        "targetValue": null,
+        "targetCategory": "محلات غذائية",
+        "targetGeo": {
+          "centerLat": 32.9003,
+          "centerLng": 13.2049,
+          "maxDistanceKm": 3
+        },
+        "feePaid": 3,
+        "status": "active",
+        "createdAt": "2026-08-16T10:30:08.441Z",
+        "updatedAt": "2026-08-16T10:30:09.341Z"
+      }
+    },
+    "5.7": {
+      "ok": true,
+      "inquiry": {
+        "ok": true,
+        "id": "3a450e91-1c6c-48b4-91df-387fb1d1f7d9",
+        "status": "opened",
+        "chatId": "91e7f604-39ae-47b6-9984-75a941ec10b5"
+      },
+      "ownerHasInquiry": true,
+      "inquiryChat": {
+        "id": "91e7f604-39ae-47b6-9984-75a941ec10b5",
+        "title": "Sourcing Inquiry 8801ff99-bd6d-4aad-88f5-c8f37179407e",
+        "lastMessage": "[SOURCING:3a450e91-1c6c-48b4-91df-387fb1d1f7d9] أرغب بطلب توريد منتظم لهريسة منزلية. ما السعر والحد الأدنى؟",
+        "updatedAt": "2026-08-16T10:30:10.761Z",
+        "peerUserId": "ef97fb96-df61-461f-9320-87f31f86293f",
+        "peerEmail": "grocer.stage5.20260816102928961@kupuna.test",
+        "blockedByMe": false,
+        "isMuted": false,
+        "isPinned": false,
+        "unreadCount": 1
+      },
+      "sourcingMessageFound": true,
+      "sourcingNotification": {
+        "id": "4050da20-2abc-4ed4-8723-808196a8574a",
+        "type": "sourcing_inquiry",
+        "title": "New sourcing inquiry",
+        "body": "A merchant contacted you about your peer ad.",
+        "targetScreen": null,
+        "payload": {
+          "chatId": "91e7f604-39ae-47b6-9984-75a941ec10b5",
+          "peerAdId": "8801ff99-bd6d-4aad-88f5-c8f37179407e",
+          "inquiryId": "3a450e91-1c6c-48b4-91df-387fb1d1f7d9"
+        },
+        "isRead": false,
+        "readAt": null,
+        "createdAt": "2026-08-16T10:30:10.761Z"
+      },
+      "saraPointsBefore": {
+        "ownerId": "1c68bc9a-1da9-481f-8b3e-67c0a19f37f3",
+        "availablePoints": 0,
+        "lifetimePoints": 0,
+        "updatedAt": "2026-08-16T10:30:10.141Z"
+      },
+      "saraPointsAfter": {
+        "ownerId": "1c68bc9a-1da9-481f-8b3e-67c0a19f37f3",
+        "availablePoints": 0,
+        "lifetimePoints": 0,
+        "updatedAt": "2026-08-16T10:30:10.141Z"
+      },
+      "grocerPointsBefore": {
+        "ownerId": "ef97fb96-df61-461f-9320-87f31f86293f",
+        "availablePoints": 0,
+        "lifetimePoints": 0,
+        "updatedAt": "2026-08-16T10:30:10.457Z"
+      },
+      "grocerPointsAfter": {
+        "ownerId": "ef97fb96-df61-461f-9320-87f31f86293f",
+        "availablePoints": 0,
+        "lifetimePoints": 0,
+        "updatedAt": "2026-08-16T10:30:10.457Z"
+      }
+    }
+  },
+  "notes": [
+    "UI actions are validated through deterministic API state and payload assertions in this run."
+  ]
+}

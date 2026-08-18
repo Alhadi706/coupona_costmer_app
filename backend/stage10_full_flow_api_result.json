@@ -1,0 +1,267 @@
+{
+  "meta": {
+    "at": "2026-08-17T08:11:47.352Z",
+    "api": "http://127.0.0.1:3007/api"
+  },
+  "users": {
+    "ahmed": {
+      "name": "أحمد",
+      "email": "ahmed.stage10.20260817081147351@kupuna.test",
+      "phone": "0961147351",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1994-04-12",
+      "lat": 32.9012,
+      "lng": 13.205
+    },
+    "khaled": {
+      "name": "خالد",
+      "email": "khaled.stage10.20260817081147351@kupuna.test",
+      "phone": "0962147351",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1992-12-03",
+      "lat": 32.875,
+      "lng": 13.1702
+    },
+    "sara": {
+      "name": "سارة",
+      "email": "sara.stage10.20260817081147351@kupuna.test",
+      "phone": "0963147351",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1997-08-22",
+      "lat": 32.9015,
+      "lng": 13.2056
+    },
+    "yousef": {
+      "name": "يوسف",
+      "email": "yousef.stage10.20260817081147351@kupuna.test",
+      "phone": "0964147351",
+      "role": "admin",
+      "gender": "male",
+      "birthDate": "1988-01-09",
+      "lat": 32.889,
+      "lng": 13.1988
+    }
+  },
+  "ids": {
+    "ahmed": "292f8d32-b761-408f-8db6-8cfa23afced1",
+    "khaled": "7fdaa5c4-3d0a-429e-9ac9-701de08177df",
+    "sara": "3b261cbf-6a79-4edb-8099-634d9bab867c",
+    "yousef": "4c08d11a-8d0a-4ee9-bc12-20441dd5ab12",
+    "ahmedMerchantId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+    "subscriptionId": "a20e58b6-201b-454f-ba6c-df52c8dc090b",
+    "ahmedBranchId": "f1a3ecbc-d10d-4fe2-a2aa-a2e51730aa76",
+    "saraCashierId": "6a135ec7-7091-445f-9db4-df6f397889c6"
+  },
+  "checks": {
+    "10.1_10.2_trial_to_grace_with_access": {
+      "ok": true,
+      "expireTrial": {
+        "ok": true,
+        "id": "a20e58b6-201b-454f-ba6c-df52c8dc090b",
+        "status": "grace_period",
+        "trialEndDate": "2026-08-17T08:11:08.250Z",
+        "nextBillingDate": "2026-08-24T08:12:08.667Z"
+      },
+      "graceSubscription": {
+        "id": "a20e58b6-201b-454f-ba6c-df52c8dc090b",
+        "roleProfileId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "roleType": "merchant",
+        "status": "grace_period",
+        "planType": "pro",
+        "trialStartDate": "2026-08-17T08:11:57.040Z",
+        "trialEndDate": "2026-08-17T08:11:08.250Z",
+        "nextBillingDate": "2026-08-24T08:12:08.667Z"
+      },
+      "graceNotification": {
+        "id": "e198ad59-b59e-4d76-bbd5-417cd3442662",
+        "type": "subscription_grace_period",
+        "title": "Trial ended",
+        "body": "Your subscription entered grace period. Full dashboard access remains available until billing is due.",
+        "targetScreen": null,
+        "payload": {
+          "status": "grace_period",
+          "roleType": "merchant",
+          "roleProfileId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+          "subscriptionId": "a20e58b6-201b-454f-ba6c-df52c8dc090b"
+        },
+        "isRead": false,
+        "readAt": null,
+        "createdAt": "2026-08-17T08:12:08.747Z"
+      },
+      "graceMutation": {
+        "ok": true,
+        "id": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "pointValue": 11
+      }
+    },
+    "10.3_10.4_suspend_read_only_cashier_off_points_and_group_persist": {
+      "ok": true,
+      "endGrace": {
+        "ok": true,
+        "id": "a20e58b6-201b-454f-ba6c-df52c8dc090b",
+        "status": "suspended",
+        "trialEndDate": "2026-08-17T08:11:08.250Z",
+        "nextBillingDate": "2026-08-17T08:11:13.168Z"
+      },
+      "suspendedSubscription": {
+        "id": "a20e58b6-201b-454f-ba6c-df52c8dc090b",
+        "roleProfileId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "roleType": "merchant",
+        "status": "suspended",
+        "planType": "pro",
+        "trialStartDate": "2026-08-17T08:11:57.040Z",
+        "trialEndDate": "2026-08-17T08:11:08.250Z",
+        "nextBillingDate": "2026-08-17T08:11:13.168Z"
+      },
+      "suspendedNotification": {
+        "id": "480ed8ed-e1d2-43ca-ae60-a386927180ce",
+        "type": "subscription_suspended",
+        "title": "Subscription suspended",
+        "body": "Your dashboard is now read-only until subscription reactivation.",
+        "targetScreen": null,
+        "payload": {
+          "status": "suspended",
+          "roleType": "merchant",
+          "roleProfileId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+          "subscriptionId": "a20e58b6-201b-454f-ba6c-df52c8dc090b"
+        },
+        "isRead": false,
+        "readAt": null,
+        "createdAt": "2026-08-17T08:12:13.767Z"
+      },
+      "suspendedMutation": {
+        "status": 403,
+        "data": {
+          "error": "merchant_subscription_read_only"
+        }
+      },
+      "saraCashierRows": [
+        {
+          "id": "6a135ec7-7091-445f-9db4-df6f397889c6",
+          "merchantId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+          "merchantName": "مطعم أحمد",
+          "branchId": "f1a3ecbc-d10d-4fe2-a2aa-a2e51730aa76",
+          "branchName": "مطعم أحمد - الفرع الرئيسي",
+          "isActive": false
+        }
+      ],
+      "khaledPointsBefore": {
+        "sourceId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "sourceName": "مطعم أحمد",
+        "activePoints": 9,
+        "lifetimePoints": 9
+      },
+      "khaledPointsAfterSuspend": {
+        "sourceId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "sourceName": "مطعم أحمد",
+        "activePoints": 9,
+        "lifetimePoints": 9
+      },
+      "saraPointsBefore": {
+        "sourceId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "sourceName": "مطعم أحمد",
+        "activePoints": 4,
+        "lifetimePoints": 4
+      },
+      "saraPointsAfterSuspend": {
+        "sourceId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "sourceName": "مطعم أحمد",
+        "activePoints": 4,
+        "lifetimePoints": 4
+      },
+      "groupBefore": {
+        "id": "82a2b468-1c19-4963-8d64-0512693e45df",
+        "roleType": "merchant",
+        "roleProfileId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "name": "مطعم أحمد",
+        "ownerUserId": "292f8d32-b761-408f-8db6-8cfa23afced1",
+        "membersCount": 1,
+        "unreadCount": 0
+      },
+      "groupAfterSuspend": {
+        "id": "82a2b468-1c19-4963-8d64-0512693e45df",
+        "roleType": "merchant",
+        "roleProfileId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "name": "مطعم أحمد",
+        "ownerUserId": "292f8d32-b761-408f-8db6-8cfa23afced1",
+        "membersCount": 1,
+        "unreadCount": 0
+      },
+      "grantKhaledBefore": {
+        "ok": true,
+        "points": 9,
+        "fraction": 7
+      },
+      "grantSaraBefore": {
+        "ok": true,
+        "points": 4,
+        "fraction": 2
+      }
+    },
+    "10.5_reactivate_dashboard_and_cashier": {
+      "ok": true,
+      "activateNow": {
+        "ok": true,
+        "id": "a20e58b6-201b-454f-ba6c-df52c8dc090b",
+        "roleProfileId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "roleType": "merchant",
+        "fromStatus": "suspended",
+        "status": "active",
+        "trialEndDate": "2026-08-17T08:11:08.250Z",
+        "nextBillingDate": "2026-09-16T08:12:20.177Z"
+      },
+      "reactivatedSubscription": {
+        "id": "a20e58b6-201b-454f-ba6c-df52c8dc090b",
+        "roleProfileId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "roleType": "merchant",
+        "status": "active",
+        "planType": "pro",
+        "trialStartDate": "2026-08-17T08:11:57.040Z",
+        "trialEndDate": "2026-08-17T08:11:08.250Z",
+        "nextBillingDate": "2026-09-16T08:12:20.177Z"
+      },
+      "saraCashierRows": [
+        {
+          "id": "6a135ec7-7091-445f-9db4-df6f397889c6",
+          "merchantId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+          "merchantName": "مطعم أحمد",
+          "branchId": "f1a3ecbc-d10d-4fe2-a2aa-a2e51730aa76",
+          "branchName": "مطعم أحمد - الفرع الرئيسي",
+          "isActive": true
+        }
+      ],
+      "reactivatedNotification": {
+        "id": "c44be1ab-69b2-4a53-930d-1038378ab7f1",
+        "type": "subscription_reactivated",
+        "title": "Subscription reactivated",
+        "body": "Your dashboard access has been fully restored.",
+        "targetScreen": null,
+        "payload": {
+          "status": "active",
+          "roleType": "merchant",
+          "roleProfileId": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+          "subscriptionId": "a20e58b6-201b-454f-ba6c-df52c8dc090b"
+        },
+        "isRead": false,
+        "readAt": null,
+        "createdAt": "2026-08-17T08:12:19.936Z"
+      },
+      "activeMutation": {
+        "ok": true,
+        "id": "7523aaa2-07ca-4337-9274-7453f3eeb9c1",
+        "pointValue": 13
+      },
+      "grantAfterReactivation": {
+        "ok": true,
+        "points": 2,
+        "fraction": 7
+      }
+    }
+  },
+  "notes": [
+    "Browser-level click proof remains unreliable with Flutter Web semantics here, so stage 10 is validated deterministically via the new admin subscription endpoints, notifications, role payloads, and mutation guards."
+  ]
+}

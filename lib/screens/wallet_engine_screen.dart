@@ -4,6 +4,8 @@ import '../modules/accounting/models/ledger_entry.dart';
 import '../modules/accounting/models/point_account.dart';
 import '../modules/accounting/models/wallet_account.dart';
 import '../modules/accounting/services/accounting_service.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/design_system/kupuna_dual_wallet_rings.dart';
 
 class WalletEngineScreen extends StatefulWidget {
   const WalletEngineScreen({super.key});
@@ -125,7 +127,7 @@ class _WalletEngineScreenState extends State<WalletEngineScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('المحفظة والدفتر المحاسبي'),
-        backgroundColor: Colors.deepPurple.shade700,
+        backgroundColor: kTealDark,
       ),
       body: _initError != null
           ? _ErrorCard(message: _initError!)
@@ -134,6 +136,27 @@ class _WalletEngineScreenState extends State<WalletEngineScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  Card(
+                    color: kWhite,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                        child: StreamBuilder<PointAccount>(
+                          stream: _service.watchPointAccount(),
+                          builder: (context, snapshot) {
+                            final points = snapshot.data;
+                            final merchantPoints = (points?.availablePoints ?? 0).toDouble();
+                            final brandPoints = (points?.lifetimePoints ?? 0).toDouble();
+                            return KupunaDualWalletRings(
+                              merchantPoints: merchantPoints,
+                              brandPoints: brandPoints,
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   _buildWalletCard(),
                   const SizedBox(height: 12),
                   _buildPointsCard(),

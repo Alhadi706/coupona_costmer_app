@@ -1,0 +1,384 @@
+{
+  "meta": {
+    "at": "2026-08-16T21:28:15.657Z",
+    "api": "http://127.0.0.1:3007/api"
+  },
+  "users": {
+    "ahmed": {
+      "name": "أحمد",
+      "email": "ahmed.stage9.20260816212815649@kupuna.test",
+      "phone": "0951815649",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1994-04-12",
+      "lat": 32.9012,
+      "lng": 13.205
+    },
+    "khaled": {
+      "name": "خالد",
+      "email": "khaled.stage9.20260816212815649@kupuna.test",
+      "phone": "0952815649",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1992-12-03",
+      "lat": 32.875,
+      "lng": 13.1702
+    },
+    "yousef": {
+      "name": "يوسف",
+      "email": "yousef.stage9.20260816212815649@kupuna.test",
+      "phone": "0953815649",
+      "role": "admin",
+      "gender": "male",
+      "birthDate": "1988-01-09",
+      "lat": 32.889,
+      "lng": 13.1988
+    },
+    "nour": {
+      "name": "نور",
+      "email": "nour.stage9.20260816212815649@kupuna.test",
+      "phone": "0954815649",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1991-05-17",
+      "lat": 32.894,
+      "lng": 13.214
+    },
+    "sara": {
+      "name": "سارة",
+      "email": "sara.stage9.20260816212815649@kupuna.test",
+      "phone": "0955815649",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1998-06-18",
+      "lat": 32.9022,
+      "lng": 13.2064
+    },
+    "omar": {
+      "name": "عمر",
+      "email": "omar.stage9.20260816212815649@kupuna.test",
+      "phone": "0956815649",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1985-03-01",
+      "lat": 32.9031,
+      "lng": 13.2082
+    },
+    "lama": {
+      "name": "لمى",
+      "email": "lama.stage9.20260816212815649@kupuna.test",
+      "phone": "0957815649",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1975-11-27",
+      "lat": 32.904,
+      "lng": 13.2101
+    },
+    "rana": {
+      "name": "رنا",
+      "email": "rana.stage9.20260816212815649@kupuna.test",
+      "phone": "0958815649",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1990-01-10",
+      "lat": 32.8954,
+      "lng": 13.2148
+    }
+  },
+  "ids": {
+    "ahmed": "87b39fd5-4feb-4538-8fbc-a382fe3cf1f2",
+    "khaled": "dcbf1185-074d-4585-8102-9011e696f34b",
+    "yousef": "f760f09b-2ec5-4b9c-8cd2-0fa5429c89bf",
+    "nour": "e406d2cc-253b-45a2-9e02-09dcd4c3efed",
+    "sara": "74386fb8-81c3-4790-b098-976a7e0f0136",
+    "omar": "ed9d6f1a-a5f0-495b-8b6a-cbb5e155f99f",
+    "lama": "e565c678-4894-4024-a3ab-fa13c05c851e",
+    "rana": "11bc6b09-43bb-4c8e-a41b-911418efbd8b",
+    "ahmedMerchantId": "1a9eee06-01d8-45a7-9ffe-276a6d30f6bc",
+    "khaledBrandId": "9a27747f-3687-4769-88d5-c368346ac1e0",
+    "nourMerchantId": "8e369867-dfc9-43ec-9420-e13817b97b9c",
+    "ahmedBranch1Id": "195db326-d072-4142-843a-be4f163a32e8",
+    "ahmedBranch2Id": "0b28b679-4a16-4d87-aa6c-3be3ff95e053",
+    "nourBranchId": "cdbe1a8c-6814-4562-ba75-9a0d78a6ab0e",
+    "toriProductId": "ea9e0ddf-1fa2-4418-8a55-aedfda169f6d"
+  },
+  "checks": {
+    "9.1_ahmed_sections_and_real_numbers": {
+      "ok": true,
+      "sales": {
+        "total": 205,
+        "invoiceCount": 2,
+        "averageBill": 102.5,
+        "pointsAwarded": 20,
+        "salesGrowthPercent": 46.43
+      },
+      "customers": {
+        "unique": 2,
+        "newCount": 1,
+        "returningCount": 1,
+        "retentionPercent": 50,
+        "churnPercent": 50
+      },
+      "demographics": {
+        "gender": [
+          {
+            "label": "female",
+            "value": 1
+          },
+          {
+            "label": "male",
+            "value": 1
+          }
+        ],
+        "ageBuckets": [
+          {
+            "label": "25-34",
+            "value": 1
+          },
+          {
+            "label": "35-44",
+            "value": 1
+          }
+        ]
+      },
+      "customerHeatmap": [
+        {
+          "id": "ed9d6f1a-a5f0-495b-8b6a-cbb5e155f99f",
+          "label": "عمر",
+          "latitude": 32.9031,
+          "longitude": 13.2082,
+          "value": 1
+        },
+        {
+          "id": "74386fb8-81c3-4790-b098-976a7e0f0136",
+          "label": "سارة",
+          "latitude": 32.9022,
+          "longitude": 13.2064,
+          "value": 1
+        }
+      ],
+      "offerPerformance": {
+        "totalOffers": 0,
+        "topCategory": "-",
+        "statusBreakdown": []
+      },
+      "peakTimes": {
+        "peakHour": "21:00",
+        "peakDay": "Fri",
+        "byHour": [
+          {
+            "label": "21:00",
+            "value": 2
+          }
+        ],
+        "byWeekday": [
+          {
+            "label": "Fri",
+            "value": 1
+          },
+          {
+            "label": "Sat",
+            "value": 1
+          }
+        ]
+      },
+      "groupMetrics": {
+        "groups": 1,
+        "groupName": "مطعم أحمد",
+        "members": 4,
+        "messages": 2
+      },
+      "topBrandProducts": [
+        {
+          "name": "وجبة",
+          "brandName": "Unknown brand",
+          "salesTotal": 90,
+          "quantity": 1
+        },
+        {
+          "name": "قهوة",
+          "brandName": "Unknown brand",
+          "salesTotal": 65,
+          "quantity": 1
+        },
+        {
+          "name": "صابون توري",
+          "brandName": "توري",
+          "salesTotal": 50,
+          "quantity": 2
+        }
+      ],
+      "financialSummary": {
+        "pointValue": 10,
+        "branches": 2,
+        "totalSales": 205,
+        "pointsAwarded": 20,
+        "averageBill": 102.5
+      },
+      "loyaltyHealth": {
+        "score": 87,
+        "trend": "upward"
+      }
+    },
+    "9.2_branch_second_filter_changes_numbers": {
+      "ok": true,
+      "allBranches": {
+        "total": 205,
+        "invoiceCount": 2,
+        "averageBill": 102.5,
+        "pointsAwarded": 20,
+        "salesGrowthPercent": 46.43
+      },
+      "branch2": {
+        "total": 85,
+        "invoiceCount": 1,
+        "averageBill": 85,
+        "pointsAwarded": 20,
+        "salesGrowthPercent": 6.25
+      },
+      "branch2Customers": {
+        "unique": 1,
+        "newCount": 1,
+        "returningCount": 0,
+        "retentionPercent": 0,
+        "churnPercent": 100
+      },
+      "branchScope": {
+        "id": "0b28b679-4a16-4d87-aa6c-3be3ff95e053",
+        "name": "مطعم أحمد - الفرع الثاني"
+      }
+    },
+    "9.3_export_pdf_excel_success": {
+      "ok": true,
+      "csvBytes": 211,
+      "pdfBytes": 853,
+      "note": "The dashboard export implementation is client-side; here the same analytics payload produced concrete CSV/PDF artifacts successfully."
+    },
+    "9.4_khaled_brand_analytics": {
+      "ok": true,
+      "distributionHeatmap": [
+        {
+          "id": "1a9eee06-01d8-45a7-9ffe-276a6d30f6bc",
+          "label": "مطعم أحمد",
+          "latitude": 32.9012,
+          "longitude": 13.205,
+          "value": 50
+        },
+        {
+          "id": "8e369867-dfc9-43ec-9420-e13817b97b9c",
+          "label": "مخبز نور",
+          "latitude": 32.894,
+          "longitude": 13.214,
+          "value": 15
+        }
+      ],
+      "topSellingStores": [
+        {
+          "name": "مطعم أحمد",
+          "salesTotal": 50,
+          "quantity": 2,
+          "key": "1a9eee06-01d8-45a7-9ffe-276a6d30f6bc"
+        },
+        {
+          "name": "مخبز نور",
+          "salesTotal": 15,
+          "quantity": 1,
+          "key": "8e369867-dfc9-43ec-9420-e13817b97b9c"
+        }
+      ],
+      "lowestSellingStores": [
+        {
+          "name": "مخبز نور",
+          "salesTotal": 15,
+          "quantity": 1
+        },
+        {
+          "name": "مطعم أحمد",
+          "salesTotal": 50,
+          "quantity": 2
+        }
+      ],
+      "topProducts": [
+        {
+          "name": "صابون توري",
+          "salesTotal": 65,
+          "quantity": 3
+        }
+      ],
+      "growthLevels": [
+        {
+          "level": "overall",
+          "label": "Overall brand sales",
+          "current": 65,
+          "previous": 35,
+          "growthPercent": 85.71,
+          "expected": 85.71,
+          "matchesFormula": true
+        },
+        {
+          "level": "store",
+          "label": "مطعم أحمد",
+          "current": 50,
+          "previous": 35,
+          "growthPercent": 42.86,
+          "expected": 42.86,
+          "matchesFormula": true
+        },
+        {
+          "level": "product",
+          "label": "صابون توري",
+          "current": 65,
+          "previous": 35,
+          "growthPercent": 85.71,
+          "expected": 85.71,
+          "matchesFormula": true
+        }
+      ],
+      "consumerDemographics": {
+        "gender": [
+          {
+            "label": "female",
+            "value": 2
+          },
+          {
+            "label": "male",
+            "value": 1
+          }
+        ],
+        "ageBuckets": [
+          {
+            "label": "35-44",
+            "value": 2
+          },
+          {
+            "label": "25-34",
+            "value": 1
+          }
+        ]
+      }
+    },
+    "9.5_yousef_platform_analytics": {
+      "ok": true,
+      "summary": {
+        "users": 355,
+        "merchants": 49,
+        "brands": 23,
+        "reports": 10,
+        "fraudFlags": 11,
+        "activeMerchants": 19,
+        "totalSales": 1662
+      },
+      "minimumExpectedSales": 400
+    }
+  },
+  "exports": {
+    "csvPath": "C:\\Users\\test\\coupona_app\\backend\\stage9_merchant_analytics_export.csv",
+    "csvBytes": 211,
+    "pdfPath": "C:\\Users\\test\\coupona_app\\backend\\stage9_merchant_analytics_export.pdf",
+    "pdfBytes": 853
+  },
+  "notes": [
+    "Browser-level dashboard clicking could not be automated reliably because Flutter Web exposed no actionable semantics in this environment.",
+    "Stage 9 is validated here by deterministic data seeding, analytics endpoint assertions, successful Flutter build, and generated export artifacts."
+  ]
+}

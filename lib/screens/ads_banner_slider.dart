@@ -6,10 +6,10 @@ class AdsBannerSlider extends StatefulWidget {
   final double height;
 
   const AdsBannerSlider({
-    Key? key,
     required this.adsImages,
     required this.height,
-  }) : super(key: key);
+    super.key,
+  });
 
   @override
   State<AdsBannerSlider> createState() => _AdsBannerSliderState();

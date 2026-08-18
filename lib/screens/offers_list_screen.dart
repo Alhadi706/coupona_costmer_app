@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../services/company_server_service.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/design_system/kupuna_offer_card.dart';
 
 class OffersListScreen extends StatefulWidget {
   const OffersListScreen({super.key});
@@ -32,6 +34,7 @@ class _OffersListScreenState extends State<OffersListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('offers_list'.tr()),
+        backgroundColor: kTealDark,
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _offersFuture,
@@ -46,14 +49,16 @@ class _OffersListScreenState extends State<OffersListScreen> {
           final offers = snapshot.data!;
           return ListView.separated(
             itemCount: offers.length,
-            separatorBuilder: (context, index) => const Divider(),
+            padding: const EdgeInsets.all(12),
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final offer = offers[index];
-              return ListTile(
-                leading: const Icon(Icons.local_offer),
-                title: Text((offer['title'] ?? 'untitled_offer'.tr()).toString()),
-                subtitle: Text(offer['description'] ?? ''),
-                trailing: Text(offer['id'].toString()),
+              return KupunaOfferCard(
+                offer: <String, dynamic>{
+                  ...offer,
+                  'title': (offer['title'] ?? 'untitled_offer'.tr()).toString(),
+                  'subtitle': (offer['description'] ?? '').toString(),
+                },
               );
             },
           );

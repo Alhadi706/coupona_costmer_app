@@ -6,11 +6,19 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
+import '../theme/design_tokens.dart';
 
 class OfferDetailScreen extends StatefulWidget {
   final Map<String, dynamic> offer;
   const OfferDetailScreen({super.key, required this.offer});
+
+  @override
+  State<OfferDetailScreen> createState() => _OfferDetailScreenState();
+}
+
+class _OfferDetailScreenState extends State<OfferDetailScreen> {
+  String? address;
+  bool isLoadingAddress = false;
 
   double? _toDouble(dynamic value) {
     if (value == null) return null;
@@ -19,13 +27,13 @@ class OfferDetailScreen extends StatefulWidget {
   }
 
   LatLng? _extractLatLng() {
-    final double? directLat = _toDouble(offer['lat']) ?? _toDouble(offer['latitude']);
-    final double? directLng = _toDouble(offer['lng']) ?? _toDouble(offer['longitude']);
+    final double? directLat = _toDouble(widget.offer['lat']) ?? _toDouble(widget.offer['latitude']);
+    final double? directLng = _toDouble(widget.offer['lng']) ?? _toDouble(widget.offer['longitude']);
     if (directLat != null && directLng != null) {
       return LatLng(directLat, directLng);
     }
 
-    final String locationRaw = (offer['location'] ?? '').toString().trim();
+    final String locationRaw = (widget.offer['location'] ?? '').toString().trim();
     final parts = locationRaw.split(',');
     if (parts.length == 2) {
       final maybeLat = _toDouble(parts[0]);
@@ -85,7 +93,7 @@ class OfferDetailScreen extends StatefulWidget {
 
   Widget _buildMapCard(BuildContext context) {
     final LatLng? point = _extractLatLng();
-    final String locationText = (offer['location'] ?? '').toString().trim();
+    final String locationText = (widget.offer['location'] ?? '').toString().trim();
 
     if (point == null && locationText.isEmpty) {
       return const SizedBox.shrink();
@@ -105,7 +113,7 @@ class OfferDetailScreen extends StatefulWidget {
           children: [
             const Row(
               children: [
-                Icon(Icons.map_outlined, size: 18, color: Colors.deepPurple),
+                Icon(Icons.map_outlined, size: 18, color: kTeal),
                 SizedBox(width: 6),
                 Text(
                   'location_on_map',
@@ -198,14 +206,6 @@ class OfferDetailScreen extends StatefulWidget {
   }
 
   @override
-  State<OfferDetailScreen> createState() => _OfferDetailScreenState();
-}
-
-class _OfferDetailScreenState extends State<OfferDetailScreen> {
-  String? address;
-  bool isLoadingAddress = false;
-
-  @override
   void initState() {
     super.initState();
     _getAddressFromLatLng();
@@ -267,20 +267,20 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrl = (offer['imageUrl'] ?? offer['image'] ?? '').toString();
-    final storeName = (offer['storeName'] ?? '').toString();
-    final offerType = (offer['offerType'] ?? '').toString();
-    final percent = (offer['percent'] ?? '').toString();
-    final endDate = (offer['endDate'] ?? '').toString();
-    final description = (offer['description'] ?? '').toString();
-    final conditions = (offer['conditions'] ?? '').toString();
-    final location = (offer['location'] ?? '').toString();
-    final phone = (offer['phone'] ?? '').toString();
+    final imageUrl = (widget.offer['imageUrl'] ?? widget.offer['image'] ?? '').toString();
+    final storeName = (widget.offer['storeName'] ?? '').toString();
+    final offerType = (widget.offer['offerType'] ?? '').toString();
+    final percent = (widget.offer['percent'] ?? '').toString();
+    final endDate = (widget.offer['endDate'] ?? '').toString();
+    final description = (widget.offer['description'] ?? '').toString();
+    final conditions = (widget.offer['conditions'] ?? '').toString();
+    final location = (widget.offer['location'] ?? '').toString();
+    final phone = (widget.offer['phone'] ?? '').toString();
 
     return Scaffold(
       appBar: AppBar(
         title: Text('offer_details_title'.tr()),
-        backgroundColor: Colors.deepPurple.shade700,
+        backgroundColor: kTealDark,
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
@@ -301,7 +301,7 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
             children: [
               if (offerType.isNotEmpty)
                 Chip(
-                  backgroundColor: Colors.deepPurple.shade50,
+                  backgroundColor: kSand,
                   label: Text(offerType),
                 ),
               if (percent.isNotEmpty)
@@ -379,14 +379,14 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
                     shape: const RoundedRectangleBorder(
                       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
                     ),
-                    builder: (context) => _ShareOptions(offer: offer),
+                    builder: (context) => _ShareOptions(offer: widget.offer),
                   );
                 },
                 icon: const Icon(Icons.share),
                 label: Text('share_offer'.tr()),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
+                  backgroundColor: kTeal,
+                  foregroundColor: kWhite,
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   textStyle: TextStyle(fontSize: 15),
                 ),
@@ -448,7 +448,7 @@ class _ShareOptions extends StatelessWidget {
                 tooltip: 'telegram'.tr(),
               ),
               IconButton(
-                icon: const Icon(Icons.groups, color: Colors.deepPurple, size: 32),
+                icon: const Icon(Icons.groups, color: kTeal, size: 32),
                 onPressed: () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(

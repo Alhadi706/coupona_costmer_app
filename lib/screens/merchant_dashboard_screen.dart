@@ -1,10 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 import '../services/company_server_service.dart';
+import '../services/export_download.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/analytics_map_panel.dart';
 import '../widgets/design_system/kupuna_loyalty_health_ring.dart';
 import '../widgets/design_system/kupuna_offer_card.dart';
 import '../widgets/design_system/kupuna_status_pill.dart';
+import 'map_picker_screen.dart';
 import 'points_conversion_screen.dart';
 import 'reward_qr_code_screen.dart';
 
@@ -42,11 +50,18 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   bool _savingPointValue = false;
   String? _error;
   String? _result;
+  double? _branchLatitude;
+  double? _branchLongitude;
+  String _analyticsRange = '30d';
+  String _analyticsBranchId = '';
   double? _currentPointValue;
+  bool _loadingAnalytics = false;
   List<Map<String, dynamic>> _branches = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _invoices = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _offers = <Map<String, dynamic>>[];
   Map<String, dynamic> _loyalty = const <String, dynamic>{};
+  Map<String, dynamic> _analytics = const <String, dynamic>{};
+  Map<String, dynamic> _roles = const <String, dynamic>{};
 
   @override
   void initState() {
@@ -79,16 +94,24 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
         CompanyServerService.getMyInvoices(limit: 20),
         CompanyServerService.getMerchantProfile(),
         CompanyServerService.getOffers(),
+        CompanyServerService.getMyRoles(),
+        CompanyServerService.getMerchantAnalytics(
+          range: _analyticsRange,
+          branchId: _analyticsBranchId.isEmpty ? null : _analyticsBranchId,
+        ).catchError((_) => <String, dynamic>{}),
       ]);
       if (!mounted) return;
       final profile = Map<String, dynamic>.from(results[3] as Map<dynamic, dynamic>);
       final pointValueRaw = profile['pointValue'];
       final pointValue = pointValueRaw == null ? null : double.tryParse(pointValueRaw.toString());
+      final rawAnalytics = results[6];
       setState(() {
         _branches = List<Map<String, dynamic>>.from(results[0] as List<dynamic>);
         _loyalty = Map<String, dynamic>.from(results[1] as Map<dynamic, dynamic>);
         _invoices = List<Map<String, dynamic>>.from(results[2] as List<dynamic>);
         _offers = List<Map<String, dynamic>>.from(results[4] as List<dynamic>);
+        _roles = Map<String, dynamic>.from(results[5] as Map<dynamic, dynamic>);
+        _analytics = rawAnalytics is Map ? Map<String, dynamic>.from(rawAnalytics as Map<dynamic, dynamic>) : const <String, dynamic>{};
         _currentPointValue = pointValue;
         _pointValueController.text = pointValue == null ? '' : pointValue.toString();
       });
@@ -101,6 +124,33 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       if (mounted) {
         setState(() {
           _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _reloadAnalytics() async {
+    setState(() {
+      _loadingAnalytics = true;
+    });
+    try {
+      final data = await CompanyServerService.getMerchantAnalytics(
+        range: _analyticsRange,
+        branchId: _analyticsBranchId.isEmpty ? null : _analyticsBranchId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _analytics = Map<String, dynamic>.from(data);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingAnalytics = false;
         });
       }
     }
@@ -122,6 +172,127 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       return value.toDouble();
     }
     return double.tryParse((value ?? '').toString()) ?? 0;
+  }
+
+  String _tx(String key, String fallback) {
+    final value = key.tr();
+    return value == key ? fallback : value;
+  }
+
+  Map<String, dynamic>? _merchantSubscription() {
+    final subscriptions = (_roles['subscriptions'] as List?) ?? const <dynamic>[];
+    for (final row in subscriptions) {
+      if (row is Map && row['roleType'] == 'merchant') {
+        return Map<String, dynamic>.from(row);
+      }
+    }
+    return null;
+  }
+
+  bool get _merchantReadOnly => (_merchantSubscription()?['status'] ?? '').toString() == 'suspended';
+
+  bool get _merchantGracePeriod => (_merchantSubscription()?['status'] ?? '').toString() == 'grace_period';
+
+  String _localizeSubscriptionStatus(String raw) {
+    switch (raw.toLowerCase()) {
+      case 'trial':
+        return _tx('subscription_status_trial', 'Trial');
+      case 'active':
+        return _tx('subscription_status_active', 'Active');
+      case 'grace_period':
+        return _tx('subscription_status_grace_period', 'Grace period');
+      case 'suspended':
+        return _tx('subscription_status_suspended', 'Suspended');
+      default:
+        return _localizeGenericStatus(raw);
+    }
+  }
+
+  String _localizeGenericStatus(dynamic rawStatus) {
+    final String status = (rawStatus ?? '').toString().trim().toLowerCase();
+    switch (status) {
+      case 'pending_admin_review':
+        return _tx('status_pending_admin_review', 'Pending admin review');
+      case 'pending_review':
+        return _tx('status_pending_review', 'Pending review');
+      case 'approved':
+        return _tx('status_approved', 'Approved');
+      case 'active':
+        return _tx('status_active', 'Active');
+      case 'trial':
+        return _tx('status_trial', 'Trial');
+      case 'grace_period':
+        return _tx('status_grace_period', 'Grace period');
+      case 'suspended':
+        return _tx('status_suspended', 'Suspended');
+      case 'under_review':
+        return _tx('status_under_review', 'Under review');
+      case 'pending':
+        return _tx('status_pending', 'Pending');
+      case 'processing':
+        return _tx('status_processing', 'Processing');
+      case 'rejected':
+        return _tx('status_rejected', 'Rejected');
+      case 'redeemed':
+        return _tx('status_redeemed', 'Redeemed');
+      case 'expired':
+        return _tx('status_expired', 'Expired');
+      case 'archived':
+        return _tx('status_archived', 'Archived');
+      case '':
+        return '-';
+      default:
+        return _tx('status_unknown', 'Unknown');
+    }
+  }
+
+  Widget _buildSubscriptionNotice() {
+    final subscription = _merchantSubscription();
+    if (subscription == null) return const SizedBox.shrink();
+    final status = (subscription['status'] ?? '').toString();
+    if (!_merchantReadOnly && !_merchantGracePeriod) {
+      return const SizedBox.shrink();
+    }
+
+    final nextBillingDate = (subscription['nextBillingDate'] ?? '').toString();
+    final label = _localizeSubscriptionStatus(status);
+    final title = _merchantReadOnly
+        ? _tx('merchant_subscription_suspended_title', 'Subscription suspended')
+        : _tx('merchant_subscription_grace_title', 'Grace period is active');
+    final body = _merchantReadOnly
+        ? _tx('merchant_subscription_suspended_body', 'Dashboard editing is locked. Existing points and community data remain unchanged until reactivation.')
+        : _tx('merchant_subscription_grace_body', 'Trial ended and the account moved to grace period. Full dashboard access is still available until billing is due.');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _merchantReadOnly ? kGold.withValues(alpha: 0.18) : kTeal.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(kRadiusCardCompact),
+        border: Border.all(color: _merchantReadOnly ? kGold : kTeal, width: kBorderWidth),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: kBodyTextStyle(size: 13, weight: FontWeight.w700, color: kWhite)),
+          const SizedBox(height: 4),
+          Text(body, style: kBodyTextStyle(size: 12, weight: FontWeight.w500, color: kWhite.withValues(alpha: 0.92))),
+          const SizedBox(height: 4),
+          Text(
+            '${_tx('role_subscription_status', 'Subscription status: {status}').replaceAll('{status}', label)}${nextBillingDate.isNotEmpty ? ' • $nextBillingDate' : ''}',
+            style: kBodyTextStyle(size: 11, weight: FontWeight.w500, color: kWhite.withValues(alpha: 0.85)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mutableSection(Widget child) {
+    if (!_merchantReadOnly) return child;
+    return Opacity(
+      opacity: 0.58,
+      child: AbsorbPointer(child: child),
+    );
   }
 
   StatusPillKind _invoiceStatusToPill(dynamic rawStatus) {
@@ -169,7 +340,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     final pointValue = double.tryParse(_pointValueController.text.trim());
     if (pointValue == null || pointValue <= 0) {
       setState(() {
-        _result = 'Please enter a valid point value greater than zero.';
+        _result = 'merchant_point_value_invalid'.tr();
       });
       return;
     }
@@ -186,7 +357,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       setState(() {
         _currentPointValue = updated;
         _pointValueController.text = updated.toString();
-        _result = 'Point value saved: $updated';
+        _result = 'merchant_point_value_saved'.tr(namedArgs: {'value': updated.toString()});
       });
     } catch (e) {
       if (!mounted) return;
@@ -203,19 +374,37 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   }
 
   Future<void> _createBranch() async {
-    if (_branchNameController.text.trim().isEmpty) return;
+    if (_branchNameController.text.trim().isEmpty) {
+      setState(() {
+        _result = 'merchant_branch_name_required'.tr();
+      });
+      return;
+    }
+    if (_branchLatitude == null || _branchLongitude == null) {
+      setState(() {
+        _result = 'merchant_branch_geo_required'.tr();
+      });
+      return;
+    }
     try {
       final created = await CompanyServerService.createMerchantBranch(
         name: _branchNameController.text.trim(),
         address: _branchAddressController.text.trim(),
         location: _branchLocationController.text.trim(),
+        latitude: _branchLatitude!,
+        longitude: _branchLongitude!,
       );
+      final createdBranchId = (created['id'] ?? '').toString();
       setState(() {
-        _result = 'Branch created: ${created['id'] ?? ''}';
+        _managerBranchIdController.text = createdBranchId;
+        _cashierBranchIdController.text = createdBranchId;
+        _result = 'merchant_branch_created'.tr(namedArgs: {'id': '${created['id'] ?? ''}'});
       });
       _branchNameController.clear();
       _branchAddressController.clear();
       _branchLocationController.clear();
+      _branchLatitude = null;
+      _branchLongitude = null;
       await _load();
     } catch (e) {
       setState(() {
@@ -224,15 +413,48 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     }
   }
 
+  Future<void> _pickBranchLocation() async {
+    final LatLng? picked = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(
+        builder: (_) => MapPickerScreen(
+          initialLocation: (_branchLatitude != null && _branchLongitude != null)
+              ? LatLng(_branchLatitude!, _branchLongitude!)
+              : null,
+        ),
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      _branchLatitude = picked.latitude;
+      _branchLongitude = picked.longitude;
+      _branchLocationController.text =
+          '${picked.latitude.toStringAsFixed(6)}, ${picked.longitude.toStringAsFixed(6)}';
+    });
+  }
+
   Future<void> _addManager() async {
+    final branchId = _managerBranchIdController.text.trim();
+    final userId = _managerUserIdController.text.trim();
+    if (branchId.isEmpty) {
+      setState(() {
+        _result = 'merchant_select_branch_first'.tr();
+      });
+      return;
+    }
+    if (userId.isEmpty) {
+      setState(() {
+        _result = 'merchant_manager_user_id_required'.tr();
+      });
+      return;
+    }
     try {
       await CompanyServerService.addMerchantBranchManager(
-        branchId: _managerBranchIdController.text.trim(),
-        userId: _managerUserIdController.text.trim(),
+        branchId: branchId,
+        userId: userId,
       );
       await CompanyServerService.updateBranchManagerPermissions(
-        branchId: _managerBranchIdController.text.trim(),
-        userId: _managerUserIdController.text.trim(),
+        branchId: branchId,
+        userId: userId,
         canReviewInvoices: _canReviewInvoices,
         canCreateOffers: _canCreateOffers,
         canManageGroup: _canManageGroup,
@@ -243,7 +465,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
         canEditPointValue: _canEditPointValue,
       );
       setState(() {
-        _result = 'Manager assigned and permissions updated.';
+        _result = 'merchant_manager_permissions_saved'.tr();
       });
     } catch (e) {
       setState(() {
@@ -259,7 +481,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
         cashierUserId: _cashierUserIdController.text.trim(),
       );
       setState(() {
-        _result = 'Cashier bound: ${data['id'] ?? ''}';
+        _result = 'merchant_cashier_bound'.tr(namedArgs: {'id': '${data['id'] ?? ''}'});
       });
     } catch (e) {
       setState(() {
@@ -278,6 +500,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _buildSubscriptionNotice(),
           Container(
             decoration: BoxDecoration(
               color: kIndigo,
@@ -292,7 +515,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                 ),
                 const SizedBox(height: kGapList),
                 Text(
-                  'Merchant Loyalty Health',
+                  'merchant_loyalty_health'.tr(),
                   style: kDisplayTextStyle(
                     size: 18,
                     weight: FontWeight.w700,
@@ -301,7 +524,10 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Score: ${_toDouble(_loyalty['score']).toStringAsFixed(0)} | Trend: ${_loyalty['trend'] ?? '-'}',
+                  'merchant_score_trend'.tr(namedArgs: {
+                    'score': _toDouble(_loyalty['score']).toStringAsFixed(0),
+                    'trend': '${_loyalty['trend'] ?? '-'}',
+                  }),
                   style: kBodyTextStyle(
                     size: 12,
                     weight: FontWeight.w400,
@@ -341,29 +567,31 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
               ),
             ),
           const SizedBox(height: 12),
-          ExpansionTile(
-            title: const Text('Set Point Value'),
-            subtitle: Text('Current: ${_currentPointValue?.toString() ?? '-'}'),
-            childrenPadding: const EdgeInsets.all(12),
-            children: [
-              TextField(
-                controller: _pointValueController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Point Value',
-                  helperText: 'Used in grant/cashback calculations (points = purchaseAmount / pointValue).',
+          _mutableSection(
+            ExpansionTile(
+              title: Text('merchant_set_point_value'.tr()),
+              subtitle: Text('merchant_current_value'.tr(namedArgs: {'value': _currentPointValue?.toString() ?? '-'})),
+              childrenPadding: const EdgeInsets.all(12),
+              children: [
+                TextField(
+                  controller: _pointValueController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    labelText: 'merchant_point_value_label'.tr(),
+                    helperText: 'merchant_point_value_helper'.tr(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton(
-                onPressed: _savingPointValue ? null : _savePointValue,
-                child: Text(_savingPointValue ? 'Saving...' : 'Save Point Value'),
-              ),
-            ],
+                const SizedBox(height: 8),
+                ElevatedButton(
+                  onPressed: _savingPointValue ? null : _savePointValue,
+                  child: Text(_savingPointValue ? 'merchant_saving'.tr() : 'merchant_save_point_value'.tr()),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           _buildIndigoSection(
-            title: 'Branches',
+            title: 'merchant_branches'.tr(),
             child: Column(
               children: _branches
                   .map((branch) => Container(
@@ -375,7 +603,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                         ),
                         child: ListTile(
                           title: Text(
-                            (branch['name'] ?? 'Unnamed branch').toString(),
+                            (branch['name'] ?? 'merchant_unnamed_branch'.tr()).toString(),
                             style: kBodyTextStyle(
                               size: 14,
                               weight: FontWeight.w600,
@@ -387,7 +615,10 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'ID: ${branch['id'] ?? ''}\n${branch['address'] ?? ''}',
+                                'merchant_branch_identity'.tr(namedArgs: {
+                                  'id': '${branch['id'] ?? ''}',
+                                  'address': '${branch['address'] ?? ''}',
+                                }),
                                 style: kBodyTextStyle(
                                   size: 12,
                                   weight: FontWeight.w400,
@@ -397,7 +628,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                               const SizedBox(height: 6),
                               KupunaStatusPill(
                                 kind: _branchStatusToPill(branch['status']),
-                                labelOverride: (branch['status'] ?? 'pending').toString(),
+                                labelOverride: _localizeGenericStatus(branch['status'] ?? 'pending'),
                               ),
                             ],
                           ),
@@ -408,125 +639,175 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          ExpansionTile(
-            title: const Text('Create Branch'),
-            childrenPadding: const EdgeInsets.all(12),
-            children: [
+          _mutableSection(
+            ExpansionTile(
+              title: Text('merchant_create_branch'.tr()),
+              childrenPadding: const EdgeInsets.all(12),
+              children: [
               TextField(
                 controller: _branchNameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: 'merchant_name'.tr()),
               ),
               TextField(
                 controller: _branchAddressController,
-                decoration: const InputDecoration(labelText: 'Address'),
+                decoration: InputDecoration(labelText: 'merchant_address'.tr()),
               ),
               TextField(
                 controller: _branchLocationController,
-                decoration: const InputDecoration(labelText: 'Location'),
+                decoration: InputDecoration(labelText: 'merchant_location'.tr()),
+                readOnly: true,
               ),
               const SizedBox(height: 8),
-              ElevatedButton(onPressed: _createBranch, child: const Text('Create')),
-            ],
+              OutlinedButton.icon(
+                onPressed: _pickBranchLocation,
+                icon: const Icon(Icons.map_outlined),
+                label: Text('merchant_pick_branch_location'.tr()),
+              ),
+              if (_branchLatitude != null && _branchLongitude != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'merchant_branch_geo_selected'.tr(namedArgs: {
+                      'lat': _branchLatitude!.toStringAsFixed(6),
+                      'lng': _branchLongitude!.toStringAsFixed(6),
+                    }),
+                  ),
+                ),
+              const SizedBox(height: 8),
+                ElevatedButton(onPressed: _createBranch, child: Text('create'.tr())),
+              ],
+            ),
           ),
-          ExpansionTile(
-            title: const Text('Assign Branch Manager + Permissions'),
-            childrenPadding: const EdgeInsets.all(12),
-            children: [
+          _mutableSection(
+            ExpansionTile(
+              title: Text('merchant_assign_manager_permissions'.tr()),
+              childrenPadding: const EdgeInsets.all(12),
+              children: [
+              DropdownButtonFormField<String>(
+                value: () {
+                  final current = _managerBranchIdController.text.trim();
+                  if (current.isEmpty) return null;
+                  final exists = _branches.any((b) => (b['id'] ?? '').toString() == current);
+                  return exists ? current : null;
+                }(),
+                items: _branches
+                    .map(
+                      (branch) => DropdownMenuItem<String>(
+                        value: (branch['id'] ?? '').toString(),
+                        child: Text(
+                          '${branch['name'] ?? 'Branch'} (${branch['id'] ?? ''})',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) {
+                  _managerBranchIdController.text = (value ?? '').trim();
+                  setState(() {});
+                },
+                decoration: InputDecoration(labelText: 'merchant_branch'.tr()),
+              ),
+              const SizedBox(height: 6),
               TextField(
                 controller: _managerBranchIdController,
-                decoration: const InputDecoration(labelText: 'Branch ID'),
+                decoration: InputDecoration(labelText: 'merchant_branch_id'.tr()),
               ),
               TextField(
                 controller: _managerUserIdController,
-                decoration: const InputDecoration(labelText: 'Manager User ID'),
+                decoration: InputDecoration(labelText: 'merchant_manager_user_id'.tr()),
               ),
               SwitchListTile(
                 value: _canReviewInvoices,
-                title: const Text('Can review invoices'),
+                title: Text('merchant_can_review_invoices'.tr()),
                 onChanged: (value) => setState(() => _canReviewInvoices = value),
               ),
               SwitchListTile(
                 value: _canCreateOffers,
-                title: const Text('Can create offers'),
+                title: Text('merchant_can_create_offers'.tr()),
                 onChanged: (value) => setState(() => _canCreateOffers = value),
               ),
               SwitchListTile(
                 value: _canManageGroup,
-                title: const Text('Can manage group'),
+                title: Text('merchant_can_manage_group'.tr()),
                 onChanged: (value) => setState(() => _canManageGroup = value),
               ),
               SwitchListTile(
                 value: _canViewReports,
-                title: const Text('Can view reports'),
+                title: Text('merchant_can_view_reports'.tr()),
                 onChanged: (value) => setState(() => _canViewReports = value),
               ),
               SwitchListTile(
                 value: _canViewSettlements,
-                title: const Text('Can view settlements'),
+                title: Text('merchant_can_view_settlements'.tr()),
                 onChanged: (value) => setState(() => _canViewSettlements = value),
               ),
               SwitchListTile(
                 value: _canAddCashiers,
-                title: const Text('Can add cashiers'),
+                title: Text('merchant_can_add_cashiers'.tr()),
                 onChanged: (value) => setState(() => _canAddCashiers = value),
               ),
               SwitchListTile(
                 value: _canReplyReports,
-                title: const Text('Can reply reports'),
+                title: Text('merchant_can_reply_reports'.tr()),
                 onChanged: (value) => setState(() => _canReplyReports = value),
               ),
               SwitchListTile(
                 value: _canEditPointValue,
-                title: const Text('Can edit point value'),
+                title: Text('merchant_can_edit_point_value'.tr()),
                 onChanged: (value) => setState(() => _canEditPointValue = value),
               ),
-              ElevatedButton(onPressed: _addManager, child: const Text('Save manager permissions')),
-            ],
+                ElevatedButton(onPressed: _addManager, child: Text('merchant_save_manager_permissions'.tr())),
+              ],
+            ),
           ),
-          ExpansionTile(
-            title: const Text('Bind Cashier To Branch'),
-            childrenPadding: const EdgeInsets.all(12),
-            children: [
+          _mutableSection(
+            ExpansionTile(
+              title: Text('merchant_bind_cashier'.tr()),
+              childrenPadding: const EdgeInsets.all(12),
+              children: [
               TextField(
                 controller: _cashierBranchIdController,
-                decoration: const InputDecoration(labelText: 'Branch ID'),
+                decoration: InputDecoration(labelText: 'merchant_branch_id'.tr()),
               ),
               TextField(
                 controller: _cashierUserIdController,
-                decoration: const InputDecoration(labelText: 'Cashier User ID'),
+                decoration: InputDecoration(labelText: 'merchant_cashier_user_id'.tr()),
               ),
-              ElevatedButton(onPressed: _bindCashier, child: const Text('Bind Cashier')),
-            ],
+                ElevatedButton(onPressed: _bindCashier, child: Text('merchant_bind_cashier_action'.tr())),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const PointsConversionScreen()),
-                  );
-                },
-                child: const Text('Points Conversion'),
-              ),
-              OutlinedButton(
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const RewardQrCodeScreen()),
-                  );
-                },
-                child: const Text('Create Reward QR'),
-              ),
-            ],
+          _mutableSection(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const PointsConversionScreen()),
+                    );
+                  },
+                  child: Text('merchant_points_conversion'.tr()),
+                ),
+                OutlinedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const RewardQrCodeScreen()),
+                    );
+                  },
+                  child: Text('merchant_create_reward_qr'.tr()),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           _buildIndigoSection(
-            title: 'Latest Offers',
+            title: 'merchant_latest_offers'.tr(),
             child: Column(
               children: _offers.take(6).map((offer) {
-                final String title = (offer['description'] ?? offer['title'] ?? 'Offer').toString();
+                final String title = (offer['description'] ?? offer['title'] ?? 'offer'.tr()).toString();
                 final String category = (offer['category'] ?? '').toString();
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -544,7 +825,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
           ),
           const SizedBox(height: 8),
           _buildIndigoSection(
-            title: 'Recent My Invoices',
+            title: 'merchant_recent_invoices'.tr(),
             child: Column(
               children: _invoices
                   .map((invoice) => Container(
@@ -556,7 +837,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                         ),
                         child: ListTile(
                           title: Text(
-                            (invoice['merchantName'] ?? 'Unknown merchant').toString(),
+                            (invoice['merchantName'] ?? 'merchant_unknown_merchant'.tr()).toString(),
                             style: kBodyTextStyle(
                               size: 14,
                               weight: FontWeight.w600,
@@ -568,7 +849,10 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                'Invoice: ${invoice['invoiceNumber'] ?? '-'} | Total: ${invoice['totalAmount'] ?? '-'}',
+                                'merchant_invoice_line'.tr(namedArgs: {
+                                  'invoice': '${invoice['invoiceNumber'] ?? '-'}',
+                                  'total': '${invoice['totalAmount'] ?? '-'}',
+                                }),
                                 style: kBodyTextStyle(
                                   size: 12,
                                   weight: FontWeight.w400,
@@ -578,7 +862,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                               const SizedBox(height: 6),
                               KupunaStatusPill(
                                 kind: _invoiceStatusToPill(invoice['state'] ?? invoice['lifecycleStatus']),
-                                labelOverride: (invoice['state'] ?? invoice['lifecycleStatus'] ?? 'processing').toString(),
+                                labelOverride: _localizeGenericStatus(invoice['state'] ?? invoice['lifecycleStatus'] ?? 'processing'),
                               ),
                             ],
                           ),
@@ -588,15 +872,17 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
             ),
           ),
           const SizedBox(height: 8),
+          _buildAnalyticsSuite(),
+          const SizedBox(height: 8),
           _buildIndigoSection(
-            title: 'Reports & Settlements Snapshot',
+            title: 'merchant_reports_settlements_snapshot'.tr(),
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
               children: [
                 Chip(
                   label: Text(
-                    'Invoices: ${_invoices.length}',
+                    'merchant_count_invoices'.tr(namedArgs: {'count': '${_invoices.length}'}),
                     style: kBodyTextStyle(size: 12, weight: FontWeight.w600, color: kWhite),
                   ),
                   backgroundColor: kIndigo,
@@ -604,7 +890,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                 ),
                 Chip(
                   label: Text(
-                    'Branches: ${_branches.length}',
+                    'merchant_count_branches'.tr(namedArgs: {'count': '${_branches.length}'}),
                     style: kBodyTextStyle(size: 12, weight: FontWeight.w600, color: kWhite),
                   ),
                   backgroundColor: kIndigo,
@@ -612,7 +898,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                 ),
                 Chip(
                   label: Text(
-                    'Offers: ${_offers.length}',
+                    'merchant_count_offers'.tr(namedArgs: {'count': '${_offers.length}'}),
                     style: kBodyTextStyle(size: 12, weight: FontWeight.w600, color: kWhite),
                   ),
                   backgroundColor: kIndigo,
@@ -626,6 +912,313 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     );
   }
 
+  Widget _buildAnalyticsSuite() {
+    final sales = _mapSection('sales');
+    final customers = _mapSection('customers');
+    final offerPerformance = _mapSection('offerPerformance');
+    final peakTimes = _mapSection('peakTimes');
+    final groupMetrics = _mapSection('groupMetrics');
+    final financialSummary = _mapSection('financialSummary');
+    final loyaltyHealth = _mapSection('loyaltyHealth');
+    final genderRows = _listSection('demographics', 'gender');
+    final ageRows = _listSection('demographics', 'ageBuckets');
+    final hourRows = _listSection('peakTimes', 'byHour');
+    final weekdayRows = _listSection('peakTimes', 'byWeekday');
+    final statusRows = _listSection('offerPerformance', 'statusBreakdown');
+    final heatmapRows = _listSectionDirect('customerHeatmap');
+    final topProductRows = _listSectionDirect('topBrandProducts');
+
+    return _buildIndigoSection(
+      title: 'merchant_analytics_dashboard'.tr(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              DropdownButton<String>(
+                value: _analyticsRange,
+                items: const [
+                  DropdownMenuItem(value: '7d', child: Text('7D')),
+                  DropdownMenuItem(value: '30d', child: Text('30D')),
+                  DropdownMenuItem(value: '90d', child: Text('90D')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _analyticsRange = value;
+                  });
+                  _reloadAnalytics();
+                },
+              ),
+              DropdownButton<String>(
+                value: _analyticsBranchId.isEmpty ? '__all__' : _analyticsBranchId,
+                items: <DropdownMenuItem<String>>[
+                  DropdownMenuItem(value: '__all__', child: Text('merchant_all_branches'.tr())),
+                  ..._branches.map(
+                    (b) => DropdownMenuItem(
+                      value: (b['id'] ?? '').toString(),
+                      child: Text((b['name'] ?? '').toString()),
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _analyticsBranchId = value == '__all__' ? '' : value;
+                  });
+                  _reloadAnalytics();
+                },
+              ),
+              OutlinedButton.icon(
+                onPressed: _loadingAnalytics ? null : _exportAnalyticsPdf,
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                label: Text('merchant_export_pdf'.tr()),
+              ),
+              OutlinedButton.icon(
+                onPressed: _loadingAnalytics ? null : _exportAnalyticsExcel,
+                icon: const Icon(Icons.grid_on_outlined),
+                label: Text('merchant_export_excel'.tr()),
+              ),
+            ],
+          ),
+          if (_loadingAnalytics)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else ...[
+            const SizedBox(height: 8),
+            _buildAnalyticsBlock(
+              _tx('merchant_analytics_sales_points_title', 'Sales and points'),
+              [
+                _tx('merchant_analytics_sales_points_line_1', 'Sales {sales} | Invoices {invoices} | Avg bill {avgBill}')
+                    .replaceAll('{sales}', _money(sales['total']))
+                    .replaceAll('{invoices}', '${_intValue(sales['invoiceCount'])}')
+                    .replaceAll('{avgBill}', _money(sales['averageBill'])),
+                _tx('merchant_analytics_sales_points_line_2', 'Points awarded {points} | Growth {growth}%')
+                    .replaceAll('{points}', '${_intValue(sales['pointsAwarded'])}')
+                    .replaceAll('{growth}', _numValue(sales['salesGrowthPercent'])),
+              ],
+            ),
+            _buildAnalyticsBlock(
+              _tx('merchant_analytics_customers_title', 'Customers'),
+              [
+                _tx('merchant_analytics_customers_line_1', 'Unique {unique} | New {newCount} | Returning {returning}')
+                    .replaceAll('{unique}', '${_intValue(customers['unique'])}')
+                    .replaceAll('{newCount}', '${_intValue(customers['newCount'])}')
+                    .replaceAll('{returning}', '${_intValue(customers['returningCount'])}'),
+                _tx('merchant_analytics_customers_line_2', 'Retention {retention}% | Churn {churn}% | Top customers {topCustomers}')
+                    .replaceAll('{retention}', _numValue(customers['retentionPercent']))
+                    .replaceAll('{churn}', _numValue(customers['churnPercent']))
+                    .replaceAll('{topCustomers}', '${_intValue(_analytics['topCustomersCount'])}'),
+              ],
+            ),
+            _buildAnalyticsBlock(
+              _tx('merchant_analytics_demographics_title', 'Age and gender distribution'),
+              [
+                _tx('merchant_analytics_age_line', 'Age: {value}').replaceAll('{value}', _formatCountRows(ageRows)),
+                _tx('merchant_analytics_gender_line', 'Gender: {value}').replaceAll('{value}', _formatCountRows(genderRows)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(_tx('merchant_analytics_heatmap_title', 'Customer location heatmap'), style: kBodyTextStyle(size: 13, weight: FontWeight.w700, color: kWhite)),
+            const SizedBox(height: 6),
+            AnalyticsMapPanel(
+              points: heatmapRows,
+              emptyLabel: _tx('merchant_analytics_heatmap_empty', 'No customer locations in the current range.'),
+            ),
+            const SizedBox(height: 10),
+            _buildAnalyticsBlock(
+              _tx('merchant_analytics_offer_performance_title', 'Offer performance'),
+              [
+                _tx('merchant_analytics_offer_performance_line_1', 'Current offers {offers} | Top category {topCategory}')
+                    .replaceAll('{offers}', '${_intValue(offerPerformance['totalOffers'])}')
+                    .replaceAll('{topCategory}', (offerPerformance['topCategory'] ?? '-').toString()),
+                _tx('merchant_analytics_offer_performance_line_2', 'Statuses: {statuses}')
+                    .replaceAll('{statuses}', _formatCountRows(statusRows)),
+              ],
+            ),
+            _buildAnalyticsBlock(
+              _tx('merchant_analytics_peak_times_title', 'Peak times'),
+              [
+                _tx('merchant_analytics_peak_times_line_1', 'Peak hour {hour} | Peak day {day}')
+                    .replaceAll('{hour}', (peakTimes['peakHour'] ?? '-').toString())
+                    .replaceAll('{day}', (peakTimes['peakDay'] ?? '-').toString()),
+                _tx('merchant_analytics_peak_times_line_2', 'Hours: {hours}').replaceAll('{hours}', _formatCountRows(hourRows)),
+                _tx('merchant_analytics_peak_times_line_3', 'Days: {days}').replaceAll('{days}', _formatCountRows(weekdayRows)),
+              ],
+            ),
+            _buildAnalyticsBlock(
+              _tx('merchant_analytics_group_metrics_title', 'Group metrics'),
+              [
+                _tx('merchant_analytics_group_metrics_line_1', 'Groups {groups} | Members {members} | Messages {messages}')
+                    .replaceAll('{groups}', '${_intValue(groupMetrics['groups'])}')
+                    .replaceAll('{members}', '${_intValue(groupMetrics['members'])}')
+                    .replaceAll('{messages}', '${_intValue(groupMetrics['messages'])}'),
+              ],
+            ),
+            _buildAnalyticsBlock(
+              _tx('merchant_analytics_top_brand_products_title', 'Top brand products'),
+              topProductRows.isEmpty
+                  ? <String>[_tx('merchant_analytics_top_brand_products_empty', 'No linked brand product data in this range.')]
+                  : topProductRows
+                      .map((row) => '${(row['name'] ?? '-').toString()} • ${(row['brandName'] ?? '-').toString()} • ${_money(row['salesTotal'])} • ${_intValue(row['quantity'])}')
+                      .toList(growable: false),
+            ),
+            _buildAnalyticsBlock(
+              _tx('merchant_analytics_financial_summary_title', 'Financial summary'),
+              [
+                _tx('merchant_analytics_financial_summary_line_1', 'Point value {pointValue} | Branches {branches}')
+                    .replaceAll('{pointValue}', _money(financialSummary['pointValue']))
+                    .replaceAll('{branches}', '${_intValue(financialSummary['branches'])}'),
+                _tx('merchant_analytics_financial_summary_line_2', 'Total sales {totalSales} | Avg bill {avgBill}')
+                    .replaceAll('{totalSales}', _money(financialSummary['totalSales']))
+                    .replaceAll('{avgBill}', _money(financialSummary['averageBill'])),
+              ],
+            ),
+            _buildAnalyticsBlock(
+              _tx('merchant_analytics_loyalty_health_title', 'Loyalty health index'),
+              [
+                _tx('merchant_analytics_loyalty_health_line_1', 'Score {score} | Trend {trend}')
+                    .replaceAll('{score}', _numValue(loyaltyHealth['score']))
+                    .replaceAll('{trend}', (loyaltyHealth['trend'] ?? 'stable').toString()),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsBlock(String title, List<String> lines) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: kIndigo.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(kRadiusCardCompact),
+        border: Border.all(color: kLineDark, width: kBorderWidth),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: kBodyTextStyle(size: 13, weight: FontWeight.w700, color: kWhite)),
+          const SizedBox(height: 6),
+          ...lines.map(
+            (line) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(line, style: kBodyTextStyle(size: 12, weight: FontWeight.w500, color: kWhite.withValues(alpha: 0.92))),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Map<String, dynamic> _mapSection(String key) {
+    final raw = _analytics[key];
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
+    }
+    return const <String, dynamic>{};
+  }
+
+  List<Map<String, dynamic>> _listSection(String outerKey, String innerKey) {
+    final outer = _mapSection(outerKey);
+    final raw = outer[innerKey];
+    if (raw is List) {
+      return raw.map((item) => Map<String, dynamic>.from(item as Map<dynamic, dynamic>)).toList(growable: false);
+    }
+    return const <Map<String, dynamic>>[];
+  }
+
+  List<Map<String, dynamic>> _listSectionDirect(String key) {
+    final raw = _analytics[key];
+    if (raw is List) {
+      return raw.map((item) => Map<String, dynamic>.from(item as Map<dynamic, dynamic>)).toList(growable: false);
+    }
+    return const <Map<String, dynamic>>[];
+  }
+
+  String _formatCountRows(List<Map<String, dynamic>> rows) {
+    if (rows.isEmpty) return '-';
+    return rows.map((row) => '${(row['label'] ?? '-').toString()}: ${_intValue(row['value'])}').join(' | ');
+  }
+
+  String _money(dynamic value) => _toDouble(value).toStringAsFixed(2);
+
+  String _numValue(dynamic value) => _toDouble(value).toStringAsFixed(2);
+
+  int _intValue(dynamic value) => int.tryParse('${value ?? 0}') ?? _toDouble(value).round();
+
+  Future<void> _exportAnalyticsPdf() async {
+    final pdf = pw.Document();
+    final sales = _mapSection('sales');
+    final customers = _mapSection('customers');
+    final loyaltyHealth = _mapSection('loyaltyHealth');
+    final financialSummary = _mapSection('financialSummary');
+    final topProducts = _listSectionDirect('topBrandProducts');
+    pdf.addPage(
+      pw.MultiPage(
+        build: (_) => [
+          pw.Header(level: 0, child: pw.Text('Merchant Analytics Export')),
+          pw.Text('Range: $_analyticsRange | Branch: ${_analyticsBranchId.isEmpty ? 'All' : _analyticsBranchId}'),
+          pw.SizedBox(height: 12),
+          pw.Bullet(text: 'Sales: ${_money(sales['total'])}'),
+          pw.Bullet(text: 'Invoices: ${_intValue(sales['invoiceCount'])}'),
+          pw.Bullet(text: 'Points awarded: ${_intValue(sales['pointsAwarded'])}'),
+          pw.Bullet(text: 'Unique customers: ${_intValue(customers['unique'])}'),
+          pw.Bullet(text: 'New customers: ${_intValue(customers['newCount'])}'),
+          pw.Bullet(text: 'Returning customers: ${_intValue(customers['returningCount'])}'),
+          pw.Bullet(text: 'Retention: ${_numValue(customers['retentionPercent'])}%'),
+          pw.Bullet(text: 'Churn: ${_numValue(customers['churnPercent'])}%'),
+          pw.Bullet(text: 'Loyalty health: ${_numValue(loyaltyHealth['score'])} (${(loyaltyHealth['trend'] ?? 'stable').toString()})'),
+          pw.Bullet(text: 'Point value: ${_money(financialSummary['pointValue'])}'),
+          pw.SizedBox(height: 12),
+          pw.Text('Top Brand Products'),
+          ...topProducts.take(8).map((row) => pw.Bullet(text: '${(row['name'] ?? '-').toString()} | ${(row['brandName'] ?? '-').toString()} | ${_money(row['salesTotal'])}')),
+        ],
+      ),
+    );
+    final ok = await downloadBytes(
+      bytes: await pdf.save(),
+      fileName: 'merchant-analytics-$_analyticsRange.pdf',
+      mimeType: 'application/pdf',
+    );
+    _showExportResult(ok, 'PDF');
+  }
+
+  Future<void> _exportAnalyticsExcel() async {
+    final buffer = StringBuffer()
+      ..writeln('section,label,value')
+      ..writeln('sales,total,${_money(_mapSection('sales')['total'])}')
+      ..writeln('sales,invoices,${_intValue(_mapSection('sales')['invoiceCount'])}')
+      ..writeln('sales,points_awarded,${_intValue(_mapSection('sales')['pointsAwarded'])}')
+      ..writeln('customers,unique,${_intValue(_mapSection('customers')['unique'])}')
+      ..writeln('customers,new,${_intValue(_mapSection('customers')['newCount'])}')
+      ..writeln('customers,returning,${_intValue(_mapSection('customers')['returningCount'])}')
+      ..writeln('customers,retention_percent,${_numValue(_mapSection('customers')['retentionPercent'])}')
+      ..writeln('customers,churn_percent,${_numValue(_mapSection('customers')['churnPercent'])}');
+    for (final row in _listSectionDirect('topBrandProducts')) {
+      buffer.writeln('top_brand_products,${(row['name'] ?? '-').toString()},${_money(row['salesTotal'])}');
+    }
+    final ok = await downloadBytes(
+      bytes: utf8.encode(buffer.toString()),
+      fileName: 'merchant-analytics-$_analyticsRange.csv',
+      mimeType: 'text/csv',
+    );
+    _showExportResult(ok, 'Excel');
+  }
+
+  void _showExportResult(bool ok, String format) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(ok ? '$format download started' : '$format export is only supported in web builds.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.embedded) {
@@ -633,7 +1226,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     }
     return Scaffold(
       backgroundColor: kIndigo,
-      appBar: AppBar(title: const Text('Merchant Dashboard')),
+      appBar: AppBar(title: Text('merchant_dashboard_title'.tr())),
       body: _buildBody(),
     );
   }

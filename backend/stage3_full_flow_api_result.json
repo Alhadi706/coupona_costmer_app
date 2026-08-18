@@ -1,0 +1,369 @@
+{
+  "meta": {
+    "at": "2026-08-16T10:14:09.039Z",
+    "api": "http://localhost:3006/api"
+  },
+  "users": {
+    "ahmed": {
+      "name": "أحمد",
+      "email": "ahmed.stage3.20260816101409035@kupuna.test",
+      "phone": "0921409035",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1994-04-12",
+      "lat": 32.9012,
+      "lng": 13.205
+    },
+    "sara": {
+      "name": "سارة",
+      "email": "sara.stage3.20260816101409035@kupuna.test",
+      "phone": "0922409035",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1997-08-22",
+      "lat": 32.9012,
+      "lng": 13.205
+    },
+    "khaled": {
+      "name": "خالد",
+      "email": "khaled.stage3.20260816101409035@kupuna.test",
+      "phone": "0923409035",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1992-12-03",
+      "lat": 32.875,
+      "lng": 13.1702
+    },
+    "yousef": {
+      "name": "يوسف",
+      "email": "yousef.stage3.20260816101409035@kupuna.test",
+      "phone": "0924409035",
+      "role": "admin",
+      "gender": "male",
+      "birthDate": "1988-01-09",
+      "lat": 32.889,
+      "lng": 13.1988
+    }
+  },
+  "checks": {
+    "3.1": {
+      "ok": true,
+      "discoverCount": 16,
+      "ahmedStore": {
+        "id": "merchant-bc1955d3-75d1-4ae4-8118-f3fa040e7800-branch-75263cc5-c1a1-4a04-873e-c5e7eabae3b8",
+        "source": "merchant_branch",
+        "name": "مطعم أحمد",
+        "branchName": "مطعم أحمد - الفرع الرئيسي",
+        "merchantId": "bc1955d3-75d1-4ae4-8118-f3fa040e7800",
+        "branchId": "75263cc5-c1a1-4a04-873e-c5e7eabae3b8",
+        "category": "مطاعم",
+        "description": "CR-AHM-ST3-409035",
+        "phone": "0921409035",
+        "location": "Tripoli Center",
+        "lat": 32.9012,
+        "lng": 13.205,
+        "distanceKm": 0
+      },
+      "distanceSorted": true,
+      "minDistance": 0,
+      "mapPinRenderableByCoordinates": true
+    },
+    "3.2": {
+      "ok": true,
+      "filteredCount": 5,
+      "sample": [
+        {
+          "id": "merchant-bc1955d3-75d1-4ae4-8118-f3fa040e7800-branch-75263cc5-c1a1-4a04-873e-c5e7eabae3b8",
+          "source": "merchant_branch",
+          "name": "مطعم أحمد",
+          "branchName": "مطعم أحمد - الفرع الرئيسي",
+          "merchantId": "bc1955d3-75d1-4ae4-8118-f3fa040e7800",
+          "branchId": "75263cc5-c1a1-4a04-873e-c5e7eabae3b8",
+          "category": "مطاعم",
+          "description": "CR-AHM-ST3-409035",
+          "phone": "0921409035",
+          "location": "Tripoli Center",
+          "lat": 32.9012,
+          "lng": 13.205,
+          "distanceKm": 0
+        },
+        {
+          "id": "merchant-940b2611-1200-4bb1-974e-0325df227a58-branch-0e97a9d4-3419-4d14-b721-e6c525ab6f5f",
+          "source": "merchant_branch",
+          "name": "مطعم أحمد",
+          "branchName": "مطعم أحمد - الفرع الرئيسي",
+          "merchantId": "940b2611-1200-4bb1-974e-0325df227a58",
+          "branchId": "0e97a9d4-3419-4d14-b721-e6c525ab6f5f",
+          "category": "مطاعم",
+          "description": "CR-AHM-ST3-214272",
+          "phone": "0921214272",
+          "location": "Tripoli Center",
+          "lat": 32.9012,
+          "lng": 13.205,
+          "distanceKm": 0
+        },
+        {
+          "id": "merchant-a5bec8a5-a846-4348-a836-2ecac17d876d-branch-66a3f54e-e64c-4782-833b-cc62361e524d",
+          "source": "merchant_branch",
+          "name": "مطعم أحمد",
+          "branchName": "مطعم أحمد - الفرع الرئيسي",
+          "merchantId": "a5bec8a5-a846-4348-a836-2ecac17d876d",
+          "branchId": "66a3f54e-e64c-4782-833b-cc62361e524d",
+          "category": "مطاعم",
+          "description": "CR-AHM-ST3-315355",
+          "phone": "0921315355",
+          "location": "Tripoli Center",
+          "lat": 32.9012,
+          "lng": 13.205,
+          "distanceKm": 0
+        },
+        {
+          "id": "merchant-088f9ac8-3478-4563-a340-e53800313d08-branch-5a8a7925-21f6-4803-9a6c-b6fbb54a315b",
+          "source": "merchant_branch",
+          "name": "مطعم أحمد",
+          "branchName": "مطعم أحمد - الفرع الثاني",
+          "merchantId": "088f9ac8-3478-4563-a340-e53800313d08",
+          "branchId": "5a8a7925-21f6-4803-9a6c-b6fbb54a315b",
+          "category": "مطاعم",
+          "description": "CR-AHM-S1-001",
+          "phone": "0911525274",
+          "location": "Tripoli East",
+          "lat": 32.9018,
+          "lng": 13.2199,
+          "distanceKm": 1.393
+        },
+        {
+          "id": "merchant-088f9ac8-3478-4563-a340-e53800313d08-branch-f96eac3c-6708-49c5-98e0-d57fdf9b1dd1",
+          "source": "merchant_branch",
+          "name": "مطعم أحمد",
+          "branchName": "مطعم أحمد - الفرع الأول",
+          "merchantId": "088f9ac8-3478-4563-a340-e53800313d08",
+          "branchId": "f96eac3c-6708-49c5-98e0-d57fdf9b1dd1",
+          "category": "مطاعم",
+          "description": "CR-AHM-S1-001",
+          "phone": "0911525274",
+          "location": "Tripoli",
+          "lat": 32.8895,
+          "lng": 13.1982,
+          "distanceKm": 1.448
+        }
+      ]
+    },
+    "3.3": {
+      "ok": true,
+      "grantResponse": {
+        "ok": true,
+        "points": 9,
+        "fraction": 7
+      },
+      "qrApproximation": "customerId used as deterministic QR payload"
+    },
+    "3.4": {
+      "ok": true,
+      "points": {
+        "ownerId": "ea4788d6-2cc3-4c74-93e4-667b82f49d71",
+        "availablePoints": 9,
+        "lifetimePoints": 9,
+        "updatedAt": "2026-08-16T10:14:27.262Z"
+      },
+      "merchantFraction": {
+        "merchantId": "bc1955d3-75d1-4ae4-8118-f3fa040e7800",
+        "merchantName": "مطعم أحمد",
+        "fraction": 7,
+        "updatedAt": "2026-08-16T10:14:26.822Z"
+      }
+    },
+    "3.5": {
+      "ok": true,
+      "processingState": "processing",
+      "approveTransition": {
+        "ok": true,
+        "from": "processing",
+        "to": "approved",
+        "note": "approved in stage3 flow",
+        "awards": {
+          "merchantPoints": 9,
+          "merchantFraction": 7,
+          "brandPoints": 3,
+          "brandBreakdown": [
+            {
+              "brandId": "e5668d77-69ce-4e30-b14e-760738a82ecf",
+              "lineAmount": 30,
+              "points": 3,
+              "fraction": 0
+            }
+          ]
+        }
+      },
+      "acceptedOrManualReview": true
+    },
+    "3.6": {
+      "ok": true,
+      "awards": {
+        "merchantPoints": 9,
+        "merchantFraction": 7,
+        "brandPoints": 3,
+        "brandBreakdown": [
+          {
+            "brandId": "e5668d77-69ce-4e30-b14e-760738a82ecf",
+            "lineAmount": 30,
+            "points": 3,
+            "fraction": 0
+          }
+        ]
+      },
+      "walletPoints": {
+        "ownerId": "ddf57279-bf70-4af6-aac4-8e30c7088ff5",
+        "availablePoints": 12,
+        "lifetimePoints": 12,
+        "updatedAt": "2026-08-16T10:14:31.943Z"
+      },
+      "fractions": {
+        "merchant": {
+          "merchantId": "bc1955d3-75d1-4ae4-8118-f3fa040e7800",
+          "merchantName": "مطعم أحمد",
+          "fraction": 7,
+          "updatedAt": "2026-08-16T10:14:31.943Z"
+        },
+        "brand": {
+          "brandId": "e5668d77-69ce-4e30-b14e-760738a82ecf",
+          "brandName": "توري",
+          "fraction": 0,
+          "updatedAt": "2026-08-16T10:14:31.943Z"
+        }
+      }
+    },
+    "3.7": {
+      "ok": true,
+      "groupCount": 2,
+      "merchantGroupFound": true,
+      "brandGroupFound": true
+    },
+    "3.8": {
+      "ok": true,
+      "response": {
+        "ok": false,
+        "status": 409,
+        "data": {
+          "error": "duplicate_reference"
+        }
+      }
+    },
+    "3.9": {
+      "ok": true,
+      "duplicateResponse": {
+        "ok": false,
+        "status": 409,
+        "data": {
+          "error": "duplicate_reference"
+        }
+      },
+      "fraudBefore": {
+        "users": 278,
+        "merchants": 25,
+        "brands": 15,
+        "reports": 4,
+        "fraudFlags": 9
+      },
+      "fraudAfter": {
+        "users": 278,
+        "merchants": 25,
+        "brands": 15,
+        "reports": 4,
+        "fraudFlags": 10
+      },
+      "duplicateFraudRecord": {
+        "id": "5fafd805-d85c-4039-b9ba-27eadf93669b",
+        "ownerId": "ea4788d6-2cc3-4c74-93e4-667b82f49d71",
+        "ownerLabel": "خالد",
+        "invoiceId": null,
+        "reason": "duplicate_reference_any_account",
+        "details": {
+          "invoiceNumber": "INV-ST3-20260816101409035"
+        },
+        "createdAt": "2026-08-16T10:14:40.482Z"
+      }
+    },
+    "3.10": {
+      "ok": true,
+      "rejectWithReason": {
+        "ok": true,
+        "from": "processing",
+        "to": "rejected",
+        "note": "رفض اختباري متعمد - تحقق الاعتراض",
+        "awards": null
+      },
+      "disputeCreate": {
+        "ok": true,
+        "id": "9f205d2d-397d-4920-b324-1b86ba74723c",
+        "status": "new"
+      },
+      "disputeListed": {
+        "id": "9f205d2d-397d-4920-b324-1b86ba74723c",
+        "invoiceId": "80762003-e204-4d2f-b170-b57e09b233a7",
+        "status": "new",
+        "reason": "اعتراض موثق: الفاتورة صحيحة وتم الرفض بالخطأ\ninvoice image + purchase proof",
+        "createdAt": "2026-08-16T10:14:43.463Z",
+        "updatedAt": "2026-08-16T10:14:43.463Z",
+        "ownerId": "ddf57279-bf70-4af6-aac4-8e30c7088ff5",
+        "ownerLabel": "سارة",
+        "merchantName": "مطعم أحمد",
+        "invoiceNumber": "INV-ST3-DISPUTE-20260816101409035",
+        "totalAmount": 50,
+        "invoiceState": "disputed"
+      },
+      "resolveUpheld": {
+        "ok": true,
+        "disputeId": "9f205d2d-397d-4920-b324-1b86ba74723c",
+        "decision": "upheld",
+        "invoiceId": "80762003-e204-4d2f-b170-b57e09b233a7",
+        "toState": "approved",
+        "awards": {
+          "merchantPoints": 5,
+          "merchantFraction": 7,
+          "brandPoints": 0,
+          "brandBreakdown": []
+        }
+      },
+      "saraPointsBeforeResolve": {
+        "ownerId": "ddf57279-bf70-4af6-aac4-8e30c7088ff5",
+        "availablePoints": 12,
+        "lifetimePoints": 12,
+        "updatedAt": "2026-08-16T10:14:31.943Z"
+      },
+      "saraPointsAfterResolve": {
+        "ownerId": "ddf57279-bf70-4af6-aac4-8e30c7088ff5",
+        "availablePoints": 17,
+        "lifetimePoints": 17,
+        "updatedAt": "2026-08-16T10:14:44.943Z"
+      },
+      "invoiceAfterResolve": {
+        "id": "80762003-e204-4d2f-b170-b57e09b233a7",
+        "ownerId": "ddf57279-bf70-4af6-aac4-8e30c7088ff5",
+        "merchantName": "مطعم أحمد",
+        "merchantKey": "مطعم أحمد",
+        "invoiceNumber": "INV-ST3-DISPUTE-20260816101409035",
+        "orderNumber": null,
+        "invoiceDate": "2026-08-15T22:00:00.000Z",
+        "totalAmount": 50,
+        "currency": "SAR",
+        "category": "food",
+        "state": "approved",
+        "reviewNote": "رفض اختباري متعمد - تحقق الاعتراض\nDISPUTE: اعتراض موثق: الفاتورة صحيحة وتم الرفض بالخطأ\nDISPUTE_UPHELD: تمت مراجعة المستندات واعتماد الاعتراض",
+        "rewardApplied": false,
+        "rawText": "مطعم أحمد\nفاتورة اعتراض\n50",
+        "createdAt": "2026-08-16T10:14:41.779Z"
+      }
+    }
+  },
+  "ids": {
+    "ahmed": "45cd814e-e361-4832-8482-91f941444129",
+    "sara": "ddf57279-bf70-4af6-aac4-8e30c7088ff5",
+    "khaled": "ea4788d6-2cc3-4c74-93e4-667b82f49d71",
+    "yousef": "7b5f99d7-c78b-47f0-bfe1-d02f2a851a27",
+    "ahmedBranchId": "75263cc5-c1a1-4a04-873e-c5e7eabae3b8"
+  },
+  "notes": [
+    "UI-only confirmations (Discover list/map toggle visuals, QR camera scanning, OCR upload animation states) are approximated by deterministic API state because embedded Flutter renderer is unstable in this environment."
+  ]
+}

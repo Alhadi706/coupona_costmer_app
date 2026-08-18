@@ -82,15 +82,39 @@ class CompanyServerService {
     return _decode(response);
   }
 
+  static Future<dynamic> patch(String path, Map<String, dynamic> payload, {bool auth = false}) async {
+    final response = await http.patch(
+      _uri(path),
+      headers: await _headers(auth: auth),
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode >= 400) {
+      throw StateError('PATCH $path failed (${response.statusCode}): ${response.body}');
+    }
+    return _decode(response);
+  }
+
   static Future<Map<String, dynamic>> signUp({
     required String email,
     required String password,
     required String role,
+    String? phone,
+    String? fullName,
+    String? gender,
+    String? birthDate,
+    double? locationLat,
+    double? locationLng,
   }) async {
     final data = await post('/auth/signup', {
       'email': email,
       'password': password,
       'role': role,
+      'phone': phone,
+      'fullName': fullName,
+      'gender': gender,
+      'birthDate': birthDate,
+      'locationLat': locationLat,
+      'locationLng': locationLng,
     });
     return (data as Map).cast<String, dynamic>();
   }
@@ -106,8 +130,171 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
-  static Future<List<Map<String, dynamic>>> getOffers({String? category}) async {
-    final data = await get('/offers', query: category == null ? null : {'category': category}, auth: true);
+  static Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final data = await patch('/auth/change-password', {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> updateProfile({
+    required String email,
+    String? fullName,
+  }) async {
+    final data = await patch('/auth/update-profile', {
+      'email': email,
+      'fullName': fullName ?? '',
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getMyRoles() async {
+    final data = await get('/roles/me', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getMyCustomerLocation() async {
+    final data = await get('/customer/location/me', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> updateMyCustomerLocation({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final data = await post('/customer/location/me', {
+      'latitude': latitude,
+      'longitude': longitude,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> requestMerchantRole({
+    required String businessName,
+    required String commercialRegistration,
+    required String planType,
+    required String phone,
+    required double locationLat,
+    required double locationLng,
+    String? locationAddress,
+  }) async {
+    final data = await post('/roles/merchant/request', {
+      'businessName': businessName,
+      'commercialRegistration': commercialRegistration,
+      'planType': planType,
+      'phone': phone,
+      'locationLat': locationLat,
+      'locationLng': locationLng,
+      'locationAddress': locationAddress,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> requestBrandRole({
+    required String businessName,
+    required String commercialRegistration,
+    required String planType,
+    required String phone,
+    required double locationLat,
+    required double locationLng,
+    String? locationAddress,
+  }) async {
+    final data = await post('/roles/brand/request', {
+      'businessName': businessName,
+      'commercialRegistration': commercialRegistration,
+      'planType': planType,
+      'phone': phone,
+      'locationLat': locationLat,
+      'locationLng': locationLng,
+      'locationAddress': locationAddress,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getAdminRoleRequests({
+    String status = 'pending_admin_review',
+  }) async {
+    final data = await get('/admin/role-requests', query: {'status': status}, auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> approveAdminRoleRequest(String requestId) async {
+    final data = await post('/admin/role-requests/$requestId/approve', <String, dynamic>{}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> rejectAdminRoleRequest(
+    String requestId, {
+    String reason = 'Rejected by admin',
+  }) async {
+    final data = await post('/admin/role-requests/$requestId/reject', {'reason': reason}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getAdminPeerAds({
+    String status = 'pending_admin_review',
+  }) async {
+    final data = await get('/admin/peer-ads', query: {'status': status}, auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> approveAdminPeerAd(String adId) async {
+    final data = await post('/admin/peer-ads/$adId/approve', <String, dynamic>{}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> rejectAdminPeerAd(
+    String adId, {
+    String reason = 'Rejected by admin',
+  }) async {
+    final data = await post('/admin/peer-ads/$adId/reject', {'reason': reason}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getAdminDashboardSummary() async {
+    final data = await get('/admin/dashboard/summary', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getMyNotifications() async {
+    final data = await get('/notifications/my', auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<void> markNotificationRead(String notificationId) async {
+    await post('/notifications/$notificationId/read', <String, dynamic>{}, auth: true);
+  }
+
+  static Future<List<Map<String, dynamic>>> getMyRoleRequests() async {
+    final data = await get('/roles/requests/me', auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getOffers({
+    String? category,
+    String? targetType,
+    String? targetValue,
+    int? minPoints,
+  }) async {
+    final query = <String, String>{};
+    if (category != null && category.trim().isNotEmpty) {
+      query['category'] = category.trim();
+    }
+    if (targetType != null && targetType.trim().isNotEmpty) {
+      query['targetType'] = targetType.trim();
+    }
+    if (targetValue != null && targetValue.trim().isNotEmpty) {
+      query['targetValue'] = targetValue.trim();
+    }
+    if (minPoints != null) {
+      query['minPoints'] = minPoints.toString();
+    }
+
+    final data = await get('/offers', query: query.isEmpty ? null : query, auth: true);
     return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
   }
 
@@ -473,6 +660,236 @@ class CompanyServerService {
         ? null
         : <String, dynamic>{'userId': userId};
     final data = await get('/stats/counts', query: query, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getMerchantBranches() async {
+    final data = await get('/merchant/branches', auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> createMerchantBranch({
+    required String name,
+    String? address,
+    String? location,
+    required double latitude,
+    required double longitude,
+    String? category,
+    String? workingHours,
+    String? status,
+  }) async {
+    final data = await post('/merchant/branches', {
+      'name': name,
+      'address': address,
+      'location': location,
+      'latitude': latitude,
+      'longitude': longitude,
+      'category': category,
+      'workingHours': workingHours,
+      'status': status,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> addMerchantBranchManager({
+    required String branchId,
+    required String userId,
+  }) async {
+    final data = await post('/merchant/branches/$branchId/managers', {
+      'userId': userId,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> updateBranchManagerPermissions({
+    required String branchId,
+    required String userId,
+    bool? canReviewInvoices,
+    bool? canCreateOffers,
+    bool? canManageGroup,
+    bool? canViewReports,
+    bool? canViewSettlements,
+    bool? canAddCashiers,
+    bool? canReplyReports,
+    bool? canEditPointValue,
+  }) async {
+    final data = await patch('/merchant/branches/$branchId/managers/$userId/permissions', {
+      'canReviewInvoices': canReviewInvoices,
+      'canCreateOffers': canCreateOffers,
+      'canManageGroup': canManageGroup,
+      'canViewReports': canViewReports,
+      'canViewSettlements': canViewSettlements,
+      'canAddCashiers': canAddCashiers,
+      'canReplyReports': canReplyReports,
+      'canEditPointValue': canEditPointValue,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> bindCashierToBranch({
+    required String branchId,
+    String? cashierUserId,
+    String? cashierPhone,
+  }) async {
+    if ((cashierUserId ?? '').trim().isEmpty && (cashierPhone ?? '').trim().isEmpty) {
+      throw StateError('cashierUserId_or_cashierPhone_required');
+    }
+    final data = await post('/merchant/cashiers/bind', {
+      'branchId': branchId,
+      'cashierUserId': cashierUserId,
+      'cashierPhone': cashierPhone,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getManagerScope() async {
+    final data = await get('/merchant/manager/scope', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getManagerInvoiceReviewQueue() async {
+    final data = await get('/merchant/manager/invoices/review-queue', auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> getMerchantLoyaltyHealth() async {
+    final data = await get('/merchant/loyalty-health', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getMerchantAnalytics({
+    String range = '30d',
+    String? branchId,
+  }) async {
+    final query = <String, dynamic>{'range': range};
+    if ((branchId ?? '').trim().isNotEmpty) {
+      query['branchId'] = branchId!.trim();
+    }
+    final data = await get('/merchant/analytics', query: query, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getMerchantProfile() async {
+    final data = await get('/merchant/profile', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> setMerchantPointValue({
+    required double pointValue,
+  }) async {
+    final data = await patch('/merchant/settings/point-value', {
+      'pointValue': pointValue,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> addBrandTeamMember({
+    required String userId,
+    bool canManageProducts = false,
+    bool canViewGeoDistribution = false,
+  }) async {
+    final data = await post('/brand/team-members', {
+      'userId': userId,
+      'canManageProducts': canManageProducts,
+      'canViewGeoDistribution': canViewGeoDistribution,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> createBrandProduct({
+    required String name,
+    String? imageUrl,
+    String? barcode,
+  }) async {
+    final data = await post('/brand/products', {
+      'name': name,
+      'imageUrl': imageUrl,
+      'barcode': barcode,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getBrandProfile() async {
+    final data = await get('/brand/profile', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getBrandAnalytics({
+    String range = '30d',
+  }) async {
+    final data = await get('/brand/analytics', query: {'range': range}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> setBrandPointValue({
+    required double pointValue,
+  }) async {
+    final data = await patch('/brand/settings/point-value', {
+      'pointValue': pointValue,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getMyInvoices({int limit = 20}) async {
+    final data = await get('/invoices/my', query: {'limit': limit}, auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> grantCashierPoints({
+    required String branchId,
+    required String customerId,
+    required double purchaseAmount,
+  }) async {
+    final data = await post('/cashier/grant-points', {
+      'branchId': branchId,
+      'customerId': customerId,
+      'purchaseAmount': purchaseAmount,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> exchangePoints({
+    required double sourcePoints,
+    required double sourcePointValue,
+    required double destinationPointValue,
+    String sourceType = 'merchant',
+    String sourceId = '',
+    String destinationType = 'merchant',
+    String destinationId = '',
+  }) async {
+    final data = await post('/points/exchange', {
+      'sourcePoints': sourcePoints,
+      'sourcePointValue': sourcePointValue,
+      'destinationPointValue': destinationPointValue,
+      'sourceType': sourceType,
+      'sourceId': sourceId,
+      'destinationType': destinationType,
+      'destinationId': destinationId,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> createRewardClaim({
+    required int pointsCost,
+    String sourceType = 'merchant',
+    String sourceId = '',
+    String rewardKind = 'physical',
+  }) async {
+    final data = await post('/reward-claims/create', {
+      'pointsCost': pointsCost,
+      'sourceType': sourceType,
+      'sourceId': sourceId,
+      'rewardKind': rewardKind,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> redeemRewardClaim({
+    required String pickupQrCode,
+  }) async {
+    final data = await post('/cashier/redeem-claim', {
+      'pickupQrCode': pickupQrCode,
+    }, auth: true);
     return (data as Map).cast<String, dynamic>();
   }
 }

@@ -1,0 +1,520 @@
+{
+  "meta": {
+    "at": "2026-08-16T10:05:25.275Z",
+    "api": "http://localhost:3006/api"
+  },
+  "users": {
+    "ahmed": {
+      "name": "أحمد",
+      "email": "ahmed.stage.20260816100525274@kupuna.test",
+      "phone": "0911525274",
+      "gender": "male",
+      "birthDate": "1994-04-12",
+      "lat": 32.8872,
+      "lng": 13.1913,
+      "role": "customer"
+    },
+    "sara": {
+      "name": "سارة",
+      "email": "sara.stage.20260816100525274@kupuna.test",
+      "phone": "0912525274",
+      "gender": "female",
+      "birthDate": "1997-08-22",
+      "lat": 32.9012,
+      "lng": 13.205,
+      "role": "customer"
+    },
+    "khaled": {
+      "name": "خالد",
+      "email": "khaled.stage.20260816100525274@kupuna.test",
+      "phone": "0913525274",
+      "gender": "prefer_not_to_say",
+      "birthDate": "1992-12-03",
+      "lat": 32.875,
+      "lng": 13.1702,
+      "role": "customer"
+    },
+    "fatima": {
+      "name": "فاطمة",
+      "email": "fatima.stage.20260816100525274@kupuna.test",
+      "phone": "0914525274",
+      "gender": "female",
+      "birthDate": "1990-06-18",
+      "lat": 32.912,
+      "lng": 13.223,
+      "role": "customer"
+    },
+    "yousef": {
+      "name": "يوسف",
+      "email": "yousef.stage.20260816100525274@kupuna.test",
+      "phone": "0915525274",
+      "gender": "male",
+      "birthDate": "1988-01-09",
+      "lat": 32.889,
+      "lng": 13.1988,
+      "role": "admin"
+    },
+    "manager": {
+      "name": "مدير فرع أحمد",
+      "email": "manager.stage.20260816100525274@kupuna.test",
+      "phone": "0916525274",
+      "gender": "male",
+      "birthDate": "1993-02-02",
+      "lat": 32.8899,
+      "lng": 13.1999,
+      "role": "customer"
+    }
+  },
+  "checks": {
+    "1.1": {
+      "ok": true,
+      "request": {
+        "ok": true,
+        "requestId": "5edc5253-2813-4435-9b45-c837567133fa",
+        "status": "pending_admin_review"
+      },
+      "payload": {
+        "businessName": "مطعم أحمد",
+        "category": "مطاعم",
+        "commercialRegistration": "CR-AHM-S1-001",
+        "phone": "0911525274",
+        "locationLat": 32.8895,
+        "locationLng": 13.1982,
+        "locationAddress": "Tripoli - Center",
+        "workingHours": "08:00-23:00",
+        "planType": "pro"
+      },
+      "mapDataCaptured": true
+    },
+    "1.2": {
+      "ok": true,
+      "requestTop": {
+        "id": "5edc5253-2813-4435-9b45-c837567133fa",
+        "roleType": "merchant",
+        "status": "pending_admin_review",
+        "planType": "pro",
+        "rejectionReason": null,
+        "createdAt": "2026-08-16T10:05:32.343Z",
+        "reviewedAt": null
+      },
+      "roles": {
+        "customer": true,
+        "merchant": false,
+        "brand": false,
+        "cashier": [],
+        "subscriptions": []
+      }
+    },
+    "1.3": {
+      "ok": true,
+      "request": {
+        "ok": true,
+        "requestId": "78f5474f-55a8-4fb7-a670-30418abad913",
+        "status": "pending_admin_review"
+      },
+      "product": {
+        "ok": true,
+        "id": "a59c9d30-6264-49cd-a9f3-ca731bae42e1"
+      },
+      "payloads": {
+        "request": {
+          "businessName": "شركة خالد للعناية",
+          "category": "عناية شخصية",
+          "commercialRegistration": "CR-KHA-S1-001",
+          "phone": "0913525274",
+          "locationLat": 32.8761,
+          "locationLng": 13.1711,
+          "locationAddress": "Tripoli - West",
+          "planType": "basic"
+        },
+        "product": {
+          "name": "صابون توري",
+          "imageUrl": "https://example.com/sabon-tori.png",
+          "barcode": "8901234567890"
+        }
+      }
+    },
+    "1.4": {
+      "ok": true,
+      "request": {
+        "ok": true,
+        "requestId": "a5a51b20-07fd-427e-9301-413599a52428",
+        "status": "pending_admin_review"
+      },
+      "payload": {
+        "businessName": "صيدلية فاطمة",
+        "category": "صيدليات",
+        "commercialRegistration": "CR-FAT-S1-001",
+        "phone": "0914525274",
+        "locationLat": 32.9133,
+        "locationLng": 13.2241,
+        "locationAddress": "Tripoli - East",
+        "workingHours": "24/7",
+        "planType": "pro"
+      }
+    },
+    "1.5": {
+      "ok": true,
+      "found": {
+        "ahmed": {
+          "id": "5edc5253-2813-4435-9b45-c837567133fa",
+          "userId": "47cca695-d892-49f3-8e48-6f6ff8bdbdaa",
+          "roleType": "merchant",
+          "roleProfileId": "088f9ac8-3478-4563-a340-e53800313d08",
+          "status": "pending_admin_review",
+          "planType": "pro",
+          "requestData": {
+            "phone": "0911525274",
+            "category": "مطاعم",
+            "planType": "pro",
+            "locationLat": 32.8895,
+            "locationLng": 13.1982,
+            "businessName": "مطعم أحمد",
+            "workingHours": "08:00-23:00",
+            "locationAddress": "Tripoli - Center",
+            "commercialRegistration": "CR-AHM-S1-001"
+          },
+          "category": "مطاعم",
+          "workingHours": "08:00-23:00",
+          "rejectionReason": null,
+          "businessName": "مطعم أحمد",
+          "commercialRegistration": "CR-AHM-S1-001",
+          "phone": "0911525274",
+          "locationLat": 32.8895,
+          "locationLng": 13.1982,
+          "locationAddress": "Tripoli - Center",
+          "createdAt": "2026-08-16T10:05:32.343Z",
+          "reviewedAt": null
+        },
+        "khaled": {
+          "id": "78f5474f-55a8-4fb7-a670-30418abad913",
+          "userId": "0bbbc982-dead-4b37-b51f-aca58b507226",
+          "roleType": "brand",
+          "roleProfileId": "8cda564f-b873-471d-b5f3-baad47b2a302",
+          "status": "pending_admin_review",
+          "planType": "basic",
+          "requestData": {
+            "phone": "0913525274",
+            "category": "عناية شخصية",
+            "planType": "basic",
+            "locationLat": 32.8761,
+            "locationLng": 13.1711,
+            "businessName": "شركة خالد للعناية",
+            "locationAddress": "Tripoli - West",
+            "commercialRegistration": "CR-KHA-S1-001"
+          },
+          "category": "عناية شخصية",
+          "workingHours": null,
+          "rejectionReason": null,
+          "businessName": "شركة خالد للعناية",
+          "commercialRegistration": "CR-KHA-S1-001",
+          "phone": "0913525274",
+          "locationLat": 32.8761,
+          "locationLng": 13.1711,
+          "locationAddress": "Tripoli - West",
+          "createdAt": "2026-08-16T10:05:34.263Z",
+          "reviewedAt": null
+        },
+        "fatima": {
+          "id": "a5a51b20-07fd-427e-9301-413599a52428",
+          "userId": "896c7ea9-6c3b-47ca-92e0-5199d599c8d4",
+          "roleType": "merchant",
+          "roleProfileId": "dc177858-d015-4b50-a66b-3c962a620994",
+          "status": "pending_admin_review",
+          "planType": "pro",
+          "requestData": {
+            "phone": "0914525274",
+            "category": "صيدليات",
+            "planType": "pro",
+            "locationLat": 32.9133,
+            "locationLng": 13.2241,
+            "businessName": "صيدلية فاطمة",
+            "workingHours": "24/7",
+            "locationAddress": "Tripoli - East",
+            "commercialRegistration": "CR-FAT-S1-001"
+          },
+          "category": "صيدليات",
+          "workingHours": "24/7",
+          "rejectionReason": null,
+          "businessName": "صيدلية فاطمة",
+          "commercialRegistration": "CR-FAT-S1-001",
+          "phone": "0914525274",
+          "locationLat": 32.9133,
+          "locationLng": 13.2241,
+          "locationAddress": "Tripoli - East",
+          "createdAt": "2026-08-16T10:05:35.422Z",
+          "reviewedAt": null
+        }
+      },
+      "categoryAndHoursVisible": {
+        "ahmed": {
+          "category": "مطاعم",
+          "workingHours": "08:00-23:00"
+        },
+        "fatima": {
+          "category": "صيدليات",
+          "workingHours": "24/7"
+        }
+      }
+    },
+    "1.6": {
+      "ok": true,
+      "ahmedApprove": {
+        "ok": true,
+        "status": "approved",
+        "subscriptionStatus": "trial"
+      },
+      "khaledApprove": {
+        "ok": true,
+        "status": "approved",
+        "subscriptionStatus": "trial"
+      },
+      "fatimaReject": {
+        "ok": true,
+        "status": "rejected",
+        "reason": "نواقص في المستندات المرفقة"
+      }
+    },
+    "1.7": {
+      "ok": true,
+      "topRequest": {
+        "id": "a5a51b20-07fd-427e-9301-413599a52428",
+        "roleType": "merchant",
+        "status": "rejected",
+        "planType": "pro",
+        "rejectionReason": "نواقص في المستندات المرفقة",
+        "createdAt": "2026-08-16T10:05:35.422Z",
+        "reviewedAt": "2026-08-16T10:05:41.471Z"
+      },
+      "reapplySupportedViaApi": true
+    },
+    "1.8": {
+      "ok": true,
+      "resubmit": {
+        "ok": true,
+        "requestId": "8b8b02e3-004f-4d1b-ac62-0f7df1c8c328",
+        "status": "pending_admin_review"
+      },
+      "approve": {
+        "ok": true,
+        "status": "approved",
+        "subscriptionStatus": "trial"
+      },
+      "payload": {
+        "businessName": "صيدلية فاطمة - فرع موثق",
+        "category": "صيدليات",
+        "commercialRegistration": "CR-FAT-S1-001-UPDATED",
+        "phone": "0914525274",
+        "locationLat": 32.914,
+        "locationLng": 13.225,
+        "locationAddress": "Tripoli - East / Updated",
+        "workingHours": "07:00-00:00",
+        "planType": "pro"
+      }
+    },
+    "1.9": {
+      "ok": true,
+      "roles": {
+        "ahmed": {
+          "customer": true,
+          "merchant": true,
+          "brand": false,
+          "cashier": [],
+          "subscriptions": [
+            {
+              "id": "908f9c83-bf23-4e7d-8b68-3ed82db911b0",
+              "roleProfileId": "088f9ac8-3478-4563-a340-e53800313d08",
+              "roleType": "merchant",
+              "status": "trial",
+              "planType": "pro",
+              "trialStartDate": "2026-08-16T10:05:37.076Z",
+              "trialEndDate": "2026-09-15T10:05:37.076Z",
+              "nextBillingDate": "2026-09-15T10:05:37.076Z"
+            }
+          ]
+        },
+        "khaled": {
+          "customer": true,
+          "merchant": false,
+          "brand": true,
+          "cashier": [],
+          "subscriptions": [
+            {
+              "id": "a4015789-e3ae-4fe3-a784-7be0144d8837",
+              "roleProfileId": "8cda564f-b873-471d-b5f3-baad47b2a302",
+              "roleType": "brand",
+              "status": "trial",
+              "planType": "basic",
+              "trialStartDate": "2026-08-16T10:05:39.861Z",
+              "trialEndDate": "2026-09-15T10:05:39.861Z",
+              "nextBillingDate": "2026-09-15T10:05:39.861Z"
+            }
+          ]
+        },
+        "fatima": {
+          "customer": true,
+          "merchant": true,
+          "brand": false,
+          "cashier": [],
+          "subscriptions": [
+            {
+              "id": "ec38ad3f-4719-4f5a-8d30-76f95daae785",
+              "roleProfileId": "dc177858-d015-4b50-a66b-3c962a620994",
+              "roleType": "merchant",
+              "status": "trial",
+              "planType": "pro",
+              "trialStartDate": "2026-08-16T10:05:44.311Z",
+              "trialEndDate": "2026-09-15T10:05:44.311Z",
+              "nextBillingDate": "2026-09-15T10:05:44.311Z"
+            }
+          ]
+        }
+      },
+      "uiVisualSwitchVerified": false
+    },
+    "2.1": {
+      "ok": true,
+      "branch2": {
+        "ok": true,
+        "id": "5a8a7925-21f6-4803-9a6c-b6fbb54a315b",
+        "latitude": 32.9018,
+        "longitude": 13.2199,
+        "category": "مطاعم",
+        "workingHours": "10:00-01:00"
+      },
+      "payload": {
+        "name": "مطعم أحمد - الفرع الثاني",
+        "address": "Tripoli East",
+        "location": "Tripoli East",
+        "latitude": 32.9018,
+        "longitude": 13.2199,
+        "category": "مطاعم",
+        "workingHours": "10:00-01:00"
+      },
+      "mapUiOpenAndPinVerified": false
+    },
+    "2.2": {
+      "ok": true,
+      "branchCreateStatusCodeEquivalent": 201,
+      "branchesCount": 2
+    },
+    "2.3": {
+      "ok": true,
+      "managerUserId": "fb93f2bf-61cf-46f4-9ddf-7ac115b62ca8",
+      "permissions": {
+        "canReviewInvoices": true,
+        "canCreateOffers": false,
+        "canManageGroup": false,
+        "canViewReports": false,
+        "canViewSettlements": false,
+        "canAddCashiers": false,
+        "canReplyReports": false,
+        "canEditPointValue": false
+      }
+    },
+    "2.4": {
+      "ok": true,
+      "managerScope": {
+        "manager": true,
+        "sections": {
+          "invoiceReview": true,
+          "offers": false,
+          "groupManagement": false,
+          "reports": false,
+          "settlements": false,
+          "cashierManagement": false,
+          "reportReplies": false,
+          "pointValueEdit": false
+        },
+        "branches": [
+          {
+            "branchId": "5a8a7925-21f6-4803-9a6c-b6fbb54a315b",
+            "branchName": "مطعم أحمد - الفرع الثاني",
+            "merchantId": "088f9ac8-3478-4563-a340-e53800313d08",
+            "merchantName": "مطعم أحمد"
+          }
+        ]
+      },
+      "reviewQueueCount": 0,
+      "forbiddenChecks": {
+        "merchantBranches": {
+          "message": "HTTP 403 Forbidden",
+          "status": 403,
+          "data": {
+            "error": "merchant_role_required"
+          }
+        },
+        "merchantProfile": {
+          "message": "HTTP 403 Forbidden",
+          "status": 403,
+          "data": {
+            "error": "merchant_role_required"
+          }
+        }
+      }
+    },
+    "2.5": {
+      "ok": true,
+      "bind": {
+        "ok": true,
+        "id": "41241cc7-4701-4396-9b41-010874abfa93",
+        "cashierUserId": "d8d66154-d7c4-4c43-83cd-4dde894550a3",
+        "cashierPhone": "0912525274"
+      },
+      "phoneUsed": "0912525274"
+    },
+    "2.6": {
+      "ok": true,
+      "saraRoles": {
+        "customer": true,
+        "merchant": false,
+        "brand": false,
+        "cashier": [
+          {
+            "id": "41241cc7-4701-4396-9b41-010874abfa93",
+            "merchantId": "088f9ac8-3478-4563-a340-e53800313d08",
+            "merchantName": "مطعم أحمد",
+            "branchId": "5a8a7925-21f6-4803-9a6c-b6fbb54a315b",
+            "branchName": "مطعم أحمد - الفرع الثاني",
+            "isActive": true
+          }
+        ],
+        "subscriptions": []
+      },
+      "cashierEntry": {
+        "id": "41241cc7-4701-4396-9b41-010874abfa93",
+        "merchantId": "088f9ac8-3478-4563-a340-e53800313d08",
+        "merchantName": "مطعم أحمد",
+        "branchId": "5a8a7925-21f6-4803-9a6c-b6fbb54a315b",
+        "branchName": "مطعم أحمد - الفرع الثاني",
+        "isActive": true
+      },
+      "uiCashierTabVerified": false
+    },
+    "2.7": {
+      "ok": true,
+      "expectedGrantedLabel": "كاشير عند: مطعم أحمد",
+      "dataSource": {
+        "id": "41241cc7-4701-4396-9b41-010874abfa93",
+        "merchantId": "088f9ac8-3478-4563-a340-e53800313d08",
+        "merchantName": "مطعم أحمد",
+        "branchId": "5a8a7925-21f6-4803-9a6c-b6fbb54a315b",
+        "branchName": "مطعم أحمد - الفرع الثاني",
+        "isActive": true
+      }
+    }
+  },
+  "ids": {
+    "ahmed": "47cca695-d892-49f3-8e48-6f6ff8bdbdaa",
+    "sara": "d8d66154-d7c4-4c43-83cd-4dde894550a3",
+    "khaled": "0bbbc982-dead-4b37-b51f-aca58b507226",
+    "fatima": "896c7ea9-6c3b-47ca-92e0-5199d599c8d4",
+    "yousef": "5bf751a0-fba5-48ac-b1b6-f162c7c3b090",
+    "manager": "fb93f2bf-61cf-46f4-9ddf-7ac115b62ca8",
+    "branch1Id": "f96eac3c-6708-49c5-98e0-d57fdf9b1dd1",
+    "branch2Id": "5a8a7925-21f6-4803-9a6c-b6fbb54a315b"
+  },
+  "notes": [
+    "UI-only checks (interactive map open/pin search, visual role color/menu switch, cashier tab visibility) are approximated via backend state due embedded Flutter renderer limitation in this session."
+  ]
+}

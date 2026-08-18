@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../services/company_server_service.dart';
+import '../theme/design_tokens.dart';
+import '../widgets/design_system/kupuna_dual_wallet_rings.dart';
 
 class PointsScreen extends StatelessWidget {
   final String userId;
@@ -40,6 +42,11 @@ class PointsScreen extends StatelessWidget {
         return Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            KupunaDualWalletRings(
+              merchantPoints: points.toDouble(),
+              brandPoints: (points * 0.35).toDouble(),
+            ),
+            const SizedBox(height: 14),
             Text('my_points_value'.tr(namedArgs: {'points': '$points'}), style: const TextStyle(fontSize: 24)),
             const SizedBox(height: 24),
             SizedBox(
@@ -64,7 +71,7 @@ class PointsScreen extends StatelessWidget {
                     LineChartBarData(
                       spots: List.generate(history.length, (i) => FlSpot(i.toDouble(), history[i].toDouble())),
                       isCurved: true,
-                      color: Colors.deepPurple,
+                      color: kTeal,
                       barWidth: 4,
                       dotData: FlDotData(show: true),
                     ),

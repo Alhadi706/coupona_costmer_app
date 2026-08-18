@@ -1,0 +1,192 @@
+{
+  "meta": {
+    "at": "2026-08-16T10:35:56.823Z",
+    "api": "http://127.0.0.1:3006/api"
+  },
+  "users": {
+    "ahmed": {
+      "name": "أحمد",
+      "email": "ahmed.stage6.20260816103556820@kupuna.test",
+      "phone": "0951556820",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1994-04-12",
+      "lat": 32.9012,
+      "lng": 13.205
+    },
+    "khaled": {
+      "name": "خالد",
+      "email": "khaled.stage6.20260816103556820@kupuna.test",
+      "phone": "0952556820",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1992-12-03",
+      "lat": 32.9008,
+      "lng": 13.2046
+    },
+    "trial": {
+      "name": "عضو تجريبي",
+      "email": "trial.stage6.20260816103556820@kupuna.test",
+      "phone": "0953556820",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1998-01-20",
+      "lat": 32.9004,
+      "lng": 13.2053
+    },
+    "yousef": {
+      "name": "يوسف",
+      "email": "yousef.stage6.20260816103556820@kupuna.test",
+      "phone": "0954556820",
+      "role": "admin",
+      "gender": "male",
+      "birthDate": "1988-01-09",
+      "lat": 32.889,
+      "lng": 13.1988
+    }
+  },
+  "ids": {
+    "ahmed": "a260fb1e-fc80-4b4f-95b6-58f8b8d7c7a0",
+    "khaled": "1a1f51ed-c76e-473e-a5b8-ea7ab88adfe0",
+    "trial": "72677656-2bd0-4788-80c1-ddb9cdb8edb5",
+    "yousef": "8ee5a106-1453-4426-8e85-695fc3283be9",
+    "ahmedMerchantId": "ab6c9556-f551-4965-bc3a-c5784e62e76c",
+    "ahmedBranchId": "4d762034-069f-45ad-8e3c-830ad0354fe0",
+    "ahmedCommunityGroupId": "7da7e523-7fa8-4a2e-8a8d-420a67555079"
+  },
+  "checks": {
+    "6.1": {
+      "ok": true,
+      "groupId": "7da7e523-7fa8-4a2e-8a8d-420a67555079",
+      "welcomeMessageId": "130da603-77da-41c5-b43f-c2d62ea4a7be",
+      "khaledPinned": {
+        "id": "130da603-77da-41c5-b43f-c2d62ea4a7be",
+        "senderId": "a260fb1e-fc80-4b4f-95b6-58f8b8d7c7a0",
+        "senderName": "ahmed.stage6.20260816103556820@kupuna.test",
+        "text": "مرحبًا بكم في مجتمع مطعم أحمد",
+        "isPinned": true,
+        "isDeleted": false,
+        "createdAt": "2026-08-16T10:36:30.281Z",
+        "updatedAt": "2026-08-16T10:36:31.445Z"
+      },
+      "trialPinned": {
+        "id": "130da603-77da-41c5-b43f-c2d62ea4a7be",
+        "senderId": "a260fb1e-fc80-4b4f-95b6-58f8b8d7c7a0",
+        "senderName": "ahmed.stage6.20260816103556820@kupuna.test",
+        "text": "مرحبًا بكم في مجتمع مطعم أحمد",
+        "isPinned": true,
+        "isDeleted": false,
+        "createdAt": "2026-08-16T10:36:30.281Z",
+        "updatedAt": "2026-08-16T10:36:31.445Z"
+      }
+    },
+    "6.2": {
+      "ok": true,
+      "khaledMessageId": "87213146-4c40-47f3-babc-81507a2edc3b",
+      "khaledView": {
+        "id": "87213146-4c40-47f3-babc-81507a2edc3b",
+        "senderId": "1a1f51ed-c76e-473e-a5b8-ea7ab88adfe0",
+        "senderName": "khaled.stage6.20260816103556820@kupuna.test",
+        "text": "[deleted]",
+        "isPinned": false,
+        "isDeleted": true,
+        "createdAt": "2026-08-16T10:36:33.891Z",
+        "updatedAt": "2026-08-16T10:36:37.181Z"
+      },
+      "trialView": {
+        "id": "87213146-4c40-47f3-babc-81507a2edc3b",
+        "senderId": "1a1f51ed-c76e-473e-a5b8-ea7ab88adfe0",
+        "senderName": "khaled.stage6.20260816103556820@kupuna.test",
+        "text": "[deleted]",
+        "isPinned": false,
+        "isDeleted": true,
+        "createdAt": "2026-08-16T10:36:33.891Z",
+        "updatedAt": "2026-08-16T10:36:37.181Z"
+      }
+    },
+    "6.3": {
+      "ok": true,
+      "ban": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "ok": true
+        }
+      },
+      "postAfterBan": {
+        "ok": false,
+        "status": 403,
+        "data": {
+          "error": "group_membership_required"
+        }
+      }
+    },
+    "6.4": {
+      "ok": true,
+      "newMessageId": "8cf57124-5dc2-4fad-a35e-3b1f150deb5f",
+      "badgeBefore": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadCount": 0
+        }
+      },
+      "badgeAfterOpenBaseline": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadCount": 0
+        }
+      },
+      "ahmedBadgeBaseline": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadCount": 0
+        }
+      },
+      "khaledBadgeAfterNew": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadCount": 1
+        }
+      },
+      "ahmedBadgeAfterNew": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadCount": 0
+        }
+      },
+      "khaledGroupUnreadBeforeRead": {
+        "id": "7da7e523-7fa8-4a2e-8a8d-420a67555079",
+        "roleType": "merchant",
+        "roleProfileId": "ab6c9556-f551-4965-bc3a-c5784e62e76c",
+        "name": "مطعم أحمد",
+        "ownerUserId": "a260fb1e-fc80-4b4f-95b6-58f8b8d7c7a0",
+        "membersCount": 2,
+        "unreadCount": 1
+      },
+      "khaledBadgeAfterOpen": {
+        "ok": true,
+        "status": 200,
+        "data": {
+          "unreadCount": 0
+        }
+      },
+      "khaledGroupUnreadAfterRead": {
+        "id": "7da7e523-7fa8-4a2e-8a8d-420a67555079",
+        "roleType": "merchant",
+        "roleProfileId": "ab6c9556-f551-4965-bc3a-c5784e62e76c",
+        "name": "مطعم أحمد",
+        "ownerUserId": "a260fb1e-fc80-4b4f-95b6-58f8b8d7c7a0",
+        "membersCount": 2,
+        "unreadCount": 0
+      }
+    }
+  },
+  "notes": [
+    "Stage 6 validated through deterministic API assertions."
+  ]
+}

@@ -1,0 +1,24 @@
+PHASE0_PROOF_START=2026-08-16T09:38:04.585Z
+API_BASE=http://127.0.0.1:3006/api
+USER=أحمد EMAIL=ahmed.20260816093804419@kupuna.test ROLE=customer
+SIGNUP_OK_ahmed=true
+LOGIN_OK_ahmed=true
+LOCATION_ahmed={"latitude":32.8872,"longitude":13.1913}
+AHMED_ROLES={"customer":true,"merchant":false,"brand":false,"cashier":[],"subscriptions":[]}
+USER=سارة EMAIL=sara.20260816093804419@kupuna.test ROLE=customer
+SIGNUP_OK_sara=true
+LOGIN_OK_sara=true
+LOCATION_sara={"latitude":32.9012,"longitude":13.205}
+USER=خالد EMAIL=khaled.20260816093804419@kupuna.test ROLE=customer
+SIGNUP_OK_khaled=true
+LOGIN_OK_khaled=true
+LOCATION_khaled={"latitude":32.875,"longitude":13.1702}
+USER=فاطمة EMAIL=fatima.20260816093804419@kupuna.test ROLE=customer
+SIGNUP_OK_fatima=true
+LOGIN_OK_fatima=true
+LOCATION_fatima={"latitude":32.912,"longitude":13.223}
+USER=يوسف EMAIL=yousef_admin.20260816093804419@kupuna.test ROLE=admin
+SIGNUP_OK_yousef_admin=true
+LOGIN_OK_yousef_admin=true
+LOCATION_yousef_admin={"latitude":32.889,"longitude":13.1988}
+ADMIN_READY_yousef=true

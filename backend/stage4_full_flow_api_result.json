@@ -1,0 +1,234 @@
+{
+  "meta": {
+    "at": "2026-08-16T10:21:12.173Z",
+    "api": "http://localhost:3006/api"
+  },
+  "users": {
+    "ahmed": {
+      "name": "أحمد",
+      "email": "ahmed.stage4.20260816102112171@kupuna.test",
+      "phone": "0931112171",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1994-04-12",
+      "lat": 32.9012,
+      "lng": 13.205
+    },
+    "sara": {
+      "name": "سارة",
+      "email": "sara.stage4.20260816102112171@kupuna.test",
+      "phone": "0932112171",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1997-08-22",
+      "lat": 32.9012,
+      "lng": 13.205
+    },
+    "khaled": {
+      "name": "خالد",
+      "email": "khaled.stage4.20260816102112171@kupuna.test",
+      "phone": "0933112171",
+      "role": "customer",
+      "gender": "male",
+      "birthDate": "1992-12-03",
+      "lat": 32.902,
+      "lng": 13.2048
+    },
+    "nonMatch": {
+      "name": "ليلى",
+      "email": "layla.stage4.20260816102112171@kupuna.test",
+      "phone": "0934112171",
+      "role": "customer",
+      "gender": "female",
+      "birthDate": "1968-03-10",
+      "lat": 32.5,
+      "lng": 13.6
+    },
+    "admin": {
+      "name": "يوسف",
+      "email": "admin.stage4.20260816102112171@kupuna.test",
+      "phone": "0935112171",
+      "role": "admin",
+      "gender": "male",
+      "birthDate": "1988-01-09",
+      "lat": 32.889,
+      "lng": 13.1988
+    }
+  },
+  "ids": {
+    "ahmed": "9f22cec9-d4b5-4c0a-b474-27dffe263700",
+    "sara": "ff6f54e4-2677-4a83-8e48-daa000d34a45",
+    "khaled": "90e55923-98b4-4c0a-8687-b4cade6ba9d2",
+    "nonMatch": "6ccb917c-e262-40dc-bf85-9526bd6dc3f0",
+    "admin": "917d0b39-e7fe-4f05-ac16-4ea97a4c8bd7",
+    "merchantProfileId": "3e86379d-257b-46e3-ab4b-2a7b7aa133f0",
+    "branchId": "2fc5540e-131b-43cc-b38b-5e4799edacfb",
+    "offerId": "6775247f-7e81-42b2-a923-3b65b63d652b",
+    "escrowAccountId": "30ffe817-3fc3-4d8c-8f8a-1e3bae354a16",
+    "physicalClaimId": "24515726-3ffc-4ff1-b58c-30d21725cdcd"
+  },
+  "checks": {
+    "4.1": {
+      "ok": true,
+      "offer": {
+        "ok": true,
+        "id": "6775247f-7e81-42b2-a923-3b65b63d652b",
+        "audienceSize": 1
+      }
+    },
+    "4.2": {
+      "ok": true,
+      "visibleForKhaled": true,
+      "visibleForNonMatch": false
+    },
+    "4.3": {
+      "ok": true,
+      "claim": {
+        "ok": true,
+        "id": "b6c3a56a-72e6-4deb-89dd-ac0dc9491c88",
+        "pickupQrCode": null,
+        "digitalCode": "DG-B88E1DA1538E",
+        "status": "used",
+        "expiresAt": null
+      },
+      "pointsBefore": {
+        "ownerId": "90e55923-98b4-4c0a-8687-b4cade6ba9d2",
+        "availablePoints": 30,
+        "lifetimePoints": 30,
+        "updatedAt": "2026-08-16T10:21:29.102Z"
+      },
+      "pointsAfter": {
+        "ownerId": "90e55923-98b4-4c0a-8687-b4cade6ba9d2",
+        "availablePoints": 25,
+        "lifetimePoints": 30,
+        "updatedAt": "2026-08-16T10:21:30.341Z"
+      },
+      "pointsDeducted": 5
+    },
+    "4.4": {
+      "ok": true,
+      "claim": {
+        "ok": true,
+        "id": "24515726-3ffc-4ff1-b58c-30d21725cdcd",
+        "pickupQrCode": "af2a4dbdd543487494f85510c4ba27d5",
+        "digitalCode": null,
+        "status": "pending_pickup",
+        "expiresAt": "2026-08-17T10:21:31.331Z"
+      },
+      "pointsBefore": {
+        "ownerId": "90e55923-98b4-4c0a-8687-b4cade6ba9d2",
+        "availablePoints": 25,
+        "lifetimePoints": 30,
+        "updatedAt": "2026-08-16T10:21:30.341Z"
+      },
+      "pointsAfter": {
+        "ownerId": "90e55923-98b4-4c0a-8687-b4cade6ba9d2",
+        "availablePoints": 18,
+        "lifetimePoints": 30,
+        "updatedAt": "2026-08-16T10:21:31.342Z"
+      }
+    },
+    "4.5": {
+      "ok": true,
+      "redeemResponse": {
+        "ok": true,
+        "status": "redeemed",
+        "settlementId": "595bc0e8-b89f-428f-8eee-94fef2054adb"
+      },
+      "claimAfterRedeem": {
+        "id": "24515726-3ffc-4ff1-b58c-30d21725cdcd",
+        "ownerId": "90e55923-98b4-4c0a-8687-b4cade6ba9d2",
+        "sourceType": "merchant",
+        "sourceId": "3e86379d-257b-46e3-ab4b-2a7b7aa133f0",
+        "pointsCost": 7,
+        "rewardKind": "physical",
+        "pickupQrCode": "af2a4dbdd543487494f85510c4ba27d5",
+        "digitalCode": null,
+        "status": "redeemed",
+        "expiresAt": "2026-08-17T10:21:31.331Z",
+        "redeemedAt": "2026-08-16T10:21:31.822Z",
+        "redeemedBy": "ff6f54e4-2677-4a83-8e48-daa000d34a45",
+        "settlementId": "595bc0e8-b89f-428f-8eee-94fef2054adb",
+        "createdAt": "2026-08-16T10:21:31.170Z",
+        "updatedAt": "2026-08-16T10:21:31.822Z"
+      }
+    },
+    "4.6": {
+      "ok": true,
+      "pendingClaim": {
+        "ok": true,
+        "id": "2546b422-7e8e-43fb-b2af-f375b6bdeeaf",
+        "pickupQrCode": "1824ba9b42e04e98a6f8577794e5a565",
+        "digitalCode": null,
+        "status": "pending_pickup",
+        "expiresAt": "2026-08-17T10:21:33.557Z"
+      },
+      "refundRun": {
+        "ok": true,
+        "refunded": 1
+      },
+      "pointsBefore": {
+        "ownerId": "90e55923-98b4-4c0a-8687-b4cade6ba9d2",
+        "availablePoints": 18,
+        "lifetimePoints": 30,
+        "updatedAt": "2026-08-16T10:21:31.342Z"
+      },
+      "pointsAfter": {
+        "ownerId": "90e55923-98b4-4c0a-8687-b4cade6ba9d2",
+        "availablePoints": 18,
+        "lifetimePoints": 30,
+        "updatedAt": "2026-08-16T10:21:33.861Z"
+      },
+      "claimAfterRefund": {
+        "id": "2546b422-7e8e-43fb-b2af-f375b6bdeeaf",
+        "ownerId": "90e55923-98b4-4c0a-8687-b4cade6ba9d2",
+        "sourceType": "merchant",
+        "sourceId": "3e86379d-257b-46e3-ab4b-2a7b7aa133f0",
+        "pointsCost": 4,
+        "rewardKind": "physical",
+        "pickupQrCode": "1824ba9b42e04e98a6f8577794e5a565",
+        "digitalCode": null,
+        "status": "refunded_as_points",
+        "expiresAt": "2026-08-16T10:20:33.701Z",
+        "redeemedAt": null,
+        "redeemedBy": null,
+        "settlementId": null,
+        "createdAt": "2026-08-16T10:21:33.390Z",
+        "updatedAt": "2026-08-16T10:21:33.861Z"
+      }
+    },
+    "4.7": {
+      "ok": true,
+      "escrowSummary": {
+        "ok": true,
+        "merchantId": "3e86379d-257b-46e3-ab4b-2a7b7aa133f0",
+        "escrowAccount": {
+          "id": "30ffe817-3fc3-4d8c-8f8a-1e3bae354a16",
+          "balance": 93
+        },
+        "settlements": [
+          {
+            "id": "595bc0e8-b89f-428f-8eee-94fef2054adb",
+            "amount": 7,
+            "settlementType": "reward_claim_redeemed",
+            "createdAt": "2026-08-16T10:21:31.822Z"
+          }
+        ]
+      },
+      "matchedSettlement": {
+        "id": "595bc0e8-b89f-428f-8eee-94fef2054adb",
+        "amount": 7,
+        "settlementType": "reward_claim_redeemed",
+        "createdAt": "2026-08-16T10:21:31.822Z"
+      },
+      "cashierGrantForSeedPoints": {
+        "ok": true,
+        "points": 30,
+        "fraction": 0
+      }
+    }
+  },
+  "notes": [
+    "UI-only market and dashboard visual checks are validated by deterministic API state assertions in this run."
+  ]
+}

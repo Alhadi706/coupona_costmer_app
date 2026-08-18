@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/company_server_service.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -11,6 +12,7 @@ class SignUpScreen extends StatefulWidget {
 
 class _SignUpScreenState extends State<SignUpScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
@@ -22,6 +24,39 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String? _locationError;
   DateTime? _selectedBirthDate;
   int? _calculatedAge;
+
+  String _tx(String key, String fallback) {
+    final value = key.tr();
+    return value == key ? fallback : value;
+  }
+
+  Future<void> _showLocationRationaleAndRequest() async {
+    final approved = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(_tx('location_rationale_title', 'Location access rationale')),
+        content: Text(
+          _tx(
+            'location_rationale_body',
+            'We use your location to sort nearby stores in Discover, improve offers relevance, and verify role requests.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(_tx('cancel', 'Cancel')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(_tx('continue', 'Continue')),
+          ),
+        ],
+      ),
+    );
+    if (approved == true) {
+      await _getLocation();
+    }
+  }
 
   Future<void> _getLocation() async {
     try {
@@ -52,26 +87,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
   }
 
-  void _pickBirthDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime(now.year - 18),
-      firstDate: DateTime(now.year - 100),
-      lastDate: now,
-      helpText: 'اختر تاريخ الميلاد',
-      locale: const Locale('ar'),
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedBirthDate = picked;
-        _calculatedAge = now.year - picked.year - ((now.month < picked.month || (now.month == picked.month && now.day < picked.day)) ? 1 : 0);
-      });
-    }
-  }
-
   @override
   void dispose() {
+    _fullNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -93,15 +111,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       return;
     }
-    if (_selectedBirthDate == null || age == null) {
+    if (_selectedBirthDate == null || _calculatedAge == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار تاريخ الميلاد.')),
+        SnackBar(content: Text(_tx('select_birth_date_required', 'Please select birth date.'))),
       );
       return;
     }
-    if (gender == null) {
+    if (_selectedGender == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار الجنس.')),
+        SnackBar(content: Text(_tx('select_gender_required', 'Please select gender.'))),
       );
       return;
     }
@@ -120,6 +138,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
         email: email,
         password: password,
         role: 'customer',
+        fullName: _fullNameController.text.trim(),
+        gender: _selectedGender,
+        birthDate: _selectedBirthDate?.toIso8601String(),
+        locationLat: _userPosition?.latitude,
+        locationLng: _userPosition?.longitude,
       );
 
       if (mounted) {
@@ -147,6 +170,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
           key: _formKey,
           child: ListView(
             children: [
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _fullNameController,
+                decoration: InputDecoration(
+                  labelText: _tx('full_name', 'Full name'),
+                  prefixIcon: const Icon(Icons.person),
+                  border: const OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if ((value ?? '').trim().isEmpty) {
+                    return _tx('enter_full_name', 'Please enter full name');
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
@@ -189,6 +227,94 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 },
               ),
               const SizedBox(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  _selectedBirthDate == null
+                      ? _tx('birth_date', 'Birth date')
+                      : '${_tx('birth_date', 'Birth date')}: ${_selectedBirthDate!.toIso8601String().split('T').first}',
+                ),
+                subtitle: _calculatedAge == null
+                    ? null
+                    : Text(_tx('calculated_age', 'Age: {age}').replaceAll('{age}', '$_calculatedAge')),
+                trailing: const Icon(Icons.calendar_today),
+                onTap: () async {
+                  final now = DateTime.now();
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime(now.year - 20, now.month, now.day),
+                    firstDate: DateTime(1940),
+                    lastDate: now,
+                  );
+                  if (picked == null) return;
+                  setState(() {
+                    _selectedBirthDate = picked;
+                    _calculatedAge = now.year - picked.year -
+                        ((now.month < picked.month ||
+                                (now.month == picked.month && now.day < picked.day))
+                            ? 1
+                            : 0);
+                  });
+                },
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedGender,
+                decoration: InputDecoration(
+                  labelText: _tx('gender', 'Gender'),
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: 'male',
+                    child: Text(_tx('gender_male', 'Male')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'female',
+                    child: Text(_tx('gender_female', 'Female')),
+                  ),
+                  DropdownMenuItem(
+                    value: 'prefer_not_to_say',
+                    child: Text(_tx('gender_prefer_not_to_say', 'Prefer not to disclose')),
+                  ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedGender = value;
+                  });
+                },
+                validator: (value) {
+                  if ((value ?? '').isEmpty) {
+                    return _tx('select_gender_required', 'Please select gender');
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _showLocationRationaleAndRequest,
+                icon: const Icon(Icons.my_location_outlined),
+                label: Text(
+                  _userPosition == null
+                      ? _tx('request_location_access', 'Request location access')
+                      : _tx('location_captured', 'Location captured'),
+                ),
+              ),
+              if (_userPosition != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    _tx('location_coordinates', 'Lat: {lat}, Lng: {lng}')
+                        .replaceAll('{lat}', _userPosition!.latitude.toStringAsFixed(6))
+                        .replaceAll('{lng}', _userPosition!.longitude.toStringAsFixed(6)),
+                  ),
+                ),
+              if (_locationError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(_locationError!, style: const TextStyle(color: Colors.red)),
+                ),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _confirmPasswordController,
                 obscureText: _obscureConfirmPassword,
