@@ -240,6 +240,15 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
+            tooltip: 'settings_title'.tr(),
+            icon: const Icon(Icons.settings_outlined),
+          ),
+          IconButton(
             onPressed: _openRolesScreen,
             icon: const Icon(Icons.swap_horiz),
             tooltip: 'my_roles_title'.tr(),
