@@ -12,9 +12,10 @@ import 'home_content_screen.dart';
 import 'merchant_dashboard_screen.dart';
 import 'my_rewards_screen.dart';
 import 'my_roles_screen.dart';
-import 'report_issue_screen.dart';
+import 'report_screen.dart';
 import 'scan_invoice_screen.dart';
 import 'settings_screen.dart';
+import '../widgets/admin_drawer.dart';
 
 class HomeScreen extends StatefulWidget {
   final String phone;
@@ -94,8 +95,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (context, index) {
                       final n = _notifications[index];
                       final isRead = n['isRead'] == true;
-                      final title = (n['title'] ?? 'notifications_default_title'.tr()).toString();
-                      final body = (n['body'] ?? '').toString();
+                      final type = (n['type'] ?? '').toString();
+                      String title = (n['title'] ?? '').toString();
+                      String body = (n['body'] ?? '').toString();
+                      
+                      final trTitle = 'notif_title_$type'.tr();
+                      if (trTitle != 'notif_title_$type') {
+                        title = trTitle;
+                      } else if (title.isEmpty) {
+                        title = 'notifications_default_title'.tr();
+                      }
+                      
+                      final trBody = 'notif_body_$type'.tr();
+                      if (trBody != 'notif_body_$type') {
+                        body = trBody;
+                      }
+
                       return ListTile(
                         leading: Icon(
                           isRead ? Icons.notifications_none : Icons.notifications_active,
@@ -203,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       MyRewardsScreen(),
       const CommunityScreen.embedded(),
-      const ReportIssueScreen(),
+      const ReportScreen(),
       const SettingsScreen.embedded(),
     ];
 
@@ -255,10 +270,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      drawer: AppDrawer(
-        onSelectHomeTab: _onItemTapped,
-        currentRole: _activeRole,
-      ),
+      drawer: _activeRole == 'admin' 
+        ? AdminDrawer(
+            currentRole: _activeRole, 
+            onSwitchRole: _openRolesScreen,
+          ) 
+        : AppDrawer(
+            onSelectHomeTab: _onItemTapped,
+            currentRole: _activeRole,
+          ),
       body: _activeRole == 'customer'
           ? KeyedSubtree(
               key: const ValueKey<String>('customer_mode_surface'),

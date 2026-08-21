@@ -2,7 +2,8 @@
 
 import 'dart:async';
 import 'dart:html' as html;
-import 'dart:js_util' as js_util;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 import 'dart:typed_data';
 
 import 'package:image_picker/image_picker.dart';
@@ -14,7 +15,7 @@ class _WebInvoiceOcrService implements InvoiceOcrService {
   @override
   Future<String> extractText(XFile image) async {
     final bytes = await image.readAsBytes();
-    final tesseract = js_util.getProperty<Object?>(html.window, 'Tesseract');
+    final tesseract = globalContext.getProperty<JSObject?>('Tesseract'.toJS);
     if (tesseract == null) {
       throw StateError('Tesseract.js is not loaded in web/index.html');
     }
@@ -82,22 +83,25 @@ class _WebInvoiceOcrService implements InvoiceOcrService {
     return canvas.toDataUrl('image/jpeg', 0.95);
   }
 
-  Future<String> _recognizeWithTesseract(Object tesseract, String dataUrl) async {
-    final promise = js_util.callMethod<Object?>(
-      tesseract,
-      'recognize',
-      <Object?>[dataUrl, 'ara+eng'],
+  Future<String> _recognizeWithTesseract(JSObject tesseract, String dataUrl) async {
+    final promise = tesseract.callMethod<JSAny?>(
+      'recognize'.toJS,
+      dataUrl.toJS,
+      'ara+eng'.toJS,
     );
-    if (promise == null) {
+    if (promise == null || promise is! JSPromise<JSAny?>) {
       return '';
     }
-    final result = await js_util.promiseToFuture<Object>(promise);
-    final data = js_util.getProperty<Object?>(result, 'data');
+    final result = await promise.toDart;
+    if (result == null || result is! JSObject) {
+      return '';
+    }
+    final data = result.getProperty<JSObject?>('data'.toJS);
     if (data == null) {
       return '';
     }
-    final text = js_util.getProperty<Object?>(data, 'text');
-    return (text ?? '').toString().trim();
+    final text = data.getProperty<JSString?>('text'.toJS);
+    return text?.toDart.trim() ?? '';
   }
 
   int _scoreRecognizedText(String text) {

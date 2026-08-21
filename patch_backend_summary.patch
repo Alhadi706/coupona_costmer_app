@@ -1,0 +1,34 @@
+--- backend/server.js
++++ backend/server.js
+@@ -5322,6 +5322,11 @@
+          SELECT created_at::date AS day, COUNT(*)::int AS count
+            FROM invoice_scans
+           WHERE state = 'approved'
+             AND created_at >= CURRENT_DATE - INTERVAL '6 days'
+           GROUP BY created_at::date
++       ), daily_sales AS (
++         SELECT created_at::date AS day, COALESCE(SUM(total_amount), 0) AS total
++           FROM invoice_scans
++          WHERE state = 'approved'
++            AND created_at >= CURRENT_DATE - INTERVAL '6 days'
++          GROUP BY created_at::date
+        ), report_counts AS (
+          SELECT created_at::date AS day, COUNT(*)::int AS count
+@@ -5338,7 +5343,9 @@
+        SELECT days.day,
+               COALESCE(invoice_counts.count, 0)::int AS approved_invoices,
++              COALESCE(daily_sales.total, 0) AS daily_sales,
+               COALESCE(report_counts.count, 0)::int AS reports,
+               COALESCE(user_counts.count, 0)::int AS new_users
+          FROM days
+          LEFT JOIN invoice_counts ON invoice_counts.day = days.day
++         LEFT JOIN daily_sales ON daily_sales.day = days.day
+          LEFT JOIN report_counts ON report_counts.day = days.day
+          LEFT JOIN user_counts ON user_counts.day = days.day
+@@ -5350,6 +5357,7 @@
+     activity: activity.rows.map((row) => ({
+       date: row.day.toISOString().slice(0, 10),
+       approvedInvoices: Number(row.approved_invoices || 0),
++      dailySales: Number(row.daily_sales || 0),
+       reports: Number(row.reports || 0),
+       newUsers: Number(row.new_users || 0),

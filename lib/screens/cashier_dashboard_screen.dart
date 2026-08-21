@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../services/company_server_service.dart';
 import '../widgets/design_system/kupuna_cashier_mode_screen_wrapper.dart';
@@ -17,14 +18,18 @@ class CashierDashboardScreen extends StatefulWidget {
 
 class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
   final TextEditingController _branchIdController = TextEditingController();
-  final TextEditingController _customerIdController = TextEditingController();
   final TextEditingController _purchaseAmountController = TextEditingController();
   final TextEditingController _pickupQrCodeController = TextEditingController();
+  final TextEditingController _manualCustomerIdController = TextEditingController();
+  final TextEditingController _manualOverrideReasonController = TextEditingController();
 
   String? _result;
+  bool _isResultError = false;
   bool _loadingGrant = false;
   bool _loadingRedeem = false;
   bool _cashierActive = true;
+  String? _scannedQrToken;
+  bool _manualOverrideOpen = false;
 
   @override
   void initState() {
@@ -35,6 +40,32 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
   String _tx(String key, String fallback) {
     final value = key.tr();
     return value == key ? fallback : value;
+  }
+
+  String _localizeGrantError(String raw) {
+    final normalized = raw.toLowerCase();
+    if (normalized.contains('qr_token_already_used')) {
+      return _tx('cashier_qr_already_used', 'This code has already been used.');
+    }
+    if (normalized.contains('qr_token_expired')) {
+      return _tx('cashier_qr_expired', 'This code has expired. Ask the customer to refresh their QR.');
+    }
+    if (normalized.contains('qr_token_invalid')) {
+      return _tx('cashier_qr_invalid', 'This code is invalid.');
+    }
+    if (normalized.contains('qr_token_or_manual_override_required')) {
+      return _tx('cashier_scan_or_manual_required', 'Scan a customer QR code, or use manual entry below.');
+    }
+    if (normalized.contains('manual_override_reason_required')) {
+      return _tx('cashier_manual_reason_required', 'Please enter the customer ID and a reason for manual entry.');
+    }
+    if (normalized.contains('daily_invoice_limit_reached')) {
+      return _tx('cashier_daily_limit_reached', 'Daily limit reached for this customer.');
+    }
+    if (normalized.contains('cashier_not_authorized')) {
+      return _tx('cashier_not_authorized_error', 'You are not an authorized cashier for this branch.');
+    }
+    return raw;
   }
 
   String _localizeStatus(dynamic rawStatus) {
@@ -66,9 +97,10 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
   @override
   void dispose() {
     _branchIdController.dispose();
-    _customerIdController.dispose();
     _purchaseAmountController.dispose();
     _pickupQrCodeController.dispose();
+    _manualCustomerIdController.dispose();
+    _manualOverrideReasonController.dispose();
     super.dispose();
   }
 
@@ -88,33 +120,81 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
     }
   }
 
+  Future<void> _scanCustomerQr() async {
+    final scanned = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const _QrScannerScreen()),
+    );
+    if (scanned == null || scanned.isEmpty) return;
+    setState(() {
+      _scannedQrToken = scanned;
+      _manualOverrideOpen = false;
+    });
+  }
+
   Future<void> _grantPoints() async {
+    final branchId = _branchIdController.text.trim();
     final amount = double.tryParse(_purchaseAmountController.text.trim());
+    if (branchId.isEmpty) {
+      setState(() {
+        _result = _tx('cashier_enter_branch_id', 'Please enter a branch ID.');
+        _isResultError = true;
+      });
+      return;
+    }
     if (amount == null || amount <= 0) {
       setState(() {
         _result = _tx('cashier_enter_valid_purchase_amount', 'Please enter a valid purchase amount.');
+        _isResultError = true;
+      });
+      return;
+    }
+    final useManualOverride = _scannedQrToken == null && _manualOverrideOpen;
+    if (_scannedQrToken == null && !_manualOverrideOpen) {
+      setState(() {
+        _result = _tx('cashier_scan_or_manual_required', 'Scan a customer QR code, or use manual entry below.');
+        _isResultError = true;
+      });
+      return;
+    }
+    if (useManualOverride &&
+        (_manualCustomerIdController.text.trim().isEmpty || _manualOverrideReasonController.text.trim().isEmpty)) {
+      setState(() {
+        _result = _tx('cashier_manual_reason_required', 'Please enter the customer ID and a reason for manual entry.');
+        _isResultError = true;
       });
       return;
     }
 
     setState(() {
       _loadingGrant = true;
+      _isResultError = false;
     });
     try {
       final result = await CompanyServerService.grantCashierPoints(
-        branchId: _branchIdController.text.trim(),
-        customerId: _customerIdController.text.trim(),
+        branchId: branchId,
         purchaseAmount: amount,
+        qrToken: _scannedQrToken,
+        manualOverride: useManualOverride,
+        manualCustomerId: useManualOverride ? _manualCustomerIdController.text.trim() : null,
+        manualOverrideReason: useManualOverride ? _manualOverrideReasonController.text.trim() : null,
       );
       setState(() {
         final template = _tx('cashier_grant_result', 'Granted points: {points}, fraction: {fraction}');
         _result = template
             .replaceAll('{points}', '${result['points'] ?? 0}')
             .replaceAll('{fraction}', '${result['fraction'] ?? 0}');
+        _isResultError = false;
+        // Reset so a scanned/used token can never be resubmitted from this screen.
+        _scannedQrToken = null;
+        _manualOverrideOpen = false;
+        _manualCustomerIdController.clear();
+        _manualOverrideReasonController.clear();
+        _purchaseAmountController.clear();
       });
     } catch (e) {
       setState(() {
-        _result = e.toString();
+        _result = _localizeGrantError(e.toString());
+        _isResultError = true;
       });
     } finally {
       setState(() {
@@ -134,10 +214,12 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
       setState(() {
         final template = _tx('cashier_redeem_result', 'Claim redeemed. Status: {status}');
         _result = template.replaceAll('{status}', _localizeStatus(result['status'] ?? 'redeemed'));
+        _isResultError = false;
       });
     } catch (e) {
       setState(() {
         _result = e.toString();
+        _isResultError = true;
       });
     } finally {
       setState(() {
@@ -175,13 +257,65 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
           decoration: InputDecoration(labelText: _tx('cashier_branch_id', 'Branch ID')),
         ),
         TextField(
-          controller: _customerIdController,
-          decoration: InputDecoration(labelText: _tx('cashier_customer_user_id', 'Customer User ID')),
-        ),
-        TextField(
           controller: _purchaseAmountController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(labelText: _tx('cashier_purchase_amount', 'Purchase Amount')),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _scannedQrToken != null ? Colors.green.shade50 : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _scannedQrToken != null ? Colors.green.shade400 : Colors.grey.shade400),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                _scannedQrToken != null ? Icons.check_circle : Icons.qr_code_scanner,
+                color: _scannedQrToken != null ? Colors.green.shade700 : Colors.grey.shade700,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  _scannedQrToken != null
+                      ? _tx('cashier_qr_scanned', 'Customer QR scanned successfully.')
+                      : _tx('cashier_scan_prompt', "Scan the customer's QR code to identify them."),
+                ),
+              ),
+              TextButton(
+                onPressed: _scanCustomerQr,
+                child: Text(_scannedQrToken != null
+                    ? _tx('cashier_rescan', 'Rescan')
+                    : _tx('cashier_scan_action', 'Scan')),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        ExpansionTile(
+          initiallyExpanded: false,
+          onExpansionChanged: (open) => setState(() => _manualOverrideOpen = open),
+          title: Text(_tx('cashier_manual_override_title', 'Manual entry (camera unavailable)')),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                _tx('cashier_manual_override_warning', 'Manual entries are logged and flagged for merchant/admin review.'),
+                style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
+              ),
+            ),
+            TextField(
+              controller: _manualCustomerIdController,
+              decoration: InputDecoration(labelText: _tx('cashier_customer_user_id', 'Customer User ID')),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _manualOverrideReasonController,
+              decoration: InputDecoration(labelText: _tx('cashier_manual_override_reason', 'Reason (required)')),
+            ),
+            const SizedBox(height: 8),
+          ],
         ),
         const SizedBox(height: 8),
         ElevatedButton(
@@ -211,7 +345,7 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
           const SizedBox(height: 12),
           Text(
             _result!,
-            style: const TextStyle(color: Colors.green),
+            style: TextStyle(color: _isResultError ? Colors.red : Colors.green),
           ),
         ],
       ],
@@ -228,6 +362,56 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
       onGrantPoints: _grantPoints,
       onRedeemReward: _redeemClaim,
       body: _buildBody(),
+    );
+  }
+}
+
+/// Full-screen live camera QR scanner. Pops with the raw decoded text of the
+/// first barcode detected, or null if the cashier cancels.
+class _QrScannerScreen extends StatefulWidget {
+  const _QrScannerScreen();
+
+  @override
+  State<_QrScannerScreen> createState() => _QrScannerScreenState();
+}
+
+class _QrScannerScreenState extends State<_QrScannerScreen> {
+  final MobileScannerController _controller = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
+  bool _handled = false;
+
+  String _tx(String key, String fallback) {
+    final value = key.tr();
+    return value == key ? fallback : value;
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_handled) return;
+    for (final barcode in capture.barcodes) {
+      final value = barcode.rawValue;
+      if (value != null && value.isNotEmpty) {
+        _handled = true;
+        Navigator.of(context).pop(value);
+        return;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(_tx('cashier_scan_customer_qr_title', 'Scan customer QR'))),
+      body: MobileScanner(
+        controller: _controller,
+        onDetect: _onDetect,
+      ),
     );
   }
 }

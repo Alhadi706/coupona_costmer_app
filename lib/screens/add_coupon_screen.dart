@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:io' show File;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:coupona_app/services/imgur_service.dart';
 import 'package:coupona_app/services/company_server_service.dart';
 import 'package:coupona_app/theme/design_tokens.dart';
 import 'map_picker_screen.dart';
@@ -79,9 +77,12 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
     try {
       final bytes = await _pickedImage!.readAsBytes();
       if (bytes.isNotEmpty) {
-        return ImgurService.uploadImageFromBytes(bytes);
+        return CompanyServerService.uploadImageBytes(
+          bytes,
+          mimeType: _pickedImage!.mimeType ?? _mimeTypeForPath(_pickedImage!.path),
+        );
       }
-      return ImgurService.uploadImage(File(_pickedImage!.path));
+      return null;
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -90,6 +91,14 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
       }
       return null;
     }
+  }
+
+  String _mimeTypeForPath(String path) {
+    final lower = path.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    return 'image/jpeg';
   }
 
   Future<void> _submit() async {

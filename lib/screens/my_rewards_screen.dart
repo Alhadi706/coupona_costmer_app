@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/design_system/kupuna_top_tabs.dart';
+import 'customer_pos_qr_screen.dart';
 
 class MyRewardsScreen extends StatefulWidget {
   const MyRewardsScreen({super.key});
@@ -18,6 +20,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
   Map<String, dynamic> _points = const <String, dynamic>{};
   List<Map<String, dynamic>> _rewards = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _ledger = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _claims = const <Map<String, dynamic>>[];
   int _rewardTab = 0;
 
   @override
@@ -34,6 +37,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
         CompanyServerService.getPointAccount(),
         CompanyServerService.getRewards(),
         CompanyServerService.getLedgerEntries(limit: 20),
+        CompanyServerService.getMyRewardClaims(limit: 20),
       ]);
 
       if (!mounted) return;
@@ -41,6 +45,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
         _points = (results[0] as Map<String, dynamic>);
         _rewards = (results[1] as List<Map<String, dynamic>>);
         _ledger = (results[2] as List<Map<String, dynamic>>);
+        _claims = (results[3] as List<Map<String, dynamic>>);
         _loading = false;
       });
     } catch (e) {
@@ -90,21 +95,29 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
 
     setState(() => _redeeming = true);
     try {
-      await CompanyServerService.redeemPoints(
-        points: requiredPoints,
-        reference: 'reward:${reward['id'] ?? reward['reward_name']}',
+      final rewardKind = (reward['kind'] ?? 'digital').toString();
+      final claim = await CompanyServerService.createRewardClaim(
+        pointsCost: requiredPoints,
+        sourceType: (reward['sourceType'] ?? 'system').toString(),
+        sourceId: (reward['sourceId'] ?? reward['id'] ?? '').toString(),
+        rewardKind: rewardKind,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'reward_redeemed_success'.tr(
-              namedArgs: {'reward': '${reward['reward_name'] ?? 'reward_generic'.tr()}'},
-            ),
-          ),
-        ),
+        SnackBar(content: Text('reward_redeemed_success'.tr(
+          namedArgs: {'reward': '${reward['reward_name'] ?? 'reward_generic'.tr()}'},
+        ))),
       );
       await _loadData();
+      if (!mounted) return;
+      _showCouponDialog(
+        rewardName: (reward['reward_name'] ?? '').toString(),
+        rewardKind: rewardKind,
+        pickupQrCode: (claim['pickupQrCode'] ?? '').toString(),
+        digitalCode: (claim['digitalCode'] ?? '').toString(),
+        status: (claim['status'] ?? '').toString(),
+        expiresAt: (claim['expiresAt'] ?? '').toString(),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -113,6 +126,90 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     } finally {
       if (mounted) setState(() => _redeeming = false);
     }
+  }
+
+  String _formatClaimStatus(String status) {
+    switch (status) {
+      case 'pending_pickup':
+        return 'coupon_status_pending_pickup'.tr();
+      case 'used':
+      case 'redeemed':
+        return 'coupon_status_used'.tr();
+      case 'expired':
+        return 'coupon_status_expired'.tr();
+      case 'refunded_as_points':
+        return 'coupon_status_refunded_as_points'.tr();
+      default:
+        return status;
+    }
+  }
+
+  Color _claimStatusColor(String status) {
+    switch (status) {
+      case 'pending_pickup':
+        return kGold;
+      case 'used':
+      case 'redeemed':
+        return kTeal;
+      case 'expired':
+      case 'refunded_as_points':
+        return Colors.grey;
+      default:
+        return kTeal;
+    }
+  }
+
+  void _showCouponDialog({
+    required String rewardName,
+    required String rewardKind,
+    required String pickupQrCode,
+    required String digitalCode,
+    required String status,
+    required String expiresAt,
+  }) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(rewardName.isEmpty ? 'reward_generic'.tr() : rewardName),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (rewardKind == 'physical' && pickupQrCode.isNotEmpty) ...[
+                  Text('coupon_qr_hint'.tr(), textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  QrImageView(data: pickupQrCode, size: 200),
+                  const SizedBox(height: 10),
+                  SelectableText(pickupQrCode),
+                ] else if (digitalCode.isNotEmpty) ...[
+                  Text('coupon_digital_code_label'.tr()),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    digitalCode,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: kTeal),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                Text(_formatClaimStatus(status)),
+                if (expiresAt.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text('coupon_expires_at'.tr(namedArgs: {'value': expiresAt.split('T').first})),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text('close'.tr()),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -124,8 +221,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     final availablePoints = _toInt(_points['availablePoints']);
     final kind = _rewardTab == 0 ? 'digital' : 'physical';
     final visibleRewards = _rewards.where((reward) {
-      final rewardKind = (reward['rewardKind'] ?? reward['kind'] ?? '').toString().toLowerCase();
-      if (rewardKind.isEmpty) return _rewardTab == 0;
+      final rewardKind = (reward['kind'] ?? 'digital').toString().toLowerCase();
       return rewardKind == kind;
     }).toList();
 
@@ -152,6 +248,19 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                       fontSize: 34,
                       fontWeight: FontWeight.bold,
                       color: kTeal,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const CustomerPosQrScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.qr_code),
+                      label: Text('pos_qr_show_button'.tr()),
                     ),
                   ),
                 ],
@@ -181,18 +290,75 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
             ...visibleRewards.map((reward) {
               final cost = _toInt(reward['value']);
               final canRedeem = availablePoints >= cost;
+              final storeName = (reward['storeName'] ?? '').toString();
+              final imageUrl = (reward['imageUrl'] ?? '').toString();
+              final expiresAt = (reward['expiresAt'] ?? '').toString();
               return Card(
                 margin: const EdgeInsets.only(bottom: 10),
                 child: ListTile(
-                  leading: const Icon(Icons.card_giftcard, color: kTeal),
+                  leading: imageUrl.isNotEmpty
+                      ? CircleAvatar(backgroundImage: NetworkImage(imageUrl))
+                      : const Icon(Icons.card_giftcard, color: kTeal),
                   title: Text((reward['reward_name'] ?? '').toString()),
-                  subtitle: Text((reward['description'] ?? '').toString()),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text((reward['description'] ?? '').toString()),
+                      if (storeName.isNotEmpty)
+                        Text(
+                          'reward_store_label'.tr(namedArgs: {'value': storeName}),
+                          style: const TextStyle(fontWeight: FontWeight.w600, color: kTeal),
+                        ),
+                      if (expiresAt.isNotEmpty)
+                        Text('coupon_expires_at'.tr(namedArgs: {'value': expiresAt.split('T').first})),
+                    ],
+                  ),
+                  isThreeLine: storeName.isNotEmpty || expiresAt.isNotEmpty,
                   trailing: ElevatedButton(
                     onPressed: canRedeem && !_redeeming
                         ? () => _redeemReward(reward)
                         : null,
                     child: Text('redeem_points_value'.tr(namedArgs: {'value': '$cost'})),
                   ),
+                ),
+              );
+            }),
+          const SizedBox(height: 18),
+          Text(
+            'my_coupons'.tr(),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 10),
+          if (_claims.isEmpty)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Text('no_coupons_yet'.tr()),
+              ),
+            )
+          else
+            ..._claims.map((claim) {
+              final status = (claim['status'] ?? '').toString();
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: Icon(Icons.confirmation_number_outlined, color: _claimStatusColor(status)),
+                  title: Text('points_value'.tr(namedArgs: {'points': '${claim['pointsCost'] ?? 0}'})),
+                  subtitle: Text(_formatClaimStatus(status)),
+                  trailing: status == 'pending_pickup' || status == 'used'
+                      ? IconButton(
+                          icon: const Icon(Icons.qr_code, color: kTeal),
+                          onPressed: () => _showCouponDialog(
+                            rewardName: 'reward_generic'.tr(),
+                            rewardKind: (claim['rewardKind'] ?? 'digital').toString(),
+                            pickupQrCode: (claim['pickupQrCode'] ?? '').toString(),
+                            digitalCode: (claim['digitalCode'] ?? '').toString(),
+                            status: status,
+                            expiresAt: (claim['expiresAt'] ?? '').toString(),
+                          ),
+                        )
+                      : null,
                 ),
               );
             }),
@@ -216,12 +382,21 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                   : double.tryParse(entry['amount']?.toString() ?? '') ?? 0;
               final points = _toInt(entry['points']);
               final ref = (entry['reference'] ?? '').toString();
+              String formattedRef = ref;
+              if (ref.startsWith('invoice:')) {
+                formattedRef = 'ref_invoice_prefix'.tr() + ref.replaceFirst('invoice:', '');
+              } else if (ref.startsWith('reward:')) {
+                formattedRef = 'ref_reward_prefix'.tr() + ref.replaceFirst('reward:', '');
+              } else if (ref.startsWith('manual:')) {
+                formattedRef = 'ref_manual_prefix'.tr() + ref.replaceFirst('manual:', '');
+              }
+
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
                   dense: true,
                   title: Text(_formatLedgerType((entry['type'] ?? '').toString())),
-                  subtitle: Text(ref),
+                  subtitle: Text(formattedRef),
                   trailing: Text(
                     points > 0
                         ? 'points_value'.tr(namedArgs: {'points': '+$points'})

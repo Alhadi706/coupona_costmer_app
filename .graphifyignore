@@ -1,0 +1,26 @@
+# Local environments and secrets
+.env
+.env.*
+*.env
+*.pem
+*.p12
+*.jks
+*secret*
+*credential*
+*service-account*
+*firebase*admin*.json
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
+web_deploy/
+
+# Dependency and build outputs
+node_modules/
+backend/node_modules/
+build/
+dist/
+.dart_tool/
+.pub-cache/
+
+# Graphify generated output should not be re-indexed
+graphify-out/

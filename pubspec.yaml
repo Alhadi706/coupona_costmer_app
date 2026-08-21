@@ -55,6 +55,7 @@ dependencies:
   geolocator: ^11.0.0
   google_fonts: ^6.2.1
   pdf: ^3.11.1
+  mobile_scanner: ^7.3.0
   # أضف أي حزم أخرى تستخدمها هنا
 
 dev_dependencies:

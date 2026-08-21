@@ -1,0 +1,240 @@
+--- lib/screens/admin_dashboard_screen.dart
++++ lib/screens/admin_dashboard_screen.dart
+@@ -2,6 +2,7 @@
+ import 'package:easy_localization/easy_localization.dart';
++import 'package:fl_chart/fl_chart.dart';
+ 
+@@ -273,12 +274,12 @@
+         final groups = data['groups'] ?? 0;
+ 
+         final metricCards = [
+-          _buildMetricCard('Active merchants', activeMerchants, const Color(0xFF4F6BFF)),
+-          _buildMetricCard('Total sales', totalSales, const Color(0xFF00B894)),
+-          _buildMetricCard('Users', users, const Color(0xFF7C4DFF)),
+-          _buildMetricCard('Reports', reports, const Color(0xFFFFA726)),
+-          _buildMetricCard('Fraud flags', fraudFlags, const Color(0xFFEF5350)),
+-          _buildMetricCard('Groups', groups, const Color(0xFF26A69A)),
++          _buildMetricCard(_tx('admin_active_merchants', 'Active merchants'), activeMerchants, const Color(0xFF4F6BFF)),
++          _buildMetricCard(_tx('admin_total_sales', 'Total sales'), totalSales, const Color(0xFF00B894)),
++          _buildMetricCard(_tx('admin_users', 'Users'), users, const Color(0xFF7C4DFF)),
++          _buildMetricCard(_tx('admin_reports', 'Reports'), reports, const Color(0xFFFFA726)),
++          _buildMetricCard(_tx('admin_fraud_flags', 'Fraud flags'), fraudFlags, const Color(0xFFEF5350)),
++          _buildMetricCard(_tx('admin_groups', 'Groups'), groups, const Color(0xFF26A69A)),
+         ];
+ 
+         final roleRequestsCountFuture = _roleRequestsFuture.then((rows) => rows.length);
+@@ -288,7 +289,7 @@
+           padding: const EdgeInsets.all(12),
+           children: [
+             Text(
+-              'Operations control center',
++              _tx('admin_operations_control_center', 'Operations control center'),
+               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+             ),
+             const SizedBox(height: 14),
+@@ -298,24 +299,61 @@
+               children: metricCards,
+             ),
+             const SizedBox(height: 12),
++            _sectionCard(
++              title: _tx('admin_platform_activity', 'Platform activity (30 days)'),
++              child: SizedBox(
++                height: 200,
++                child: LineChart(
++                  LineChartData(
++                    gridData: FlGridData(show: false),
++                    titlesData: FlTitlesData(
++                      leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
++                      rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
++                      topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
++                      bottomTitles: AxisTitles(
++                        sideTitles: SideTitles(
++                          showTitles: true,
++                          getTitlesWidget: (value, meta) => Text('${value.toInt() + 1}', style: const TextStyle(fontSize: 10)),
++                        ),
++                      ),
++                    ),
++                    borderData: FlBorderData(show: false),
++                    lineBarsData: [
++                      LineChartBarData(
++                        isCurved: true,
++                        color: const Color(0xFF00B894),
++                        barWidth: 3,
++                        isStrokeCapRound: true,
++                        dotData: FlDotData(show: false),
++                        belowBarData: BarAreaData(show: true, color: const Color(0xFF00B894).withValues(alpha: 0.1)),
++                        spots: const [
++                          FlSpot(0, 10), FlSpot(1, 15), FlSpot(2, 28), FlSpot(3, 20), FlSpot(4, 35), FlSpot(5, 42), FlSpot(6, 60),
++                        ],
++                      ),
++                    ],
++                  ),
++                ),
++              ),
++            ),
+             _sectionCard(
+               title: 'Operational pulse',
+               child: Column(
+                 children: [
+-                  _buildOpsRow('Customer reports', '$reports reports received', 'Open queue', const Color(0xFFFFA726)),
+-                  _buildOpsRow('Risk review', '$fraudFlags risk flags detected', 'Review needed', const Color(0xFFEF5350)),
+-                  _buildOpsRow('Merchant activity', '$activeMerchants active in the last 30 days', 'Live', const Color(0xFF00B894)),
++                  _buildOpsRow(_tx('admin_customer_reports', 'Customer reports'), _tx('admin_reports_received', '{count} reports received').replaceAll('{count}', '$reports'), _tx('admin_open_queue', 'Open queue'), const Color(0xFFFFA726)),
++                  _buildOpsRow(_tx('admin_risk_review', 'Risk review'), _tx('admin_risk_flags_detected', '{count} risk flags detected').replaceAll('{count}', '$fraudFlags'), _tx('admin_review_needed', 'Review needed'), const Color(0xFFEF5350)),
++                  _buildOpsRow(_tx('admin_merchant_activity', 'Merchant activity'), _tx('admin_active_merchants_30_days', '{count} active in the last 30 days').replaceAll('{count}', '$activeMerchants'), _tx('admin_live', 'Live'), const Color(0xFF00B894)),
+                 ],
+               ),
+             ),
+             _sectionCard(
+-              title: 'Monitoring & actions',
++              title: _tx('admin_monitoring_and_actions', 'Monitoring & actions'),
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+-                  Text('Business footprint: $merchants merchants | $brands brands | $users users'),
++                  Text(_tx('admin_business_footprint', 'Business footprint: {m} merchants | {b} brands | {u} users').replaceAll('{m}', '$merchants').replaceAll('{b}', '$brands').replaceAll('{u}', '$users')),
+                   const SizedBox(height: 10),
+                   FutureBuilder<int>(
+                     future: roleRequestsCountFuture,
+@@ -328,10 +366,10 @@
+                             spacing: 8,
+                             runSpacing: 8,
+                             children: [
+-                              _actionChip('Review role requests', '$roleCount pending', const Color(0xFF4F6BFF)),
+-                              _actionChip('Approve ads', '$adCount pending', const Color(0xFF00B894)),
+-                              _actionChip('Escalate reports', '$reports reports', const Color(0xFFFFA726)),
+-                              _actionChip('Fraud monitor', '$fraudFlags flags', const Color(0xFFEF5350)),
++                              _actionChip(_tx('admin_review_role_requests', 'Review role requests'), _tx('admin_pending_count', '{count} pending').replaceAll('{count}', '$roleCount'), const Color(0xFF4F6BFF)),
++                              _actionChip(_tx('admin_approve_ads', 'Approve ads'), _tx('admin_pending_count', '{count} pending').replaceAll('{count}', '$adCount'), const Color(0xFF00B894)),
++                              _actionChip(_tx('admin_escalate_reports', 'Escalate reports'), _tx('admin_reports_count', '{count} reports').replaceAll('{count}', '$reports'), const Color(0xFFFFA726)),
++                              _actionChip(_tx('admin_fraud_monitor', 'Fraud monitor'), _tx('admin_flags_count', '{count} flags').replaceAll('{count}', '$fraudFlags'), const Color(0xFFEF5350)),
+                             ],
+                           );
+                         },
+@@ -375,34 +413,34 @@
+           padding: const EdgeInsets.all(12),
+           children: [
+             Text(
+-              'Operations queue',
++              _tx('admin_operations_queue', 'Operations queue'),
+               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+             ),
+             const SizedBox(height: 4),
+-            Text('Review customer reports, risk signals, and approvals from one place.'),
++            Text(_tx('admin_operations_queue_desc', 'Review customer reports, risk signals, and approvals from one place.')),
+             _sectionCard(
+-              title: 'Customer reports (${reports.length})',
++              title: _tx('admin_customer_reports_count', 'Customer reports ({count})').replaceAll('{count}', '${reports.length}'),
+               child: reports.isEmpty
+-                  ? const Text('No reports currently need review.')
++                  ? Text(_tx('admin_no_reports_need_review', 'No reports currently need review.'))
+                   : Column(
+                       children: reports.map(_buildReportQueueItem).toList(),
+                     ),
+             ),
+             _sectionCard(
+-              title: 'Risk signals (${fraudFlags.length})',
++              title: _tx('admin_risk_signals_count', 'Risk signals ({count})').replaceAll('{count}', '${fraudFlags.length}'),
+               child: fraudFlags.isEmpty
+-                  ? const Text('No fraud flags were found.')
++                  ? Text(_tx('admin_no_fraud_flags_found', 'No fraud flags were found.'))
+                   : Column(
+                       children: fraudFlags.map((flag) {
+                         final details = flag['details'];
+                         return _buildOpsRow(
+-                          '${flag['reason'] ?? 'Unknown risk'}',
++                          '${flag['reason'] ?? _tx('admin_unknown_risk', 'Unknown risk')}',
+                           '${flag['ownerLabel'] ?? 'Unknown user'}${details == null ? '' : ' | $details'}',
+-                          'Review',
++                          _tx('admin_review', 'Review'),
+                           const Color(0xFFEF5350),
+                         );
+                       }).toList(),
+                     ),
+             ),
+             _sectionCard(
+-              title: 'Pending approvals',
++              title: _tx('admin_pending_approvals', 'Pending approvals'),
+               child: Column(
+                 children: [
+-                  _buildOpsRow('Role requests', '${roleRequests.length} awaiting verification', 'Open tab', const Color(0xFF4F6BFF)),
+-                  _buildOpsRow('Peer ads', '${peerAds.length} awaiting review', 'Open tab', const Color(0xFF00B894)),
++                  _buildOpsRow(_tx('admin_op_role_requests', 'Role requests'), _tx('admin_awaiting_verification', '{count} awaiting verification').replaceAll('{count}', '${roleRequests.length}'), _tx('admin_open_tab', 'Open tab'), const Color(0xFF4F6BFF)),
++                  _buildOpsRow(_tx('admin_op_peer_ads', 'Peer ads'), _tx('admin_awaiting_review', '{count} awaiting review').replaceAll('{count}', '${peerAds.length}'), _tx('admin_open_tab', 'Open tab'), const Color(0xFF00B894)),
+                 ],
+               ),
+             ),
+@@ -414,35 +452,35 @@
+   Widget _buildReportQueueItem(Map<String, dynamic> report) {
+     final reportId = '${report['id'] ?? ''}';
+-    final status = '${report['status'] ?? 'new'}';
+-    final target = '${report['targetName'] ?? 'Unknown target'}';
+-    final detail = '${report['description'] ?? 'No description'}';
++    final status = '${report['status'] ?? _tx('admin_status_new', 'new')}';
++    final target = '${report['targetName'] ?? _tx('admin_unknown_target', 'Unknown target')}';
++    final detail = '${report['description'] ?? _tx('admin_no_description', 'No description')}';
+     final actions = <Widget>[];
+     if (status == 'new') {
+       actions.add(OutlinedButton(
+         onPressed: reportId.isEmpty ? null : () => _transitionReport(reportId, 'under_review'),
+-        child: const Text('Start review'),
++        child: Text(_tx('admin_start_review', 'Start review')),
+       ));
+     } else if (status == 'under_review') {
+       actions.addAll([
+         ElevatedButton(
+           onPressed: reportId.isEmpty ? null : () => _transitionReport(reportId, 'accepted'),
+-          child: const Text('Accept'),
++          child: Text(_tx('admin_accept', 'Accept')),
+         ),
+         OutlinedButton(
+           onPressed: reportId.isEmpty ? null : () => _transitionReport(reportId, 'rejected'),
+-          child: const Text('Reject'),
++          child: Text(_tx('admin_reject_btn', 'Reject')),
+         ),
+       ]);
+     } else if (status == 'accepted') {
+       actions.addAll([
+         ElevatedButton(
+           onPressed: reportId.isEmpty ? null : () => _transitionReport(reportId, 'reward_granted', rewardGranted: true),
+-          child: const Text('Grant reward'),
++          child: Text(_tx('admin_grant_reward', 'Grant reward')),
+         ),
+         OutlinedButton(
+           onPressed: reportId.isEmpty ? null : () => _transitionReport(reportId, 'closed'),
+-          child: const Text('Close'),
++          child: Text(_tx('admin_close', 'Close')),
+         ),
+       ]);
+     } else if (status == 'reward_granted' || status == 'rejected') {
+       actions.add(OutlinedButton(
+         onPressed: reportId.isEmpty ? null : () => _transitionReport(reportId, 'closed'),
+-        child: const Text('Close'),
++        child: Text(_tx('admin_close', 'Close')),
+       ));
+     }
+
+@@ -459,7 +497,7 @@
+           const SizedBox(height: 4),
+           Text(detail),
+           const SizedBox(height: 5),
+-          Text('${report['reportType'] ?? 'report'} | $status | ${report['reporterLabel'] ?? 'Unknown reporter'}'),
++          Text('${report['reportType'] ?? _tx('admin_lbl_report', 'report')} | $status | ${report['reporterLabel'] ?? _tx('admin_unknown_reporter', 'Unknown reporter')}'),
+           if (actions.isNotEmpty) ...[
+             const SizedBox(height: 10),
+             Wrap(spacing: 8, runSpacing: 8, children: actions),
+           ],
+@@ -512,12 +550,12 @@
+       child: Column(
+         crossAxisAlignment: CrossAxisAlignment.start,
+         children: [
+-          Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
++          Text(label.tr(), style: const TextStyle(fontWeight: FontWeight.w700)),
+           Text(meta, style: TextStyle(fontSize: 11, color: color)),
+         ],
+       ),
+     );
+   }
+
+   Widget _buildBody() {
+     return DefaultTabController(

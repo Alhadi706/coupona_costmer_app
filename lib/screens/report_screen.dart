@@ -17,6 +17,7 @@ class _ReportScreenState extends State<ReportScreen> {
   String? _selectedType;
   String? _storeName;
   String? _description;
+  String? _selectedStoreId;
 
   final List<String> merchants = [
     'كوكاكولا',
@@ -46,20 +47,27 @@ class _ReportScreenState extends State<ReportScreen> {
   String? location;
   String? reportText;
 
-  void _submitReport() async {
+  Future<void> _submitReport() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      // حفظ البلاغ عبر خادم الشركة
+      if (_selectedStoreId == null || _selectedStoreId!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select a store from your eligible stores.')),
+        );
+        return;
+      }
       try {
-        await CompanyServerService.post('/reports', {
-          'type': _selectedType,
-          'storeName': _storeName,
-          'description': _description,
-          'createdAt': DateTime.now().toIso8601String(),
-          'status': 'new', // جديد
-        });
+        await CompanyServerService.createReport(
+          reportType: _selectedType ?? 'other',
+          targetStoreId: _selectedStoreId!,
+          description: _description ?? reportText ?? '',
+        );
       } catch (_) {
-        // تجاهل أخطاء الإرسال لعرض رسالة التأكيد على أي حال
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send the report. Please try again.')),
+        );
+        return;
       }
       if (!mounted) return;
       showDialog(
@@ -107,7 +115,7 @@ class _ReportScreenState extends State<ReportScreen> {
                   labelText: 'report_type'.tr(),
                   border: OutlineInputBorder(),
                 ),
-                value: _selectedType,
+                initialValue: _selectedType,
                 items: reportTypes.map((type) => DropdownMenuItem(
                   value: type,
                   child: Text(type.tr()),
@@ -141,14 +149,14 @@ class _ReportScreenState extends State<ReportScreen> {
                 children: [
                   // اسم المحل أو العلامة التجارية
                   FutureBuilder<List<Map<String, dynamic>>>(
-                    future: CompanyServerService.getStores(),
+                    future: CompanyServerService.getEligibleReportStores(),
                     builder: (context, snapshot) {
                       List<Map<String, dynamic>> stores = [];
                       if (snapshot.hasData) {
                         stores = snapshot.data!
                             .map((data) => {
-                                  'id': data['id'],
-                                  'name': data['name'] ?? '',
+                                  'id': data['storeId'],
+                                  'name': data['storeName'] ?? '',
                                 })
                             .where((store) => (store['name'] as String).isNotEmpty)
                             .toList();
@@ -166,6 +174,8 @@ class _ReportScreenState extends State<ReportScreen> {
                         onSelected: (Map<String, dynamic> selection) {
                           setState(() {
                             selectedMerchant = selection['name'];
+                            _selectedStoreId = selection['id']?.toString();
+                            _storeName = selection['name']?.toString();
                           });
                         },
                         fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {

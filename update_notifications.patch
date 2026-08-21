@@ -1,0 +1,26 @@
+--- lib/screens/home_screen.dart
++++ lib/screens/home_screen.dart
+@@ -95,8 +95,24 @@
+                     itemBuilder: (context, index) {
+                       final n = _notifications[index];
+                       final isRead = n['isRead'] == true;
++                      final type = (n['type'] ?? '').toString();
+-                      final title = (n['title'] ?? 'notifications_default_title'.tr()).toString();
+-                      final body = (n['body'] ?? '').toString();
++                      String title = (n['title'] ?? '').toString();
++                      String body = (n['body'] ?? '').toString();
++                      
++                      final trTitle = 'notif_title_$type'.tr();
++                      if (trTitle != 'notif_title_$type') {
++                        title = trTitle;
++                      } else if (title.isEmpty) {
++                        title = 'notifications_default_title'.tr();
++                      }
++                      
++                      final trBody = 'notif_body_$type'.tr();
++                      if (trBody != 'notif_body_$type') {
++                        body = trBody;
++                      }
++
+                       return ListTile(
+                         leading: Icon(

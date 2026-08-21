@@ -8,6 +8,7 @@ import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/design_system/kupuna_offer_card.dart';
 import '../widgets/design_system/kupuna_top_tabs.dart';
+import 'store_details_screen.dart';
 
 class HomeContentScreen extends StatefulWidget {
   final VoidCallback onOpenOffersTab;
@@ -380,6 +381,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                 'category': (store['category'] ?? '-').toString(),
                 'distance': distance.toStringAsFixed(2),
               }),
+            ),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => StoreDetailsScreen(store: store)),
             ),
           ),
         );

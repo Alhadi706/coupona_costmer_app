@@ -26,6 +26,55 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  Future<String?> _requestOwnerCode() async {
+    final controller = TextEditingController();
+    try {
+      return await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Owner verification'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: const InputDecoration(labelText: 'Email code'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+              child: const Text('Verify'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  Future<Map<String, dynamic>> _authenticate(String email, String password) async {
+    try {
+      return await CompanyServerService.signIn(email: email, password: password);
+    } catch (error) {
+      if (!error.toString().contains('owner_mfa_required')) rethrow;
+      final challenge = await CompanyServerService.ownerLogin(email: email, password: password);
+      final challengeId = (challenge['challengeId'] ?? '').toString();
+      if (challengeId.isEmpty) throw StateError('owner_mfa_challenge_missing');
+      if (challenge['devBypass'] == true) {
+        return CompanyServerService.ownerVerify(challengeId: challengeId, code: '000000');
+      }
+      final code = await _requestOwnerCode();
+      if (code == null || code.length != 6) throw StateError('owner_verification_required');
+      return CompanyServerService.ownerVerify(challengeId: challengeId, code: code);
+    }
+  }
+
   Future<void> _signIn() async {
     final phoneOrEmail = _phoneController.text.trim();
     final password = _passwordController.text.trim();
@@ -36,10 +85,7 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _loading = true);
     try {
-      final auth = await CompanyServerService.signIn(
-        email: phoneOrEmail,
-        password: password,
-      );
+      final auth = await _authenticate(phoneOrEmail, password);
 
       await AppSession.save(
         token: (auth['token'] ?? '').toString(),

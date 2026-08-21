@@ -130,6 +130,37 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
+  static Future<Map<String, dynamic>> ownerLogin({
+    required String email,
+    required String password,
+  }) async {
+    final data = await post('/auth/owner/login', {
+      'email': email,
+      'password': password,
+    });
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> ownerVerify({
+    required String challengeId,
+    required String code,
+  }) async {
+    final data = await post('/auth/owner/verify', {
+      'challengeId': challengeId,
+      'code': code,
+    });
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> ownerResend({
+    required String challengeId,
+  }) async {
+    final data = await post('/auth/owner/resend', {
+      'challengeId': challengeId,
+    });
+    return (data as Map).cast<String, dynamic>();
+  }
+
   static Future<Map<String, dynamic>> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -260,6 +291,41 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
+  static Future<Map<String, dynamic>> getAdminOperationsQueue({int limit = 25}) async {
+    final data = await get('/admin/operations/queue', query: {'limit': limit}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> transitionAdminReport(
+    String reportId, {
+    required String to,
+    bool rewardGranted = false,
+  }) async {
+    final data = await post('/reports/$reportId/transition', {
+      'to': to,
+      'rewardGranted': rewardGranted,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getEligibleReportStores() async {
+    final data = await get('/reports/eligible-stores', auth: true);
+    return (data as List).map((row) => (row as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> createReport({
+    required String reportType,
+    required String targetStoreId,
+    required String description,
+  }) async {
+    final data = await post('/reports', {
+      'reportType': reportType,
+      'targetStoreId': targetStoreId,
+      'description': description,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
   static Future<List<Map<String, dynamic>>> getMyNotifications() async {
     final data = await get('/notifications/my', auth: true);
     return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
@@ -300,6 +366,17 @@ class CompanyServerService {
 
   static Future<void> createOffer(Map<String, dynamic> payload) async {
     await post('/offers', payload, auth: true);
+  }
+
+  static Future<String?> uploadImageBytes(
+    List<int> bytes, {
+    String mimeType = 'image/jpeg',
+  }) async {
+    final data = await post('/uploads/image', {
+      'imageBase64': base64Encode(bytes),
+      'mimeType': mimeType,
+    }, auth: true);
+    return (data as Map)['url']?.toString();
   }
 
   static Future<List<Map<String, dynamic>>> getStores() async {
@@ -835,15 +912,26 @@ class CompanyServerService {
     return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
   }
 
+  static Future<Map<String, dynamic>> getPosGrantQrToken() async {
+    final data = await post('/customer/pos-qr-token', const {}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
   static Future<Map<String, dynamic>> grantCashierPoints({
     required String branchId,
-    required String customerId,
     required double purchaseAmount,
+    String? qrToken,
+    bool manualOverride = false,
+    String? manualCustomerId,
+    String? manualOverrideReason,
   }) async {
     final data = await post('/cashier/grant-points', {
       'branchId': branchId,
-      'customerId': customerId,
       'purchaseAmount': purchaseAmount,
+      if (qrToken != null && qrToken.isNotEmpty) 'qrToken': qrToken,
+      if (manualOverride) 'manualOverride': true,
+      if (manualOverride) 'customerId': manualCustomerId ?? '',
+      if (manualOverride) 'manualOverrideReason': manualOverrideReason ?? '',
     }, auth: true);
     return (data as Map).cast<String, dynamic>();
   }
@@ -891,5 +979,10 @@ class CompanyServerService {
       'pickupQrCode': pickupQrCode,
     }, auth: true);
     return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getMyRewardClaims({int limit = 50}) async {
+    final data = await get('/reward-claims/my', query: {'limit': limit}, auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
   }
 }

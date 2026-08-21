@@ -35,7 +35,7 @@
   "scan_invoice": "Scan Invoice",
   "scan_invoice_place_inside_frame": "Place the invoice inside the frame",
   "scan_invoice_capture": "Capture Image",
-  "scan_invoice_capture_long": "Capture Long Invoice",
+  "scan_invoice_capture_long": "Capture Long Receipt",
   "scan_invoice_points_added": "Your points have been added.",
   "continue": "Continue",
   "add_offer": "Add Offer",
@@ -135,8 +135,6 @@
   "profile_settings": "Profile Settings",
   "notification_preferences": "Notification Preferences",
   "language_currency": "Language & Currency",
-  "privacy_settings": "Privacy Settings",
-  "location_settings": "Location Settings",
   "data_download": "Data Download",
   "download_my_data": "Download My Data",
   "data_deletion": "Data Deletion",
@@ -328,7 +326,6 @@
   "scan_invoice_total_unclear": "Text was extracted, but the total amount is unclear. You can retake the photo or enter amount later.",
   "scan_invoice_frame_hint": "Place the invoice inside the frame",
   "scan_invoice_capture_photo": "Capture Photo",
-  "scan_invoice_capture_long": "Capture Long Receipt",
   "scan_invoice_engine_merchant_only": "Active engine: Merchant name capture only (Merchant Engine v2)",
   "scan_invoice_total_detected": "Detected total: {total}",
   "scan_invoice_not_available": "Unavailable",
@@ -385,6 +382,9 @@
   "free_gift": "Free gift",
   "expand_map": "Expand map",
   "stores_map_title": "Stores Map",
+  "store_details_title": "Store Details",
+  "store_details_back_to_map": "Back to map",
+  "home_discover_distance_unit": "km",
   "search_store_or_category_hint": "Search for a store or category...",
   "offers_for_category": "{category} offers",
   "no_offers_for_category": "No offers available for this category",
@@ -409,6 +409,16 @@
   "available_rewards": "Available rewards",
   "no_rewards_available_now": "No rewards available now.",
   "redeem_points_value": "Redeem {value}",
+  "my_coupons": "My Coupons",
+  "no_coupons_yet": "No coupons redeemed yet.",
+  "coupon_status_pending_pickup": "Waiting for pickup at the store",
+  "coupon_status_used": "Used",
+  "coupon_status_expired": "Expired",
+  "coupon_status_refunded_as_points": "Refunded as points",
+  "coupon_digital_code_label": "Coupon code",
+  "coupon_qr_hint": "Show this code at the store to use the coupon",
+  "coupon_expires_at": "Valid until {value}",
+  "reward_store_label": "From: {value}",
   "transactions_log": "Transactions log",
   "no_log_entries_yet": "No log entries yet.",
   "points_value": "{points} points",
@@ -469,95 +479,92 @@
   "hide_chat": "Hide chat",
   "delete_from_list": "Remove from my list",
   "block_user": "Block user",
-  "write_private_message_hint": "Write a private message..."
-  ,"login_title": "Login"
-  ,"login_error": "Login error: {error}"
-  ,"enter_email": "Enter email."
-  ,"invalid_email_format": "Invalid email format."
-  ,"enter_password": "Enter password."
-  ,"password_min_length": "Password must be at least 8 characters."
-  ,"login_button": "Login"
-  ,"new_user_create_account": "New user? Create an account"
-  ,"signup_title": "Create new account"
-  ,"passwords_do_not_match": "Passwords do not match!"
-  ,"account_created_success": "Account created successfully."
-  ,"generic_error_with_message": "Error: {error}"
-  ,"confirm_password_prompt": "Confirm the password."
-  ,"signup_button": "Create account"
-  ,"available_offers_now_title": "Offers available now"
-  ,"untitled_offer": "Untitled"
-  ,"location_on_map": "Location on map"
-  ,"no_precise_coordinates_offer": "No precise coordinates for this offer"
-  ,"open_in_maps": "Open in maps"
-  ,"offer_details_title": "Offer details"
-  ,"conditions": "Conditions"
-  ,"phone_number": "Phone number"
-  ,"could_not_open_call": "Could not open call"
-  ,"call": "Call"
-  ,"share_offer": "Share offer"
-  ,"share_via": "Share via:"
-  ,"share_offer_text": "Offer from Coupona:\n{storeName}\n{description}\n{location}"
-  ,"whatsapp": "WhatsApp"
-  ,"facebook": "Facebook"
-  ,"telegram": "Telegram"
-  ,"shared_in_community_success": "Shared in Coupona community!"
-  ,"users_list_title": "Users list"
-  ,"no_users_found": "No users found"
-  ,"message": "Message"
-  ,"profile_no_data": "No profile data available"
-  ,"profile_email_value": "Email: {email}"
-  ,"profile_name_value": "Name: {name}"
-  ,"profile_gender_value": "Gender: {gender}"
-  ,"profile_city_value": "City: {city}"
-  ,"profile_country_value": "Country: {country}"
-  ,"report_issue_title": "Report an issue"
-  ,"report_issue_placeholder": "Report screen (under construction)"
-  ,"pick_location_on_map": "Pick location on map"
-  ,"choose_this_location": "Choose this location"
-  ,"my_points_value": "My points: {points}"
-  ,"day_value": "Day {day}"
-  ,"points_progress_last_7_days": "Your points progress over the last 7 days"
-  ,"reward_redeem_error": "Failed to redeem reward: {error}"
-  ,"complete_profile_title": "Complete profile"
-  ,"full_name": "Full name"
-  ,"male": "Male"
-  ,"female": "Female"
-  ,"gender": "Gender"
-  ,"city": "City"
-  ,"country": "Country"
-  ,"save_data": "Save data"
-  ,"profile_saved_success": "Data saved successfully!"
-  ,"profile_save_error": "Error saving data: {error}"
-  ,"coupon_lifecycle_title": "Coupon lifecycle engine"
-  ,"lifecycle_draft": "Draft"
-  ,"lifecycle_pending_review": "Pending review"
-  ,"lifecycle_approved": "Approved"
-  ,"lifecycle_rejected": "Rejected"
-  ,"lifecycle_active": "Active"
-  ,"lifecycle_redeemed": "Redeemed"
-  ,"lifecycle_expired": "Expired"
-  ,"lifecycle_archived": "Archived"
-  ,"offer_id_required": "Offer ID is required."
-  ,"lifecycle_load_success": "Offer lifecycle loaded successfully."
-  ,"lifecycle_bind_error": "Failed to bind offer: {error}"
-  ,"bind_offer_first": "Bind the offer first."
-  ,"lifecycle_changed_to": "Status changed to {status}."
-  ,"lifecycle_change_error": "Failed to change status: {error}"
-  ,"offer_id_label": "Offer ID"
-  ,"bind_offer": "Bind offer"
-  ,"lifecycle_reason_optional": "Action reason (optional)"
-  ,"offer_value": "Offer: {value}"
-  ,"last_updated_value": "Last updated: {value}"
-  ,"reason_value": "Reason: {value}"
-  ,"send_for_review": "Send for review"
-  ,"approve": "Approve"
-  ,"reject": "Reject"
-  ,"activate": "Activate"
-  ,"confirm_redemption": "Confirm redemption"
-  ,"expire": "Expire"
-  ,"archive": "Archive"
-  ,"lifecycle_note": "Note: this is an admin screen for managing offer states from draft to archive."
-,
+  "write_private_message_hint": "Write a private message...",
+  "login_title": "Login",
+  "login_error": "Login error: {error}",
+  "enter_email": "Enter email.",
+  "invalid_email_format": "Invalid email format.",
+  "enter_password": "Enter password.",
+  "password_min_length": "Password must be at least 8 characters.",
+  "login_button": "Login",
+  "new_user_create_account": "New user? Create an account",
+  "signup_title": "Create new account",
+  "passwords_do_not_match": "Passwords do not match!",
+  "account_created_success": "Account created successfully.",
+  "generic_error_with_message": "Error: {error}",
+  "confirm_password_prompt": "Confirm the password.",
+  "signup_button": "Create account",
+  "available_offers_now_title": "Offers available now",
+  "untitled_offer": "Untitled",
+  "location_on_map": "Location on map",
+  "no_precise_coordinates_offer": "No precise coordinates for this offer",
+  "open_in_maps": "Open in maps",
+  "offer_details_title": "Offer details",
+  "conditions": "Conditions",
+  "phone_number": "Phone number",
+  "could_not_open_call": "Could not open call",
+  "call": "Call",
+  "share_offer": "Share offer",
+  "share_via": "Share via:",
+  "share_offer_text": "Offer from Coupona:\n{storeName}\n{description}\n{location}",
+  "whatsapp": "WhatsApp",
+  "facebook": "Facebook",
+  "telegram": "Telegram",
+  "shared_in_community_success": "Shared in Coupona community!",
+  "users_list_title": "Users list",
+  "no_users_found": "No users found",
+  "profile_no_data": "No profile data available",
+  "profile_email_value": "Email: {email}",
+  "profile_name_value": "Name: {name}",
+  "profile_gender_value": "Gender: {gender}",
+  "profile_city_value": "City: {city}",
+  "profile_country_value": "Country: {country}",
+  "report_issue_title": "Report an issue",
+  "report_issue_placeholder": "Report screen (under construction)",
+  "pick_location_on_map": "Pick location on map",
+  "choose_this_location": "Choose this location",
+  "my_points_value": "My points: {points}",
+  "day_value": "Day {day}",
+  "points_progress_last_7_days": "Your points progress over the last 7 days",
+  "complete_profile_title": "Complete profile",
+  "full_name": "Full name",
+  "male": "Male",
+  "female": "Female",
+  "gender": "Gender",
+  "city": "City",
+  "country": "Country",
+  "save_data": "Save data",
+  "profile_saved_success": "Data saved successfully!",
+  "profile_save_error": "Error saving data: {error}",
+  "coupon_lifecycle_title": "Coupon lifecycle engine",
+  "lifecycle_draft": "Draft",
+  "lifecycle_pending_review": "Pending review",
+  "lifecycle_approved": "Approved",
+  "lifecycle_rejected": "Rejected",
+  "lifecycle_active": "Active",
+  "lifecycle_redeemed": "Redeemed",
+  "lifecycle_expired": "Expired",
+  "lifecycle_archived": "Archived",
+  "offer_id_required": "Offer ID is required.",
+  "lifecycle_load_success": "Offer lifecycle loaded successfully.",
+  "lifecycle_bind_error": "Failed to bind offer: {error}",
+  "bind_offer_first": "Bind the offer first.",
+  "lifecycle_changed_to": "Status changed to {status}.",
+  "lifecycle_change_error": "Failed to change status: {error}",
+  "offer_id_label": "Offer ID",
+  "bind_offer": "Bind offer",
+  "lifecycle_reason_optional": "Action reason (optional)",
+  "offer_value": "Offer: {value}",
+  "last_updated_value": "Last updated: {value}",
+  "reason_value": "Reason: {value}",
+  "send_for_review": "Send for review",
+  "approve": "Approve",
+  "reject": "Reject",
+  "activate": "Activate",
+  "confirm_redemption": "Confirm redemption",
+  "expire": "Expire",
+  "archive": "Archive",
+  "lifecycle_note": "Note: this is an admin screen for managing offer states from draft to archive.",
   "my_roles_title": "My Roles",
   "my_roles_active_role": "Current mode: {role}",
   "role_customer": "Customer",
@@ -576,8 +583,7 @@
   "role_mode_cashier": "Cashier Mode",
   "role_placeholder_merchant": "Merchant dashboard is under construction in this phase.",
   "role_placeholder_brand": "Brand dashboard is under construction in this phase.",
-  "role_placeholder_cashier": "Cashier tools will be enabled in a later phase."
-,
+  "role_placeholder_cashier": "Cashier tools will be enabled in a later phase.",
   "role_request_business_name": "Business name",
   "role_request_commercial_registration": "Commercial registration",
   "role_request_plan_type": "Plan type",
@@ -634,7 +640,7 @@
   "admin_dashboard_title": "Admin Dashboard",
   "admin_tab_role_requests": "Role Requests",
   "admin_tab_peer_ads": "Peer Ads",
-  "admin_tab_analytics": "Analytics",
+  "admin_tab_analytics": "Overview",
   "admin_no_pending_role_requests": "No pending role requests.",
   "admin_no_pending_peer_ads": "No pending peer ads.",
   "admin_phone_value": "Phone: {value}",
@@ -753,8 +759,29 @@
   "cashier_redeeming": "Redeeming...",
   "cashier_redeem_claim_action": "Redeem claim",
   "cashier_enter_valid_purchase_amount": "Please enter a valid purchase amount.",
+  "cashier_enter_branch_id": "Please enter a branch ID.",
   "cashier_grant_result": "Granted points: {points}, fraction: {fraction}",
   "cashier_redeem_result": "Claim redeemed. Status: {status}",
+  "cashier_scan_prompt": "Scan the customer's QR code to identify them.",
+  "cashier_scan_action": "Scan",
+  "cashier_rescan": "Rescan",
+  "cashier_qr_scanned": "Customer QR scanned successfully.",
+  "cashier_scan_customer_qr_title": "Scan customer QR",
+  "cashier_manual_override_title": "Manual entry (camera unavailable)",
+  "cashier_manual_override_warning": "Manual entries are logged and flagged for merchant/admin review.",
+  "cashier_manual_override_reason": "Reason (required)",
+  "cashier_scan_or_manual_required": "Scan a customer QR code, or use manual entry below.",
+  "cashier_manual_reason_required": "Please enter the customer ID and a reason for manual entry.",
+  "cashier_qr_already_used": "This code has already been used.",
+  "cashier_qr_expired": "This code has expired. Ask the customer to refresh their QR.",
+  "cashier_qr_invalid": "This code is invalid.",
+  "cashier_daily_limit_reached": "Daily limit reached for this customer.",
+  "cashier_not_authorized_error": "You are not an authorized cashier for this branch.",
+  "pos_qr_title": "Show this QR to the cashier",
+  "pos_qr_show_button": "Show QR to earn points",
+  "pos_qr_expires_in": "Expires in {seconds}s",
+  "pos_qr_auto_refresh_note": "This code refreshes automatically and can only be used once.",
+  "retry": "Retry",
   "merchant_pick_branch_location": "Pick branch location on map",
   "merchant_branch_geo_required": "Geographic location is required for branch creation.",
   "merchant_branch_geo_selected": "Location selected: {lat}, {lng}",
@@ -817,7 +844,6 @@
   "search_location_hint": "Search address or place",
   "location_not_found": "No location found for this query.",
   "location_lookup_failed": "Location search failed. Try another query.",
-  "full_name": "Full name",
   "enter_full_name": "Please enter full name",
   "birth_date": "Birth date",
   "calculated_age": "Age: {age}",
@@ -832,5 +858,88 @@
   "location_rationale_title": "Location access rationale",
   "location_rationale_body": "We use your location to sort nearby stores in Discover, improve offers relevance, and verify role requests.",
   "my_roles_section_owned": "My roles",
-  "my_roles_section_granted_permissions": "Granted permissions"
+  "my_roles_section_granted_permissions": "Granted permissions",
+  "admin_active_merchants": "Active merchants",
+  "admin_total_sales": "Total sales",
+  "admin_users": "Users",
+  "admin_reports": "Reports",
+  "admin_fraud_flags": "Fraud flags",
+  "admin_groups": "Groups",
+  "admin_operations_control_center": "Operations control center",
+  "admin_platform_activity": "Platform activity (30 days)",
+  "admin_operational_pulse": "Operational pulse",
+  "admin_customer_reports": "Customer reports",
+  "admin_reports_received": "{count} reports received",
+  "admin_open_queue": "Open queue",
+  "admin_risk_review": "Risk review",
+  "admin_risk_flags_detected": "{count} risk flags detected",
+  "admin_review_needed": "Review needed",
+  "admin_merchant_activity": "Merchant activity",
+  "admin_active_merchants_30_days": "{count} active in the last 30 days",
+  "admin_live": "Live",
+  "admin_monitoring_and_actions": "Monitoring & actions",
+  "admin_business_footprint": "Business footprint: {m} merchants | {b} brands | {u} users",
+  "admin_review_role_requests": "Review role requests",
+  "admin_pending_count": "{count} pending",
+  "admin_approve_ads": "Approve ads",
+  "admin_escalate_reports": "Escalate reports",
+  "admin_reports_count": "{count} reports",
+  "admin_fraud_monitor": "Fraud monitor",
+  "admin_flags_count": "{count} flags",
+  "admin_operations_queue": "Operations queue",
+  "admin_operations_queue_desc": "Review customer reports, risk signals, and approvals from one place.",
+  "admin_customer_reports_count": "Customer reports ({count})",
+  "admin_no_reports_need_review": "No reports currently need review.",
+  "admin_risk_signals_count": "Risk signals ({count})",
+  "admin_no_fraud_flags_found": "No fraud flags were found.",
+  "admin_unknown_risk": "Unknown risk",
+  "admin_unknown_reporter": "Unknown user",
+  "admin_review": "Review",
+  "admin_pending_approvals": "Approvals",
+  "admin_op_role_requests": "Role requests",
+  "admin_awaiting_verification": "{count} awaiting verification",
+  "admin_open_tab": "Open tab",
+  "admin_op_peer_ads": "Peer ads",
+  "admin_awaiting_review": "{count} awaiting review",
+  "admin_status_new": "new",
+  "admin_unknown_target": "Unknown target",
+  "admin_no_description": "No description",
+  "admin_start_review": "Start review",
+  "admin_accept": "Accept",
+  "admin_reject_btn": "Reject",
+  "admin_grant_reward": "Grant reward",
+  "admin_close": "Close",
+  "admin_lbl_report": "report",
+  "admin_tab_operations": "Operations",
+  "admin_portal": "Admin Portal",
+  "admin_user_distribution": "User Distribution",
+  "notif_title_report_thank_you": "Thank you for your report",
+  "notif_body_report_thank_you": "We received your report and it is under review.",
+  "notif_title_report_accepted_reward": "Report accepted with reward",
+  "notif_body_report_accepted_reward": "Your report was accepted. A reward has been added.",
+  "notif_title_report_accepted": "Report accepted",
+  "notif_body_report_accepted": "Your report was accepted.",
+  "notif_title_report_reward_granted": "Reward granted",
+  "notif_body_report_reward_granted": "A reward was granted for your report.",
+  "notif_title_role_request_approved": "Role approved",
+  "notif_body_role_request_approved": "Your role request was approved and activated.",
+  "notif_title_points_confirmed": "Points added",
+  "notif_body_points_confirmed": "Points have been confirmed.",
+  "notif_title_points_expiry_soon": "Points expiring soon",
+  "notif_body_points_expiry_soon": "Some of your points will expire within 7 days.",
+  "notif_title_invoice_approved": "Invoice approved",
+  "notif_body_invoice_approved": "Your invoice has been approved.",
+  "notif_title_invoice_rejected": "Invoice rejected",
+  "notif_body_invoice_rejected": "Your invoice has been rejected. You can dispute it if needed.",
+  "notif_title_invoice_dispute_denied": "Invoice dispute denied",
+  "notif_body_invoice_dispute_denied": "Your dispute was reviewed and denied.",
+  "notif_title_sourcing_inquiry": "New sourcing inquiry",
+  "notif_body_sourcing_inquiry": "A merchant contacted you about your peer ad.",
+  "notif_title_group_message": "New community message",
+  "notif_body_group_message": "A new message was posted in one of your communities.",
+  "notif_title_targeted_offer": "New targeted offer",
+  "notif_body_targeted_offer": "You have a new offer tailored for you.",
+  "ref_invoice_prefix": "Invoice: ",
+  "ref_reward_prefix": "Reward: ",
+  "ref_manual_prefix": "Manual addition: "
 }

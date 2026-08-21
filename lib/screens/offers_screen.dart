@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'offer_detail_screen.dart';
+import '../services/app_session.dart';
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
 
@@ -45,15 +46,19 @@ class _OffersScreenState extends State<OffersScreen> {
         fit: BoxFit.cover,
       );
     }
-    return Image.network(
-      trimmed,
-      height: 170,
-      width: double.infinity,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(
+    return FutureBuilder<String?>(
+      future: AppSession.token(),
+      builder: (context, snapshot) => Image.network(
+        trimmed,
+        headers: snapshot.data == null ? null : {'Authorization': 'Bearer ${snapshot.data}'},
         height: 170,
-        color: Colors.grey.shade200,
-        child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 52),
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          height: 170,
+          color: Colors.grey.shade200,
+          child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 52),
+        ),
       ),
     );
   }

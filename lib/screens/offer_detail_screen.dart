@@ -6,6 +6,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
+import '../services/app_session.dart';
 import '../theme/design_tokens.dart';
 
 class OfferDetailScreen extends StatefulWidget {
@@ -64,15 +65,19 @@ class _OfferDetailScreenState extends State<OfferDetailScreen> {
         fit: BoxFit.cover,
       );
     }
-    return Image.network(
-      trimmed,
-      height: 220,
-      width: double.infinity,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => Container(
+    return FutureBuilder<String?>(
+      future: AppSession.token(),
+      builder: (context, snapshot) => Image.network(
+        trimmed,
+        headers: snapshot.data == null ? null : {'Authorization': 'Bearer ${snapshot.data}'},
         height: 220,
-        color: Colors.grey.shade200,
-        child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 58),
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          height: 220,
+          color: Colors.grey.shade200,
+          child: const Icon(Icons.broken_image_outlined, color: Colors.grey, size: 58),
+        ),
       ),
     );
   }

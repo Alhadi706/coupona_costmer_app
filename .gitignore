@@ -51,3 +51,9 @@ backend/.env
 !.env.example
 !*.env.example
 node_modules/
+backend/uploads/
+
+# Graphify local state/cache. Keep graphify-out/graph.json, GRAPH_REPORT.md,
+# and graph.html shareable when the team wants the generated graph in Git.
+graphify-out/cache/
+graphify-out/.graphify_*
