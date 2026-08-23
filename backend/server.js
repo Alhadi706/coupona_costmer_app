@@ -45,6 +45,13 @@ const GEMINI_FALLBACK_MODELS = [
 ].filter((v, i, arr) => v && arr.indexOf(v) === i);
 const AI_ONLY_MODE = String(process.env.AI_ONLY_MODE || '').toLowerCase() === 'true';
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+const INVOICES_UPLOAD_DIR = path.join(UPLOAD_DIR, 'invoices');
+if (!fs.existsSync(INVOICES_UPLOAD_DIR)) {
+  fs.mkdirSync(INVOICES_UPLOAD_DIR, { recursive: true });
+}
 const CORS_ALLOWED_ORIGINS = parseList(
   process.env.CORS_ALLOWED_ORIGINS
     || 'http://localhost:8088,http://127.0.0.1:8088,http://localhost:8091,http://127.0.0.1:8091,http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173'
@@ -407,14 +414,23 @@ function normalizeAiInvoiceFields(data) {
   const invoiceNumber = String(data?.invoiceNumber || data?.invoice_number || '').trim() || null;
   const invoiceDate = String(data?.invoiceDate || data?.invoice_date || '').trim() || null;
   const category = String(data?.category || 'general').trim() || 'general';
-  const confidenceRaw = Number(data?.confidence ?? data?.score ?? 0);
-  const confidence = Number.isFinite(confidenceRaw)
-    ? Math.max(0, Math.min(1, confidenceRaw > 1 ? confidenceRaw / 100 : confidenceRaw))
-    : 0;
+
+  const clamp01 = (v) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.min(1, n > 1 ? n / 100 : n));
+  };
+  // Separate confidences per section: a receipt can have a perfectly clear header
+  // (store/date/number) but a blurry items table, or vice-versa — gating every field
+  // off one blended score throws away good partial reads.
+  const overallConfidence = clamp01(data?.confidence ?? data?.score ?? 0);
+  const headerConfidence = data?.headerConfidence != null ? clamp01(data.headerConfidence) : overallConfidence;
+  const totalConfidence = data?.totalConfidence != null ? clamp01(data.totalConfidence) : overallConfidence;
+  const itemsConfidence = data?.itemsConfidence != null ? clamp01(data.itemsConfidence) : overallConfidence;
 
   const amountRaw = data?.totalAmount ?? data?.total_amount ?? data?.total;
   const amount = amountRaw == null ? null : Number(amountRaw);
-  const totalAmount = Number.isFinite(amount) && amount > 0 ? Number(amount.toFixed(2)) : null;
+  let totalAmount = Number.isFinite(amount) && amount > 0 ? Number(amount.toFixed(2)) : null;
 
   const itemsRaw = Array.isArray(data?.items) ? data.items : [];
   const items = itemsRaw
@@ -447,6 +463,23 @@ function normalizeAiInvoiceFields(data) {
     })
     .filter((item) => item.name && (item.quantity != null || item.unitPrice != null || item.lineTotal != null));
 
+  // Self-consistency check: when the items table is legible and sums close to a
+  // plausible total, prefer it over a standalone total figure that may have been
+  // misread from a single blurry line (this is the single highest-value accuracy fix
+  // observed against real receipts: totals like "5.00"/"76.00" instead of "16.000").
+  const itemsSum = items.reduce((sum, it) => sum + (it.lineTotal || 0), 0);
+  if (items.length > 0 && itemsSum > 0) {
+    const roundedSum = Number(itemsSum.toFixed(2));
+    if (totalAmount == null) {
+      totalAmount = roundedSum;
+    } else {
+      const diffRatio = Math.abs(totalAmount - roundedSum) / Math.max(totalAmount, roundedSum);
+      if (diffRatio > 0.2 && itemsConfidence >= totalConfidence) {
+        totalAmount = roundedSum;
+      }
+    }
+  }
+
   return {
     merchantName,
     branchName,
@@ -456,9 +489,42 @@ function normalizeAiInvoiceFields(data) {
     totalAmount,
     items,
     category,
-    confidence,
+    confidence: overallConfidence,
+    headerConfidence,
+    totalConfidence,
+    itemsConfidence,
   };
 }
+
+const INVOICE_RESPONSE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    merchantName: { type: 'STRING', nullable: true },
+    branchName: { type: 'STRING', nullable: true },
+    orderNumber: { type: 'STRING', nullable: true },
+    invoiceNumber: { type: 'STRING', nullable: true },
+    invoiceDate: { type: 'STRING', nullable: true },
+    totalAmount: { type: 'NUMBER', nullable: true },
+    category: { type: 'STRING', enum: ['food', 'grocery', 'pharmacy', 'transport', 'general'] },
+    items: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          name: { type: 'STRING' },
+          quantity: { type: 'NUMBER', nullable: true },
+          unitPrice: { type: 'NUMBER', nullable: true },
+          lineTotal: { type: 'NUMBER', nullable: true },
+        },
+        required: ['name'],
+      },
+    },
+    headerConfidence: { type: 'NUMBER' },
+    totalConfidence: { type: 'NUMBER' },
+    itemsConfidence: { type: 'NUMBER' },
+  },
+  required: ['category', 'items', 'headerConfidence', 'totalConfidence', 'itemsConfidence'],
+};
 
 async function analyzeInvoiceWithGemini({ rawText, imageBase64, mimeType }) {
   if (!GEMINI_API_KEY) {
@@ -466,32 +532,30 @@ async function analyzeInvoiceWithGemini({ rawText, imageBase64, mimeType }) {
   }
 
   const instruction = [
-    'Extract invoice fields from Arabic/English receipt image and OCR text.',
-    'Return strict JSON only (no markdown):',
-    '{',
-    '  "merchantName": string|null,',
-    '  "branchName": string|null,',
-    '  "orderNumber": string|null,',
-    '  "invoiceNumber": string|null,',
-    '  "invoiceDate": string|null,',
-    '  "totalAmount": number|null,',
-    '  "items": [{"name": string, "quantity": number|null, "unitPrice": number|null, "lineTotal": number|null}],',
-    '  "category": "food"|"grocery"|"pharmacy"|"transport"|"general",',
-    '  "confidence": number',
-    '}',
-    'Rules:',
-    '- Prefer merchant brand name over branch/location details.',
-    '- Order number may appear vertically below the label.',
-    '- Do not use time/date as orderNumber.',
-    '- Items may be table-like or compact text, e.g. "مفروم قعود 3 21".',
-    '- If quantity and lineTotal exist but unitPrice missing, infer unitPrice = lineTotal / quantity.',
-    '- Confidence must be between 0 and 1.',
+    'You are reading a real casual smartphone photo of a paper store/restaurant receipt (Arabic and/or English, often thermal-printer text) — held in a hand, possibly tilted, blurry, glared, or partially cropped. It is NOT a flatbed scan; expect real-world photo noise and still do your best.',
+    'Look at the image directly and read every digit and character yourself — this is the only reliable source, ignore any other text hint provided.',
+    'Currency amounts on Gulf-region receipts are usually written with 3 decimal places (e.g. "16.000" means sixteen, not sixteen thousand). Read the full number including all decimal digits exactly as printed.',
+    'Read the items table row by row: each row usually has item name, quantity, unit price, and line total. Numbers next to each other can be easy to confuse — double check which column is quantity vs price vs total.',
+    'CRITICAL: only output an item row if you can actually see that item printed in the image. Never invent, duplicate, or pad extra rows to look complete — a receipt with one visible item line must return exactly one item, not more. It is far better to return fewer correct items (or an empty list) than extra guessed ones.',
+    'For every item you output, quantity * unitPrice must equal lineTotal (small rounding aside); if it does not, you misread a digit — look again or omit that field rather than guessing.',
+    'Self-check before answering: the sum of all items\' lineTotal should be close to totalAmount (they may differ slightly due to tax/discount/service charge). If they strongly disagree, re-read the image and correct whichever value you are less sure about.',
+    'If a specific character, word, or number is illegible, leave that field null — never invent random letters/numbers to fill a field.',
+    'Return strict JSON only, matching the provided schema.',
+    'Field notes:',
+    '- Prefer the merchant brand name over a branch/location sub-line.',
+    '- An order number may appear vertically/stacked below its label, separate from invoice/date.',
+    '- Do not use a time or date value as orderNumber or invoiceNumber.',
+    '- Only fill invoiceNumber when the receipt clearly labels a number as an invoice/receipt number distinct from the order number; if the receipt only really has one identifying number (the order number), leave invoiceNumber null instead of reusing an unrelated printed code (e.g. a till/footer sequence number).',
+    '- headerConfidence = how sure you are about merchantName/invoiceNumber/orderNumber/invoiceDate (0-1).',
+    '- totalConfidence = how sure you are about totalAmount specifically (0-1).',
+    '- itemsConfidence = how sure you are about the items list specifically (0-1).',
   ].join('\n');
 
-  const parts = [
-    { text: instruction },
-    { text: `OCR_TEXT:\n${String(rawText || '').slice(0, 12000)}` },
-  ];
+  // The raw local OCR text (Tesseract) is frequently garbled for Arabic receipts and was
+  // found to actively mislead the model into hallucinating item rows when a photo is
+  // present — real-world testing showed pure image analysis matches manual Gemini results
+  // perfectly. We now ignore `rawText` completely in the Gemini call.
+  const parts = [{ text: instruction }];
 
   if (imageBase64) {
     parts.push({
@@ -515,6 +579,7 @@ async function analyzeInvoiceWithGemini({ rawText, imageBase64, mimeType }) {
           generationConfig: {
             temperature: 0.1,
             responseMimeType: 'application/json',
+            responseSchema: INVOICE_RESPONSE_SCHEMA,
           },
         }),
       }
@@ -851,7 +916,15 @@ async function initSchema() {
       id TEXT PRIMARY KEY,
       reward_name TEXT NOT NULL,
       description TEXT,
-      value INTEGER NOT NULL DEFAULT 0
+      value INTEGER NOT NULL DEFAULT 0,
+      kind TEXT NOT NULL DEFAULT 'physical',
+      source_type TEXT,
+      source_id TEXT,
+      image_url TEXT,
+      expires_at TIMESTAMPTZ,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      quantity_limit INTEGER,
+      quantity_redeemed INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS activity_logs (
@@ -954,6 +1027,7 @@ async function initSchema() {
   await pool.query('ALTER TABLE invoice_scans ADD COLUMN IF NOT EXISTS retention_expires_at TIMESTAMPTZ');
   await pool.query('ALTER TABLE invoice_scans ADD COLUMN IF NOT EXISTS state TEXT NOT NULL DEFAULT \'approved\'');
   await pool.query('ALTER TABLE invoice_scans ADD COLUMN IF NOT EXISTS review_note TEXT');
+  await pool.query('ALTER TABLE invoice_scans ADD COLUMN IF NOT EXISTS original_image_path TEXT');
   await pool.query('ALTER TABLE reward_claims ADD COLUMN IF NOT EXISTS digital_code TEXT');
   await pool.query('ALTER TABLE reward_claims ADD COLUMN IF NOT EXISTS redeemed_at TIMESTAMPTZ');
   await pool.query('ALTER TABLE reward_claims ADD COLUMN IF NOT EXISTS redeemed_by TEXT');
@@ -1171,6 +1245,7 @@ async function initSchema() {
     CREATE TABLE IF NOT EXISTS exchange_transactions (
       id TEXT PRIMARY KEY,
       owner_id TEXT NOT NULL,
+      reward_id TEXT,
       source_type TEXT NOT NULL,
       source_id TEXT NOT NULL,
       destination_type TEXT NOT NULL,
@@ -1290,6 +1365,9 @@ async function initSchema() {
       text TEXT NOT NULL,
       is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
       is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+      image_url TEXT,
+      message_type TEXT NOT NULL DEFAULT 'post',
+      poll_json JSONB,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -1307,6 +1385,12 @@ async function initSchema() {
   await pool.query('ALTER TABLE offer_targeting_rules ADD COLUMN IF NOT EXISTS criteria_json JSONB');
   await pool.query('ALTER TABLE peer_ads ADD COLUMN IF NOT EXISTS target_category TEXT');
   await pool.query('ALTER TABLE peer_ads ADD COLUMN IF NOT EXISTS target_geo_json JSONB');
+  await pool.query('ALTER TABLE community_messages ADD COLUMN IF NOT EXISTS image_url TEXT');
+  await pool.query("ALTER TABLE community_messages ADD COLUMN IF NOT EXISTS message_type TEXT NOT NULL DEFAULT 'post'");
+  await pool.query('ALTER TABLE community_messages ADD COLUMN IF NOT EXISTS poll_json JSONB');
+  await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS working_hours TEXT');
+  await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS phone TEXT');
+  await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()');
 
   await pool.query('CREATE INDEX IF NOT EXISTS idx_branches_merchant_id ON branches(merchant_id)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_cashier_profiles_branch_id ON cashier_profiles(branch_id)');
@@ -1333,6 +1417,25 @@ async function initSchema() {
   );
 
   await pool.query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT FALSE');
+  await pool.query("ALTER TABLE rewards ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'physical'");
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS source_type TEXT');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS source_id TEXT');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS image_url TEXT');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS quantity_limit INTEGER');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS quantity_redeemed INTEGER NOT NULL DEFAULT 0');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS pickup_instructions TEXT');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS draw_enabled BOOLEAN NOT NULL DEFAULT FALSE');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS draw_at TIMESTAMPTZ');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS draw_winner_user_id TEXT');
+  await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS draw_completed_at TIMESTAMPTZ');
+  await pool.query('ALTER TABLE reward_claims ADD COLUMN IF NOT EXISTS reward_id TEXT');
+  await pool.query('ALTER TABLE offers ADD COLUMN IF NOT EXISTS cta_type TEXT NOT NULL DEFAULT \'store\'');
+  await pool.query('ALTER TABLE offers ADD COLUMN IF NOT EXISTS cta_value TEXT');
+  await pool.query('ALTER TABLE offers ADD COLUMN IF NOT EXISTS impressions INTEGER NOT NULL DEFAULT 0');
+  await pool.query('ALTER TABLE offers ADD COLUMN IF NOT EXISTS clicks INTEGER NOT NULL DEFAULT 0');
   await pool.query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ');
   await pool.query('ALTER TABLE notifications ADD COLUMN IF NOT EXISTS target_screen TEXT');
   await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0');
@@ -1476,6 +1579,16 @@ async function canManageInvoice(client, user, invoiceId, targetState = null) {
 async function canRedeemClaim(client, user, claim) {
   if (isAdmin(user)) return true;
   if (claim.source_type !== 'merchant' || !claim.source_id) return false;
+  const merchantOwner = (await client.query(
+    `SELECT 1
+       FROM merchant_profiles
+      WHERE id = $1
+        AND user_id = $2
+        AND status = 'active'
+      LIMIT 1`,
+    [claim.source_id, user.userId]
+  )).rows[0];
+  if (merchantOwner) return true;
   const row = (await client.query(
     `SELECT 1
        FROM cashier_profiles
@@ -2983,6 +3096,49 @@ function normalizeRoleType(value) {
   return null;
 }
 
+// Best-effort match: an OCR/AI-detected merchant name rarely matches a merchant_profiles
+// row by exact ID, so compare the same normalized key used for invoice_scans.merchant_key.
+async function resolveMerchantProfileIdByKey(client, merchantKey) {
+  if (!merchantKey) return null;
+  const rows = (await client.query(
+    "SELECT id, business_name FROM merchant_profiles WHERE status = 'active'"
+  )).rows;
+  let best = null;
+  for (const row of rows) {
+    const profileKey = normalizeMerchantKey(row.business_name);
+    if (!profileKey || profileKey.length < 4) continue;
+    const matches = profileKey === merchantKey ||
+      merchantKey.includes(profileKey) || profileKey.includes(merchantKey);
+    if (matches && (!best || profileKey.length > best.length)) {
+      best = { id: row.id, length: profileKey.length };
+    }
+  }
+  return best?.id || null;
+}
+
+// Heuristic brand/product match for a scanned line item name (no AI call): looks for a
+// substring match against active brands' product catalog and keeps the most specific hit.
+async function autoMatchLineItemToBrand(client, itemName) {
+  const normalizedItem = normalizeMerchantKey(itemName);
+  if (normalizedItem.length < 4) return null;
+  const rows = (await client.query(
+    `SELECT pr.id AS product_id, pr.brand_id, pr.name
+       FROM product_registry pr
+       JOIN brand_profiles bp ON bp.id = pr.brand_id AND bp.status = 'active'`
+  )).rows;
+  let best = null;
+  for (const row of rows) {
+    const normalizedProduct = normalizeMerchantKey(row.name);
+    if (normalizedProduct.length < 4) continue;
+    if (normalizedItem.includes(normalizedProduct) || normalizedProduct.includes(normalizedItem)) {
+      if (!best || normalizedProduct.length > best.matchLength) {
+        best = { brandId: row.brand_id, productId: row.product_id, matchLength: normalizedProduct.length };
+      }
+    }
+  }
+  return best;
+}
+
 function canTransitionSubscription(from, to) {
   if (from === to) return true;
   switch (from) {
@@ -3358,6 +3514,33 @@ app.get('/api/merchant/branches', auth, async (req, res) => {
     return res.json(rows);
   } catch (e) {
     return res.status(500).json({ error: 'branch_list_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
+});
+
+app.patch('/api/merchant/branches/:id', auth, async (req, res) => {
+  const branchId = String(req.params.id || '').trim();
+  const client = await pool.connect();
+  try {
+    const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+    if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+    await assertMerchantSubscriptionWritable(client, merchantId);
+    const p = req.body || {};
+    const result = await client.query(
+      `UPDATE branches
+          SET name = COALESCE($1, name), address = COALESCE($2, address),
+              working_hours = COALESCE($3, working_hours), phone = COALESCE($4, phone),
+              updated_at = NOW()
+        WHERE id = $5 AND merchant_id = $6
+        RETURNING *`,
+      [p.name == null ? null : String(p.name).trim(), p.address == null ? null : String(p.address).trim(), p.workingHours == null ? null : String(p.workingHours).trim(), p.phone == null ? null : String(p.phone).trim(), branchId, merchantId]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'branch_not_found' });
+    return res.json({ ok: true, branch: result.rows[0] });
+  } catch (e) {
+    if (isMerchantSubscriptionReadOnlyError(e)) return res.status(403).json({ error: 'merchant_subscription_read_only' });
+    return res.status(500).json({ error: 'branch_update_failed', details: String(e.message || e) });
   } finally {
     client.release();
   }
@@ -4347,33 +4530,45 @@ app.post('/api/merchant/invoices/disputes/:id/resolve', auth, async (req, res) =
 });
 
 app.get('/api/reports/eligible-stores', auth, async (req, res) => {
-  const rows = (await pool.query(
-    `SELECT i.merchant_profile_id AS store_id,
-            COALESCE(mp.business_name, i.merchant_name, 'Unknown merchant') AS store_name,
-            COUNT(*)::int AS interactions_count,
-            MAX(i.created_at) AS last_interacted_at
+  const invoiceRows = (await pool.query(
+    `SELECT i.id, i.merchant_profile_id, i.merchant_name, i.merchant_key, i.created_at,
+            mp.business_name
        FROM invoice_scans i
        LEFT JOIN merchant_profiles mp ON mp.id = i.merchant_profile_id
-      WHERE i.owner_id = $1
-        AND i.state = 'approved'
-        AND i.merchant_profile_id IS NOT NULL
-      GROUP BY i.merchant_profile_id, COALESCE(mp.business_name, i.merchant_name, 'Unknown merchant')
-      ORDER BY MAX(i.created_at) DESC`,
+      WHERE i.owner_id = $1 AND i.state = 'approved'
+      ORDER BY i.created_at DESC`,
     [req.user.userId]
   )).rows;
+  const grouped = new Map();
+  for (const invoice of invoiceRows) {
+    let storeId = invoice.merchant_profile_id;
+    let storeName = invoice.business_name || invoice.merchant_name || 'Unknown merchant';
+    if (!storeId) {
+      storeId = await resolveMerchantProfileIdByKey(pool, invoice.merchant_key || invoice.merchant_name);
+      if (storeId) {
+        const profile = (await pool.query('SELECT business_name FROM merchant_profiles WHERE id = $1 LIMIT 1', [storeId])).rows[0];
+        storeName = profile?.business_name || storeName;
+        await pool.query('UPDATE invoice_scans SET merchant_profile_id = $1 WHERE id = $2', [storeId, invoice.id]);
+      }
+    }
+    // A receipt can belong to a real place that has not onboarded yet. Keep it
+    // selectable as a visited store using the invoice as a stable reference.
+    if (!storeId) storeId = `visited:${invoice.id}`;
+    const current = grouped.get(storeId) || { storeId, storeName, interactionsCount: 0, lastInteractedAt: invoice.created_at };
+    current.interactionsCount += 1;
+    grouped.set(storeId, current);
+  }
 
-  return res.json(rows.map((row) => ({
-    storeId: row.store_id,
-    storeName: row.store_name,
-    interactionsCount: Number(row.interactions_count || 0),
-    lastInteractedAt: toIso(row.last_interacted_at),
+  return res.json([...grouped.values()].map((row) => ({
+    ...row,
+    lastInteractedAt: toIso(row.lastInteractedAt),
   })));
 });
 
 app.post('/api/reports', auth, async (req, res) => {
   const p = req.body || {};
   const reportType = String(p.reportType || 'other').trim() || 'other';
-  const targetStoreId = String(p.targetStoreId || '').trim() || null;
+  let targetStoreId = String(p.targetStoreId || '').trim() || null;
   const targetBrandId = String(p.targetBrandId || '').trim() || null;
   const description = String(p.description || '').trim() || null;
   const imageUrl = String(p.imageUrl || '').trim() || null;
@@ -4384,6 +4579,9 @@ app.post('/api/reports', auth, async (req, res) => {
 
   let storeNameSnapshot = null;
   if (targetStoreId) {
+    const visitedInvoiceId = targetStoreId.startsWith('visited:')
+      ? targetStoreId.replace(/^visited:/, '')
+      : null;
     const allowedStore = (await pool.query(
       `SELECT i.merchant_profile_id AS store_id,
               COALESCE(mp.business_name, i.merchant_name, 'Unknown merchant') AS store_name
@@ -4391,15 +4589,16 @@ app.post('/api/reports', auth, async (req, res) => {
          LEFT JOIN merchant_profiles mp ON mp.id = i.merchant_profile_id
         WHERE i.owner_id = $1
           AND i.state = 'approved'
-          AND i.merchant_profile_id = $2
+          AND (${visitedInvoiceId ? 'i.id = $2' : 'i.merchant_profile_id = $2'})
         ORDER BY i.created_at DESC
         LIMIT 1`,
-      [req.user.userId, targetStoreId]
+      [req.user.userId, visitedInvoiceId || targetStoreId]
     )).rows[0];
     if (!allowedStore) {
       return res.status(403).json({ error: 'store_not_in_user_interactions' });
     }
     storeNameSnapshot = allowedStore.store_name;
+    if (visitedInvoiceId) targetStoreId = allowedStore.store_id || null;
   }
 
   let brandNameSnapshot = null;
@@ -4530,6 +4729,60 @@ app.get('/api/merchant/reports/inbox', auth, async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+app.get('/api/brand/reports/inbox', auth, async (req, res) => {
+  const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
+  if (!brandId) return res.status(403).json({ error: 'brand_role_required' });
+  const rows = (await pool.query(
+    `SELECT r.id, r.owner_id, COALESCE(u.full_name, u.email) AS reporter_name,
+            u.email AS reporter_email, r.report_type, r.status, r.description,
+            r.image_url, r.target_store_id, r.target_store_name_snapshot,
+            mp.user_id AS store_user_id, mp.phone AS store_phone,
+            mp.location_lat AS store_lat, mp.location_lng AS store_lng,
+            mp.location_address AS store_address, mp.business_name AS store_name,
+            r.reward_granted, r.reward_points, r.resolution_note, r.created_at
+       FROM reports r
+       LEFT JOIN users u ON u.id = r.owner_id
+       LEFT JOIN merchant_profiles mp ON mp.id = r.target_store_id
+      WHERE r.target_brand_id = $1
+      ORDER BY r.created_at DESC`,
+    [brandId]
+  )).rows;
+  return res.json(rows.map((row) => ({
+    id: row.id, ownerId: row.owner_id, reporterName: row.reporter_name,
+    reporterEmail: row.reporter_email, reportType: row.report_type, status: row.status,
+    description: row.description, imageUrl: row.image_url, storeId: row.target_store_id,
+    storeName: row.store_name || row.target_store_name_snapshot, storeUserId: row.store_user_id,
+    storePhone: row.store_phone, storeLat: row.store_lat == null ? null : Number(row.store_lat),
+    storeLng: row.store_lng == null ? null : Number(row.store_lng), storeAddress: row.store_address,
+    rewardGranted: Boolean(row.reward_granted), rewardPoints: Number(row.reward_points || 0),
+    resolutionNote: row.resolution_note, createdAt: toIso(row.created_at),
+  })));
+});
+
+app.post('/api/brand/reports/:id/resolve', auth, async (req, res) => {
+  const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
+  if (!brandId) return res.status(403).json({ error: 'brand_role_required' });
+  const grantReward = Boolean((req.body || {}).grantReward);
+  const rewardPoints = Math.max(0, Number((req.body || {}).rewardPoints || 10));
+  const resolutionNote = String((req.body || {}).resolutionNote || '').trim() || null;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const report = (await client.query('SELECT * FROM reports WHERE id = $1 AND target_brand_id = $2 FOR UPDATE', [req.params.id, brandId])).rows[0];
+    if (!report) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'report_not_found' }); }
+    const status = grantReward ? 'reward_granted' : 'accepted';
+    await client.query(`UPDATE reports SET status=$2, reward_granted=$3, reward_points=$4, resolved_by_user_id=$5, resolved_at=NOW(), resolution_note=$6, updated_at=NOW() WHERE id=$1`, [report.id, status, grantReward, grantReward ? rewardPoints : 0, req.user.userId, resolutionNote]);
+    if (grantReward && rewardPoints > 0) {
+      await client.query('INSERT INTO point_accounts (owner_id, available_points, lifetime_points, updated_at) VALUES ($1,0,0,NOW()) ON CONFLICT (owner_id) DO NOTHING', [report.owner_id]);
+      await client.query('UPDATE point_accounts SET available_points=available_points+$2, lifetime_points=lifetime_points+$2, updated_at=NOW() WHERE owner_id=$1', [report.owner_id, rewardPoints]);
+    }
+    await insertNotification(client, report.owner_id, grantReward ? 'report_accepted_reward' : 'report_accepted', grantReward ? 'تم قبول البلاغ ومنحك نقاطاً' : 'تم قبول البلاغ', grantReward ? `تم قبول بلاغك ومنحك ${rewardPoints} نقطة.` : 'تمت مراجعة بلاغك وقبوله.', { reportId: report.id, rewardPoints: grantReward ? rewardPoints : 0, targetScreen: 'reports' });
+    await client.query('COMMIT');
+    return res.json({ ok: true, id: report.id, status, rewardPoints: grantReward ? rewardPoints : 0 });
+  } catch (e) { await client.query('ROLLBACK'); return res.status(500).json({ error: 'brand_report_resolve_failed', details: String(e.message || e) }); }
+  finally { client.release(); }
 });
 
 app.post('/api/merchant/reports/:id/accept', auth, async (req, res) => {
@@ -4870,22 +5123,48 @@ app.post('/api/reward-claims/create', auth, async (req, res) => {
   const pointsCost = Number(p.pointsCost || 0);
   if (!Number.isInteger(pointsCost) || pointsCost <= 0) return res.status(400).json({ error: 'invalid_points_cost' });
   const rewardKind = String(p.rewardKind || 'physical');
+  const rewardId = String(p.rewardId || '').trim() || null;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    if (rewardId) {
+      const reward = (await client.query(
+        `SELECT id, value, kind, source_type, source_id, is_active, quantity_limit, quantity_redeemed, expires_at
+           FROM rewards WHERE id = $1 FOR UPDATE`,
+        [rewardId]
+      )).rows[0];
+      if (!reward) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'reward_not_found' }); }
+      if (!reward.is_active) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'reward_inactive' }); }
+      if (Number(reward.value) !== pointsCost) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'reward_points_mismatch' }); }
+      if (reward.expires_at && new Date(reward.expires_at).getTime() <= Date.now()) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'reward_expired' }); }
+      if (reward.quantity_limit != null && Number(reward.quantity_redeemed || 0) >= Number(reward.quantity_limit)) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'reward_sold_out' }); }
+      await client.query('UPDATE rewards SET quantity_redeemed = quantity_redeemed + 1 WHERE id = $1', [rewardId]);
+    }
+    const pointAccount = (await client.query(
+      'SELECT available_points FROM point_accounts WHERE owner_id = $1 FOR UPDATE',
+      [req.user.userId]
+    )).rows[0];
+    if (!pointAccount || Number(pointAccount.available_points || 0) < pointsCost) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'insufficient_points' });
+    }
   const claimId = id();
   const qr = crypto.randomUUID().replace(/-/g, '');
   const digitalCode = rewardKind === 'digital'
     ? `DG-${crypto.randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase()}`
     : null;
   const expiresAt = rewardKind === 'digital' ? null : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-  await pool.query(
+  await client.query(
     `INSERT INTO reward_claims (
-      id, owner_id, source_type, source_id, points_cost, reward_kind,
+      id, owner_id, reward_id, source_type, source_id, points_cost, reward_kind,
       pickup_qr_code, digital_code, status, redeemed_at, redeemed_by, expires_at
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13
     )`,
     [
       claimId,
       req.user.userId,
+      rewardId,
       String(p.sourceType || 'merchant'),
       String(p.sourceId || ''),
       pointsCost,
@@ -4898,7 +5177,8 @@ app.post('/api/reward-claims/create', auth, async (req, res) => {
       expiresAt,
     ]
   );
-  await pool.query('UPDATE point_accounts SET available_points = GREATEST(available_points - $2, 0), updated_at = NOW() WHERE owner_id = $1', [req.user.userId, pointsCost]);
+  await client.query('UPDATE point_accounts SET available_points = available_points - $2, updated_at = NOW() WHERE owner_id = $1', [req.user.userId, pointsCost]);
+  await client.query('COMMIT');
   return res.json({
     ok: true,
     id: claimId,
@@ -4907,6 +5187,12 @@ app.post('/api/reward-claims/create', auth, async (req, res) => {
     status: rewardKind === 'digital' ? 'used' : 'pending_pickup',
     expiresAt,
   });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    return res.status(500).json({ error: 'reward_claim_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
 });
 
 app.get('/api/reward-claims/my', auth, async (req, res) => {
@@ -4924,6 +5210,7 @@ app.get('/api/reward-claims/my', auth, async (req, res) => {
     ownerId: row.owner_id,
     sourceType: row.source_type,
     sourceId: row.source_id,
+    rewardId: row.reward_id,
     pointsCost: Number(row.points_cost || 0),
     rewardKind: row.reward_kind,
     pickupQrCode: row.pickup_qr_code,
@@ -5716,6 +6003,24 @@ app.post('/api/notifications/:id/read', auth, async (req, res) => {
 });
 
 app.get('/api/community/groups/my', auth, async (req, res) => {
+  const eligibleMerchantGroups = (await pool.query(
+    `SELECT DISTINCT cg.id
+       FROM community_groups cg
+       JOIN invoice_scans i ON i.merchant_profile_id = cg.role_profile_id
+      WHERE cg.role_type = 'merchant'
+        AND i.owner_id = $1
+        AND i.state = 'approved'`,
+    [req.user.userId]
+  )).rows;
+  for (const row of eligibleMerchantGroups) {
+    const banned = (await pool.query(
+      'SELECT 1 FROM community_group_bans WHERE group_id = $1 AND user_id = $2 LIMIT 1',
+      [row.id, req.user.userId]
+    )).rows[0];
+    if (!banned) {
+      await ensureCommunityMembership(pool, row.id, req.user.userId);
+    }
+  }
   const rows = (await pool.query(
     `SELECT cg.id, cg.role_type, cg.role_profile_id, cg.name, cg.owner_user_id,
             (SELECT COUNT(*)::int FROM community_group_members m WHERE m.group_id = cg.id) AS members_count,
@@ -5779,7 +6084,7 @@ app.get('/api/community/groups/:id/messages', auth, async (req, res) => {
   );
 
   const rows = (await pool.query(
-    `SELECT id, sender_id, sender_name, text, is_pinned, is_deleted, created_at, updated_at
+    `SELECT id, sender_id, sender_name, text, image_url, message_type, poll_json, is_pinned, is_deleted, created_at, updated_at
        FROM community_messages
       WHERE group_id = $1
       ORDER BY is_pinned DESC, created_at ASC`,
@@ -5790,6 +6095,9 @@ app.get('/api/community/groups/:id/messages', auth, async (req, res) => {
     senderId: row.sender_id,
     senderName: row.sender_name,
     text: row.is_deleted ? '[deleted]' : row.text,
+    imageUrl: row.image_url,
+    messageType: row.message_type || 'post',
+    poll: row.poll_json || null,
     isPinned: Boolean(row.is_pinned),
     isDeleted: Boolean(row.is_deleted),
     createdAt: toIso(row.created_at),
@@ -5797,10 +6105,31 @@ app.get('/api/community/groups/:id/messages', auth, async (req, res) => {
   })));
 });
 
+app.get('/api/community/groups/:id/members', auth, async (req, res) => {
+  const member = (await pool.query(
+    'SELECT 1 FROM community_group_members WHERE group_id = $1 AND user_id = $2 LIMIT 1',
+    [req.params.id, req.user.userId]
+  )).rows[0];
+  if (!member) return res.status(403).json({ error: 'group_membership_required' });
+  const rows = (await pool.query(
+    `SELECT m.user_id, u.email, m.joined_at,
+            EXISTS (SELECT 1 FROM community_group_bans b WHERE b.group_id = m.group_id AND b.user_id = m.user_id) AS is_banned
+       FROM community_group_members m
+       JOIN users u ON u.id = m.user_id
+      WHERE m.group_id = $1
+      ORDER BY m.joined_at ASC`,
+    [req.params.id]
+  )).rows;
+  return res.json(rows.map((row) => ({ userId: row.user_id, label: row.email, joinedAt: toIso(row.joined_at), isBanned: Boolean(row.is_banned) })));
+});
+
 app.post('/api/community/groups/:id/messages', auth, async (req, res) => {
   const groupId = req.params.id;
   const text = String((req.body || {}).text || '').trim();
-  if (!text) return res.status(400).json({ error: 'text_required' });
+  const imageUrl = String((req.body || {}).imageUrl || '').trim() || null;
+  const messageType = (req.body || {}).poll && typeof (req.body || {}).poll === 'object' ? 'poll' : 'post';
+  const poll = messageType === 'poll' ? (req.body || {}).poll : null;
+  if (!text && !imageUrl && !poll) return res.status(400).json({ error: 'message_content_required' });
 
   const member = (await pool.query(
     'SELECT 1 FROM community_group_members WHERE group_id = $1 AND user_id = $2 LIMIT 1',
@@ -5817,9 +6146,9 @@ app.post('/api/community/groups/:id/messages', auth, async (req, res) => {
   const user = (await pool.query('SELECT email FROM users WHERE id = $1 LIMIT 1', [req.user.userId])).rows[0];
   const messageId = id();
   await pool.query(
-    `INSERT INTO community_messages (id, group_id, sender_id, sender_name, text)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [messageId, groupId, req.user.userId, user?.email || 'User', text]
+    `INSERT INTO community_messages (id, group_id, sender_id, sender_name, text, image_url, message_type, poll_json)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
+    [messageId, groupId, req.user.userId, user?.email || 'User', text, imageUrl, messageType, poll ? JSON.stringify(poll) : null]
   );
 
   const recipients = (await pool.query(
@@ -5856,6 +6185,44 @@ app.post('/api/community/groups/:id/messages/:messageId/pin', auth, async (req, 
     [req.params.messageId, groupId]
   );
   return res.json({ ok: true });
+});
+
+app.post('/api/community/groups/:id/broadcast', auth, async (req, res) => {
+  const groupId = req.params.id;
+  if (!(await canModerateCommunityGroup(pool, groupId, req.user.userId))) {
+    return res.status(403).json({ error: 'moderator_required' });
+  }
+  const text = String((req.body || {}).text || '').trim();
+  if (!text) return res.status(400).json({ error: 'text_required' });
+  const recipients = (await pool.query(
+    'SELECT user_id FROM community_group_members WHERE group_id = $1 AND user_id <> $2',
+    [groupId, req.user.userId]
+  )).rows;
+  for (const row of recipients) {
+    await insertNotification(pool, row.user_id, 'merchant_broadcast', 'Community update', text, { groupId, targetScreen: 'community_group' });
+  }
+  return res.json({ ok: true, recipientCount: recipients.length });
+});
+
+app.post('/api/community/groups/:id/messages/:messageId/poll-vote', auth, async (req, res) => {
+  const member = (await pool.query(
+    'SELECT 1 FROM community_group_members WHERE group_id = $1 AND user_id = $2 LIMIT 1',
+    [req.params.id, req.user.userId]
+  )).rows[0];
+  if (!member) return res.status(403).json({ error: 'group_membership_required' });
+  const option = String((req.body || {}).option || '').trim();
+  const row = (await pool.query(
+    'SELECT poll_json FROM community_messages WHERE id = $1 AND group_id = $2 AND message_type = \'poll\' LIMIT 1',
+    [req.params.messageId, req.params.id]
+  )).rows[0];
+  if (!row || !option) return res.status(404).json({ error: 'poll_not_found' });
+  const poll = row.poll_json || {};
+  const options = Array.isArray(poll.options) ? poll.options : [];
+  if (!options.includes(option)) return res.status(400).json({ error: 'poll_option_invalid' });
+  const votes = poll.votes && typeof poll.votes === 'object' ? poll.votes : {};
+  votes[option] = Number(votes[option] || 0) + 1;
+  await pool.query('UPDATE community_messages SET poll_json = $1::jsonb, updated_at = NOW() WHERE id = $2', [JSON.stringify({ ...poll, votes }), req.params.messageId]);
+  return res.json({ ok: true, votes });
 });
 
 app.delete('/api/community/groups/:id/messages/:messageId', auth, async (req, res) => {
@@ -6167,6 +6534,10 @@ app.get('/api/offers', auth, async (req, res) => {
     targetType: o.target_type || 'all',
     targetValue: o.target_value,
     minPoints: o.min_points,
+    ctaType: o.cta_type || 'store',
+    ctaValue: o.cta_value,
+    impressions: Number(o.impressions || 0),
+    clicks: Number(o.clicks || 0),
   })));
 });
 
@@ -6177,17 +6548,116 @@ app.post('/api/offers', auth, async (req, res) => {
     `INSERT INTO offers (
       id, owner_id, offer_type, category, title_type, discount_type, discount_value, price,
       description, start_date, end_date, location, image_url, created_at,
-      lifecycle_status, lifecycle_updated_at, lifecycle_reason
+      lifecycle_status, lifecycle_updated_at, lifecycle_reason, cta_type, cta_value
     ) VALUES (
       $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,COALESCE($14::timestamptz,NOW()),
-      'pending_review',NOW(),'created_from_api'
+      'pending_review',NOW(),'created_from_api',$15,$16
     )`,
     [
       offerId, req.user.userId, p.offerType, p.category, p.titleType, p.discountType, p.discountValue, p.price,
       p.description, p.startDate, p.endDate, p.location, p.imageUrl || p.image, p.createdAt,
+      String(p.ctaType || 'store'), String(p.ctaValue || '').trim() || null,
     ]
   );
   res.json({ id: offerId, ok: true });
+});
+
+app.get('/api/billboard-ads', auth, async (_req, res) => {
+  const rows = (await pool.query(
+    `SELECT id, offer_type, category, description, location, image_url, start_date, end_date,
+            created_at, published_at
+       FROM offers
+      WHERE image_url IS NOT NULL
+        AND image_url <> ''
+        AND lifecycle_status = 'active'
+        AND (start_date IS NULL OR start_date <= NOW())
+        AND (end_date IS NULL OR end_date > NOW())
+      ORDER BY published_at DESC NULLS LAST, created_at DESC
+      LIMIT 30`
+  )).rows;
+  return res.json(rows.map((row) => ({
+    id: row.id,
+    offerType: row.offer_type,
+    category: row.category,
+    description: row.description,
+    location: row.location,
+    imageUrl: row.image_url,
+    startDate: toIso(row.start_date),
+    endDate: toIso(row.end_date),
+    createdAt: toIso(row.created_at),
+    publishedAt: toIso(row.published_at),
+  })));
+});
+
+app.post('/api/billboard-ads/:id/impression', auth, async (req, res) => {
+  const result = await pool.query(
+    `UPDATE offers SET impressions = impressions + 1
+      WHERE id = $1 AND lifecycle_status = 'active' AND image_url IS NOT NULL
+      RETURNING impressions`,
+    [req.params.id]
+  );
+  if (!result.rowCount) return res.status(404).json({ error: 'billboard_ad_not_found' });
+  return res.json({ ok: true, impressions: Number(result.rows[0].impressions || 0) });
+});
+
+app.post('/api/billboard-ads/:id/click', auth, async (req, res) => {
+  const result = await pool.query(
+    `UPDATE offers SET clicks = clicks + 1
+      WHERE id = $1 AND lifecycle_status = 'active' AND image_url IS NOT NULL
+      RETURNING clicks, cta_type, cta_value`,
+    [req.params.id]
+  );
+  if (!result.rowCount) return res.status(404).json({ error: 'billboard_ad_not_found' });
+  return res.json({ ok: true, clicks: Number(result.rows[0].clicks || 0), ctaType: result.rows[0].cta_type || 'store', ctaValue: result.rows[0].cta_value });
+});
+
+app.get('/api/admin/billboard-ads', auth, requireAdmin, async (_req, res) => {
+  const rows = (await pool.query(
+    `SELECT id, owner_id, offer_type, category, description, location, image_url,
+            lifecycle_status, lifecycle_reason, created_at
+       FROM offers
+      WHERE image_url IS NOT NULL AND image_url <> ''
+      ORDER BY created_at DESC
+      LIMIT 200`
+  )).rows;
+  return res.json(rows.map((row) => ({
+    id: row.id,
+    ownerId: row.owner_id,
+    offerType: row.offer_type,
+    category: row.category,
+    description: row.description,
+    location: row.location,
+    imageUrl: row.image_url,
+    lifecycleStatus: row.lifecycle_status,
+    lifecycleReason: row.lifecycle_reason,
+    createdAt: toIso(row.created_at),
+  })));
+});
+
+app.post('/api/admin/billboard-ads/:id/approve', auth, requireAdmin, async (req, res) => {
+  const result = await pool.query(
+    `UPDATE offers
+        SET lifecycle_status = 'active', lifecycle_updated_at = NOW(),
+            lifecycle_reason = 'approved_by_admin', published_at = NOW()
+      WHERE id = $1 AND image_url IS NOT NULL
+      RETURNING id`,
+    [req.params.id]
+  );
+  if (!result.rowCount) return res.status(404).json({ error: 'billboard_ad_not_found' });
+  return res.json({ ok: true, status: 'active' });
+});
+
+app.post('/api/admin/billboard-ads/:id/reject', auth, requireAdmin, async (req, res) => {
+  const reason = String((req.body || {}).reason || 'Rejected by admin').trim();
+  const result = await pool.query(
+    `UPDATE offers
+        SET lifecycle_status = 'rejected', lifecycle_updated_at = NOW(), lifecycle_reason = $2
+      WHERE id = $1 AND image_url IS NOT NULL
+      RETURNING id`,
+    [req.params.id, reason]
+  );
+  if (!result.rowCount) return res.status(404).json({ error: 'billboard_ad_not_found' });
+  return res.json({ ok: true, status: 'rejected', reason });
 });
 
 app.get('/api/stores', auth, async (_req, res) => {
@@ -6836,6 +7306,11 @@ function mapRewardRow(r) {
     storeName: r.store_name || null,
     imageUrl: r.image_url || null,
     expiresAt: toIso(r.expires_at),
+    pickupInstructions: r.pickup_instructions || null,
+    drawEnabled: r.draw_enabled === true,
+    drawAt: toIso(r.draw_at),
+    drawWinnerUserId: r.draw_winner_user_id || null,
+    drawCompletedAt: toIso(r.draw_completed_at),
   };
 }
 
@@ -6848,9 +7323,132 @@ const REWARDS_WITH_STORE_NAME_SQL = `
 
 app.get('/api/rewards', auth, async (_req, res) => {
   const rows = (await pool.query(
-    `${REWARDS_WITH_STORE_NAME_SQL} WHERE r.expires_at IS NULL OR r.expires_at > NOW() ORDER BY r.value DESC`
+    `${REWARDS_WITH_STORE_NAME_SQL} WHERE r.is_active = TRUE AND (r.quantity_limit IS NULL OR r.quantity_redeemed < r.quantity_limit) AND (r.expires_at IS NULL OR r.expires_at > NOW()) ORDER BY r.value DESC`
   )).rows;
   res.json(rows.map(mapRewardRow));
+});
+
+app.get('/api/merchant/rewards', auth, async (req, res) => {
+  const merchantId = await getMerchantProfileIdByUser(pool, req.user.userId);
+  if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+  const rows = (await pool.query(
+    `${REWARDS_WITH_STORE_NAME_SQL} WHERE r.source_type = 'merchant' AND r.source_id = $1 ORDER BY r.created_at DESC`,
+    [merchantId]
+  )).rows;
+  return res.json(rows.map((row) => ({ ...mapRewardRow(row), isActive: row.is_active, quantityLimit: row.quantity_limit, quantityRedeemed: row.quantity_redeemed })));
+});
+
+app.get('/api/brand/rewards', auth, async (req, res) => {
+  const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
+  if (!brandId) return res.status(403).json({ error: 'brand_role_required' });
+  const rows = (await pool.query(
+    `${REWARDS_WITH_STORE_NAME_SQL} WHERE r.source_type = 'brand' AND r.source_id = $1 ORDER BY r.created_at DESC`,
+    [brandId]
+  )).rows;
+  return res.json(rows.map((row) => ({ ...mapRewardRow(row), isActive: row.is_active, quantityLimit: row.quantity_limit, quantityRedeemed: row.quantity_redeemed, pickupInstructions: row.pickup_instructions, drawEnabled: row.draw_enabled, drawAt: toIso(row.draw_at) })));
+});
+
+app.get('/api/brand/products', auth, async (req, res) => {
+  const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
+  if (!brandId) return res.status(403).json({ error: 'brand_role_required' });
+  const rows = (await pool.query(
+    `SELECT id, name, image_url, barcode, created_at
+       FROM product_registry
+      WHERE brand_id = $1
+      ORDER BY created_at DESC`,
+    [brandId]
+  )).rows;
+  return res.json(rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    imageUrl: row.image_url,
+    barcode: row.barcode,
+    createdAt: toIso(row.created_at),
+  })));
+});
+
+app.post('/api/brand/rewards', auth, async (req, res) => {
+  const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
+  if (!brandId) return res.status(403).json({ error: 'brand_role_required' });
+  const p = req.body || {};
+  const name = String(p.rewardName || '').trim();
+  const value = Number(p.value);
+  const quantityLimit = p.quantityLimit == null || String(p.quantityLimit).trim() === '' ? null : Number(p.quantityLimit);
+  if (!name || !Number.isInteger(value) || value <= 0) return res.status(400).json({ error: 'invalid_reward' });
+  if (quantityLimit != null && (!Number.isInteger(quantityLimit) || quantityLimit <= 0)) return res.status(400).json({ error: 'invalid_quantity_limit' });
+  const result = await pool.query(
+    `INSERT INTO rewards (id, reward_name, description, value, kind, source_type, source_id, image_url, expires_at, is_active, quantity_limit, pickup_instructions, draw_enabled, draw_at)
+     VALUES ($1,$2,$3,$4,$5,'brand',$6,$7,$8,TRUE,$9,$10,$11,$12) RETURNING id`,
+    [id(), name, String(p.description || '').trim() || null, value, p.kind === 'physical' ? 'physical' : 'digital', brandId, String(p.imageUrl || '').trim() || null, p.expiresAt || null, quantityLimit, String(p.pickupInstructions || '').trim() || null, Boolean(p.drawEnabled), p.drawAt || null]
+  );
+  return res.json({ ok: true, id: result.rows[0].id, status: 'active' });
+});
+
+app.post('/api/brand/rewards/:id/draw', auth, async (req, res) => {
+  const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
+  if (!brandId) return res.status(403).json({ error: 'brand_role_required' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const reward = (await client.query(
+      `SELECT id, reward_name, expires_at, draw_enabled, draw_winner_user_id
+         FROM rewards
+        WHERE id = $1 AND source_type = 'brand' AND source_id = $2
+        FOR UPDATE`,
+      [req.params.id, brandId]
+    )).rows[0];
+    if (!reward) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'reward_not_found' }); }
+    if (!reward.draw_enabled) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'draw_not_enabled' }); }
+    if (reward.draw_winner_user_id) { await client.query('ROLLBACK'); return res.json({ ok: true, winnerUserId: reward.draw_winner_user_id, alreadyCompleted: true }); }
+    if (reward.expires_at && new Date(reward.expires_at) > new Date()) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'draw_not_due' }); }
+    const candidates = (await client.query(
+      `SELECT DISTINCT owner_id
+         FROM reward_claims
+        WHERE reward_id = $1 AND status IN ('pending_pickup', 'redeemed')`,
+      [reward.id]
+    )).rows;
+    if (!candidates.length) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'no_draw_candidates' }); }
+    const winner = candidates[Math.floor(Math.random() * candidates.length)].owner_id;
+    await client.query('UPDATE rewards SET draw_winner_user_id = $1, draw_completed_at = NOW() WHERE id = $2', [winner, reward.id]);
+    await insertNotification(client, winner, 'reward_draw_winner', 'مبروك! فزت بالجائزة', `تم اختيارك عشوائياً للفوز بجائزة ${reward.reward_name}.`, { rewardId: reward.id });
+    await client.query('COMMIT');
+    return res.json({ ok: true, winnerUserId: winner });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    return res.status(500).json({ error: 'reward_draw_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/api/merchant/rewards', auth, async (req, res) => {
+  const merchantId = await getMerchantProfileIdByUser(pool, req.user.userId);
+  if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+  const p = req.body || {};
+  const name = String(p.rewardName || '').trim();
+  const value = Number(p.value);
+  const quantityLimit = p.quantityLimit == null || String(p.quantityLimit).trim() === '' ? null : Number(p.quantityLimit);
+  if (!name || !Number.isInteger(value) || value <= 0) return res.status(400).json({ error: 'invalid_reward' });
+  if (quantityLimit != null && (!Number.isInteger(quantityLimit) || quantityLimit <= 0)) return res.status(400).json({ error: 'invalid_quantity_limit' });
+  const result = await pool.query(
+    `INSERT INTO rewards (id, reward_name, description, value, kind, source_type, source_id, image_url, expires_at, is_active, quantity_limit)
+     VALUES ($1,$2,$3,$4,$5,'merchant',$6,$7,$8,TRUE,$9) RETURNING id`,
+    [id(), name, String(p.description || '').trim() || null, value, p.kind === 'digital' ? 'digital' : 'physical', merchantId, String(p.imageUrl || '').trim() || null, p.expiresAt || null, quantityLimit]
+  );
+  return res.json({ ok: true, id: result.rows[0].id, status: 'active' });
+});
+
+app.patch('/api/merchant/rewards/:id', auth, async (req, res) => {
+  const merchantId = await getMerchantProfileIdByUser(pool, req.user.userId);
+  if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+  const p = req.body || {};
+  const result = await pool.query(
+    `UPDATE rewards SET is_active = COALESCE($1, is_active), quantity_limit = $2, expires_at = $3, description = COALESCE($4, description)
+      WHERE id = $5 AND source_type = 'merchant' AND source_id = $6 RETURNING id`,
+    [p.isActive == null ? null : Boolean(p.isActive), p.quantityLimit == null || String(p.quantityLimit).trim() === '' ? null : Number(p.quantityLimit), p.expiresAt || null, p.description == null ? null : String(p.description).trim(), req.params.id, merchantId]
+  );
+  if (!result.rowCount) return res.status(404).json({ error: 'reward_not_found' });
+  return res.json({ ok: true });
 });
 
 app.get('/api/admin/rewards', auth, requireAdmin, async (_req, res) => {
@@ -6955,8 +7553,8 @@ app.post('/api/invoices/scan', auth, async (req, res) => {
   const invoiceDate = String(p.invoiceDate || '').trim() || null;
   const category = String(p.category || 'general').trim() || 'general';
   const currency = String(p.currency || 'SAR').trim() || 'SAR';
-  const rewardApplied = Boolean(p.rewardApplied);
   const items = Array.isArray(p.items) ? p.items : [];
+  const imageBase64 = String(p.imageBase64 || '').trim();
 
   const amountRaw = p.totalAmount;
   const amount = amountRaw == null ? null : Number(amountRaw);
@@ -7016,13 +7614,29 @@ app.post('/api/invoices/scan', auth, async (req, res) => {
       return res.json({ ok: false, duplicate: true, duplicateId: (duplicate || legacyDuplicate).id });
     }
 
+    const merchantProfileId = await resolveMerchantProfileIdByKey(client, merchantKey);
+
     const scanId = id();
+    
+    let originalImagePath = null;
+    if (imageBase64) {
+      try {
+        const buffer = Buffer.from(imageBase64, 'base64');
+        const filename = `${scanId}.jpg`;
+        const filepath = path.join(INVOICES_UPLOAD_DIR, filename);
+        fs.writeFileSync(filepath, buffer);
+        originalImagePath = `uploads/invoices/${filename}`;
+      } catch (err) {
+        console.error('Failed to save invoice image:', err);
+      }
+    }
+
     await client.query(
       `INSERT INTO invoice_scans (
         id, owner_id, merchant_name, merchant_key, invoice_fingerprint, invoice_number, order_number, invoice_date,
-        total_amount, currency, category, raw_text, reward_applied, branch_id
+        total_amount, currency, category, raw_text, reward_applied, branch_id, merchant_profile_id, original_image_path
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16
       )`,
       [
         scanId,
@@ -7037,10 +7651,79 @@ app.post('/api/invoices/scan', auth, async (req, res) => {
         currency,
         category,
         rawText,
-        rewardApplied,
+        false,
         String(p.branchId || '').trim() || null,
+        merchantProfileId,
+        originalImagePath,
       ]
     );
+
+    // Persist each purchased item so it survives beyond the scan: needed both to let
+    // brand-owned products earn brand points below, and for future purchase analytics.
+    const savedLineItems = [];
+    for (const rawItem of items) {
+      const name = String((rawItem && rawItem.name) || '').trim();
+      if (!name) continue;
+      let quantity = Number(rawItem && rawItem.quantity);
+      let unitPrice = Number(rawItem && rawItem.unitPrice);
+      let lineTotal = Number(rawItem && rawItem.lineTotal);
+      quantity = Number.isFinite(quantity) && quantity > 0 ? Math.round(quantity) : null;
+      unitPrice = Number.isFinite(unitPrice) && unitPrice > 0 ? Number(unitPrice.toFixed(2)) : null;
+      lineTotal = Number.isFinite(lineTotal) && lineTotal > 0 ? Number(lineTotal.toFixed(2)) : null;
+      if (unitPrice == null && quantity != null && lineTotal != null && quantity > 0) {
+        unitPrice = Number((lineTotal / quantity).toFixed(2));
+      }
+      if (lineTotal == null && quantity != null && unitPrice != null) {
+        lineTotal = Number((quantity * unitPrice).toFixed(2));
+      }
+      const lineItemId = id();
+      await client.query(
+        'INSERT INTO invoice_line_items (id, invoice_scan_id, item_name, quantity, unit_price, line_total) VALUES ($1,$2,$3,$4,$5,$6)',
+        [lineItemId, scanId, name, quantity, unitPrice, lineTotal]
+      );
+      savedLineItems.push({ id: lineItemId, name });
+    }
+
+    for (const lineItem of savedLineItems) {
+      const match = await autoMatchLineItemToBrand(client, lineItem.name);
+      if (match) {
+        await client.query(
+          'INSERT INTO brand_matches (id, invoice_line_item_id, brand_id, product_id, confidence) VALUES ($1,$2,$3,$4,$5)',
+          [id(), lineItem.id, match.brandId, match.productId, 0.5]
+        );
+      }
+    }
+
+    // Award points: prefer the real merchant/brand split (uses each party's own point_value
+    // and the actual matched line-item amounts) and only fall back to the flat generic
+    // cashback rate when neither the merchant nor any brand could be resolved, so existing
+    // un-onboarded shops keep earning points exactly as before.
+    let awards = null;
+    let fallbackReward = null;
+    let rewardApplied = false;
+    if (totalAmount != null && totalAmount > 0) {
+      awards = await applyInvoiceApprovalRewards(client, scanId, ownerId, merchantProfileId);
+      const splitPoints = (awards.merchantPoints || 0) + (awards.brandPoints || 0);
+      if (splitPoints > 0) {
+        rewardApplied = true;
+      } else {
+        const cashback = Number((totalAmount * 0.05).toFixed(2));
+        const earnedPoints = Math.floor(totalAmount);
+        await client.query("INSERT INTO wallet_accounts (owner_id, balance, currency, updated_at) VALUES ($1,0,'SAR',NOW()) ON CONFLICT (owner_id) DO NOTHING", [ownerId]);
+        await client.query('INSERT INTO point_accounts (owner_id, available_points, lifetime_points, updated_at) VALUES ($1,0,0,NOW()) ON CONFLICT (owner_id) DO NOTHING', [ownerId]);
+        await client.query('UPDATE wallet_accounts SET balance = balance + $1, updated_at = NOW() WHERE owner_id = $2', [cashback, ownerId]);
+        await client.query('UPDATE point_accounts SET available_points = available_points + $1, lifetime_points = lifetime_points + $1, updated_at = NOW() WHERE owner_id = $2', [earnedPoints, ownerId]);
+        await client.query('UPDATE users SET points = points + $1, points_history = points_history || to_jsonb($2::int) WHERE id = $3', [earnedPoints, earnedPoints, ownerId]);
+        const reference = invoiceNumber ? `invoice:${invoiceNumber}` : (orderNumber ? `order:${orderNumber}` : `invoice:${scanId}`);
+        await client.query('INSERT INTO ledger_entries (id, owner_id, type, amount, points, reference) VALUES ($1,$2,$3,$4,$5,$6)', [id(), ownerId, 'cashbackEarned', cashback, 0, reference]);
+        await client.query('INSERT INTO ledger_entries (id, owner_id, type, amount, points, reference) VALUES ($1,$2,$3,$4,$5,$6)', [id(), ownerId, 'pointsEarned', 0, earnedPoints, reference]);
+        fallbackReward = { cashback, earnedPoints };
+        rewardApplied = earnedPoints > 0;
+      }
+      if (rewardApplied) {
+        await client.query('UPDATE invoice_scans SET reward_applied = TRUE WHERE id = $1', [scanId]);
+      }
+    }
 
     if (customerEmail && totalAmount != null) {
       await client.query(
@@ -7052,13 +7735,18 @@ app.post('/api/invoices/scan', auth, async (req, res) => {
     await client.query('COMMIT');
     return res.json({
       ok: true,
+      id: scanId,
       ownerId,
       merchantName,
       merchantKey,
+      merchantProfileId,
       orderNumber,
       totalAmount,
       category,
       rewardApplied,
+      awards,
+      fallbackReward,
+      itemsSaved: savedLineItems.length,
     });
   } catch (e) {
     await client.query('ROLLBACK');
@@ -7491,6 +8179,9 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
               i.created_at,
               i.merchant_profile_id,
               COALESCE(mp.business_name, i.merchant_name, 'Unknown merchant') AS merchant_name,
+              mp.user_id AS merchant_user_id,
+              mp.phone AS merchant_phone,
+              mp.location_address AS merchant_address,
               mp.location_lat,
               mp.location_lng,
               COALESCE(pr.name, li.item_name, 'Unknown') AS product_name,
@@ -7524,6 +8215,7 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
     const genderCounts = {};
     const ageCounts = {};
     const merchantHeatmap = {};
+    const dailySales = {};
     const uniqueCustomers = new Set();
 
     for (const row of currentRows) {
@@ -7531,6 +8223,8 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
       const productKey = String(row.product_name || 'Unknown');
       const salesValue = analyticsSafeNumber(row.line_total);
       const quantityValue = analyticsSafeNumber(row.quantity);
+      const day = new Date(row.created_at).toISOString().slice(0, 10);
+      dailySales[day] = (dailySales[day] || 0) + salesValue;
 
       if (!storeCurrent[merchantKey]) {
         storeCurrent[merchantKey] = {
@@ -7538,6 +8232,9 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
           name: row.merchant_name,
           salesTotal: 0,
           quantity: 0,
+          userId: row.merchant_user_id,
+          phone: row.merchant_phone,
+          address: row.merchant_address,
         };
       }
       storeCurrent[merchantKey].salesTotal += salesValue;
@@ -7598,6 +8295,9 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
       salesTotal: Number(entry.salesTotal.toFixed(2)),
       quantity: Number(entry.quantity || 0),
       key: entry.key,
+      userId: entry.userId,
+      phone: entry.phone,
+      address: entry.address,
     }));
     const lowestSellingStores = Object.values(storeCurrent)
       .sort((a, b) => analyticsSafeNumber(a.salesTotal) - analyticsSafeNumber(b.salesTotal))
@@ -7606,6 +8306,10 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
         name: entry.name,
         salesTotal: Number(analyticsSafeNumber(entry.salesTotal).toFixed(2)),
         quantity: Number(entry.quantity || 0),
+        key: entry.key,
+        userId: entry.userId,
+        phone: entry.phone,
+        address: entry.address,
       }));
     const topProducts = analyticsTopEntries(productCurrent, (entry) => ({
       name: entry.name,
@@ -7625,6 +8329,9 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
       topSellingStores,
       lowestSellingStores,
       topProducts,
+      dailySales: Object.entries(dailySales)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, sales]) => ({ date, sales: Number(Number(sales).toFixed(2)) })),
       growthLevels: [
         {
           level: 'overall',

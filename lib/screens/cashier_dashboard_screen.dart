@@ -108,9 +108,16 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
     try {
       final roles = await CompanyServerService.getMyRoles();
       final cashierRows = (roles['cashier'] as List?) ?? const <dynamic>[];
+      var merchantActive = false;
+      try {
+        await CompanyServerService.getMerchantProfile();
+        merchantActive = true;
+      } catch (_) {
+        // Non-merchant cashiers are expected to fail this profile lookup.
+      }
       if (!mounted) return;
       setState(() {
-        _cashierActive = cashierRows.any((row) => row is Map && row['isActive'] == true);
+        _cashierActive = merchantActive || cashierRows.any((row) => row is Map && row['isActive'] == true);
       });
     } catch (_) {
       if (!mounted) return;
@@ -228,6 +235,31 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
     }
   }
 
+  Future<void> _scanRewardQr() async {
+    final scanned = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const _QrScannerScreen()),
+    );
+    if (scanned == null || scanned.isEmpty || !mounted) return;
+    setState(() => _pickupQrCodeController.text = scanned);
+    await _confirmRedeemClaim();
+  }
+
+  Future<void> _confirmRedeemClaim() async {
+    if (_pickupQrCodeController.text.trim().isEmpty || _loadingRedeem) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(_tx('cashier_confirm_redemption_title', 'Confirm reward handover')),
+        content: Text(_tx('cashier_confirm_redemption_body', 'Confirm that the customer is present and the reward will be handed over.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(_tx('cancel', 'Cancel'))),
+          ElevatedButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(_tx('cashier_confirm_redemption', 'Confirm and hand over'))),
+        ],
+      ),
+    );
+    if (confirmed == true) await _redeemClaim();
+  }
+
   Widget _buildBody() {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -335,8 +367,14 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
           decoration: InputDecoration(labelText: _tx('cashier_pickup_qr_code', 'Pickup QR Code')),
         ),
         const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: (!_cashierActive || _loadingRedeem) ? null : _scanRewardQr,
+          icon: const Icon(Icons.qr_code_scanner),
+          label: Text(_tx('cashier_scan_reward_qr', 'Scan reward QR')),
+        ),
+        const SizedBox(height: 8),
         ElevatedButton(
-          onPressed: (!_cashierActive || _loadingRedeem) ? null : _redeemClaim,
+          onPressed: (!_cashierActive || _loadingRedeem) ? null : _confirmRedeemClaim,
           child: Text(_loadingRedeem
               ? _tx('cashier_redeeming', 'Redeeming...')
               : _tx('cashier_redeem_claim_action', 'Redeem claim')),

@@ -36,7 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   dio: ^5.4.3+1
   url_launcher: ^6.3.0
-  share_plus: ^9.0.0
+  share_plus: ^13.3.0
   flutter_rating_bar: ^4.0.1
   qr_flutter: ^4.1.0
   shared_preferences: ^2.2.3
@@ -55,7 +55,7 @@ dependencies:
   geolocator: ^11.0.0
   google_fonts: ^6.2.1
   pdf: ^3.11.1
-  mobile_scanner: ^7.3.0
+  mobile_scanner: ^7.4.0
   # أضف أي حزم أخرى تستخدمها هنا
 
 dev_dependencies:

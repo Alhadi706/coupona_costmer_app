@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../services/app_session.dart';
 import '../services/company_server_service.dart';
@@ -8,10 +9,11 @@ import '../widgets/design_system/kupuna_chat_bubble.dart';
 
 class CommunityScreen extends StatefulWidget {
   final bool embedded;
+  final String? initialGroupId;
 
-  const CommunityScreen({super.key}) : embedded = false;
+  const CommunityScreen({super.key, this.initialGroupId}) : embedded = false;
 
-  const CommunityScreen.embedded({super.key}) : embedded = true;
+  const CommunityScreen.embedded({super.key, this.initialGroupId}) : embedded = true;
 
   @override
   State<CommunityScreen> createState() => _CommunityScreenState();
@@ -39,8 +41,8 @@ class _CommunityScreenState extends State<CommunityScreen>
       children: [
         TabBarView(
           controller: _tabController,
-          children: const [
-            _GroupsTab(),
+          children: [
+            _GroupsTab(initialGroupId: widget.initialGroupId),
             _PrivateChatsTab(),
           ],
         ),
@@ -88,7 +90,9 @@ class _CommunityScreenState extends State<CommunityScreen>
 enum _GroupSort { mostMembers, alphabetic }
 
 class _GroupsTab extends StatefulWidget {
-  const _GroupsTab();
+  final String? initialGroupId;
+
+  const _GroupsTab({this.initialGroupId});
 
   @override
   State<_GroupsTab> createState() => _GroupsTabState();
@@ -97,6 +101,7 @@ class _GroupsTab extends StatefulWidget {
 class _GroupsTabState extends State<_GroupsTab> {
   final TextEditingController _searchController = TextEditingController();
   _GroupSort _sort = _GroupSort.mostMembers;
+  bool _openedInitialGroup = false;
 
   @override
   void dispose() {
@@ -180,6 +185,24 @@ class _GroupsTabState extends State<_GroupsTab> {
           final desc = (group['desc'] ?? '').toString().toLowerCase();
           return query.isEmpty || name.contains(query) || desc.contains(query);
         }).toList();
+
+        if (!_openedInitialGroup && widget.initialGroupId != null) {
+          final initialGroup = groups.cast<Map<String, dynamic>?>().firstWhere(
+            (group) => group?['id']?.toString() == widget.initialGroupId,
+            orElse: () => null,
+          );
+          if (initialGroup != null) {
+            _openedInitialGroup = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => _GroupChatScreen(
+                    groupId: widget.initialGroupId!,
+                    groupName: (initialGroup['name'] ?? '').toString(),
+                    ownerUserId: (initialGroup['ownerUserId'] ?? '').toString(),
+                  )));
+            });
+          }
+        }
 
         filteredGroups.sort((a, b) {
           if (_sort == _GroupSort.alphabetic) {
@@ -306,6 +329,7 @@ class _GroupsTabState extends State<_GroupsTab> {
                           builder: (_) => _GroupChatScreen(
                             groupId: id,
                             groupName: (group['name'] ?? '').toString(),
+                            ownerUserId: (group['ownerUserId'] ?? '').toString(),
                           ),
                         ),
                       );
@@ -324,8 +348,9 @@ class _GroupsTabState extends State<_GroupsTab> {
 class _GroupChatScreen extends StatefulWidget {
   final String groupId;
   final String groupName;
+  final String ownerUserId;
 
-  const _GroupChatScreen({required this.groupId, required this.groupName});
+  const _GroupChatScreen({required this.groupId, required this.groupName, this.ownerUserId = ''});
 
   @override
   State<_GroupChatScreen> createState() => _GroupChatScreenState();
@@ -339,6 +364,136 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
   final Map<String, String> _myLocalReaction = <String, String>{};
   List<Map<String, dynamic>> _latestMessages = const <Map<String, dynamic>>[];
   bool _sending = false;
+  XFile? _postImage;
+  Map<String, dynamic>? _postPoll;
+
+  Future<void> _pickPostImage() async {
+    final image = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (image != null && mounted) setState(() => _postImage = image);
+  }
+
+  Future<void> _createPoll() async {
+    String question = '';
+    final options = <String>['', ''];
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('community_create_poll'.tr()),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  decoration: InputDecoration(labelText: 'community_poll_question'.tr()),
+                  onChanged: (value) => question = value,
+                ),
+                ...options.asMap().entries.map((entry) => TextField(
+                  decoration: InputDecoration(labelText: 'community_poll_option'.tr(namedArgs: {'number': '${entry.key + 1}'})),
+                  onChanged: (value) => options[entry.key] = value,
+                )),
+                TextButton.icon(
+                  onPressed: () => setDialogState(() => options.add('')),
+                  icon: const Icon(Icons.add),
+                  label: Text('community_add_poll_option'.tr()),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text('cancel'.tr())),
+            ElevatedButton(
+              onPressed: () {
+                final cleanOptions = options.map((value) => value.trim()).where((value) => value.isNotEmpty).toList();
+                if (question.trim().isEmpty || cleanOptions.length < 2) return;
+                setState(() => _postPoll = {'question': question.trim(), 'options': cleanOptions});
+                Navigator.of(dialogContext).pop();
+              },
+              child: Text('create'.tr()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _broadcast() async {
+    String text = '';
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('community_broadcast_title'.tr()),
+        content: TextField(
+          autofocus: true,
+          maxLines: 3,
+          decoration: InputDecoration(hintText: 'community_broadcast_hint'.tr()),
+          onChanged: (value) => text = value,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: Text('cancel'.tr())),
+          ElevatedButton(
+            onPressed: () async {
+              if (text.trim().isEmpty) return;
+              await CompanyServerService.broadcastToCommunity(groupId: widget.groupId, text: text.trim());
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            },
+            child: Text('send'.tr()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _moderateMessage(Map<String, dynamic> message, {required bool delete}) async {
+    final messageId = (message['id'] ?? '').toString();
+    if (messageId.isEmpty) return;
+    try {
+      if (delete) {
+        await CompanyServerService.deleteGroupMessage(groupId: widget.groupId, messageId: messageId);
+      } else {
+        await CompanyServerService.pinGroupMessage(groupId: widget.groupId, messageId: messageId);
+      }
+      if (mounted) setState(() {});
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
+  Future<void> _showMembers() async {
+    try {
+      final members = await CompanyServerService.getCommunityGroupMembers(widget.groupId);
+      if (!mounted) return;
+      showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: members.length,
+            itemBuilder: (context, index) {
+              final member = members[index];
+              final userId = (member['userId'] ?? '').toString();
+              return ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text((member['label'] ?? userId).toString()),
+                trailing: userId == widget.ownerUserId ? null : IconButton(
+                  tooltip: 'ban'.tr(),
+                  icon: const Icon(Icons.block, color: Colors.red),
+                  onPressed: () async {
+                    await CompanyServerService.banCommunityGroupMember(groupId: widget.groupId, userId: userId);
+                    if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
 
   @override
   void dispose() {
@@ -348,7 +503,7 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty || _sending) return;
+    if (text.isEmpty && _postImage == null && _postPoll == null || _sending) return;
 
     setState(() => _sending = true);
     try {
@@ -367,9 +522,23 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
           );
         }
       } else {
-        await CompanyServerService.sendGroupMessage(groupId: widget.groupId, text: text);
+        String? imageUrl;
+        if (_postImage != null) {
+          imageUrl = await CompanyServerService.uploadImageBytes(
+            await _postImage!.readAsBytes(),
+            mimeType: _postImage!.mimeType ?? 'image/jpeg',
+          );
+        }
+        await CompanyServerService.sendGroupMessage(
+          groupId: widget.groupId,
+          text: text,
+          imageUrl: imageUrl,
+          poll: _postPoll,
+        );
       }
       _messageController.clear();
+      _postImage = null;
+      _postPoll = null;
       _replyToMessageId = null;
       _replyToPreview = '';
     } catch (error) {
@@ -652,6 +821,7 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
         future: AppSession.userId(),
         builder: (context, userSnap) {
           final currentUserId = userSnap.data ?? '';
+          final canModerate = widget.ownerUserId.isNotEmpty && widget.ownerUserId == currentUserId;
           return Column(
             children: [
               Expanded(
@@ -687,6 +857,39 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
                                 isCurrentUser: isMe,
                                 senderKind: ChatSenderKind.customer,
                               ),
+                              if ((msg['imageUrl'] ?? '').toString().isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network((msg['imageUrl']).toString(), width: 220, height: 130, fit: BoxFit.cover),
+                                  ),
+                                ),
+                              if (msg['poll'] is Map)
+                                Card(
+                                  margin: const EdgeInsets.only(top: 6),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(10),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('${(msg['poll'] as Map)['question'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        ...(((msg['poll'] as Map)['options'] as List?) ?? const []).map((option) {
+                                          final poll = msg['poll'] as Map;
+                                          final votes = poll['votes'] is Map ? poll['votes'] as Map : const {};
+                                          final optionText = option.toString();
+                                          return TextButton(
+                                            onPressed: () async {
+                                              await CompanyServerService.voteOnCommunityPoll(groupId: widget.groupId, messageId: (msg['id'] ?? '').toString(), option: optionText);
+                                              if (mounted) setState(() {});
+                                            },
+                                            child: Align(alignment: AlignmentDirectional.centerStart, child: Text('$optionText  (${votes[optionText] ?? 0})')),
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               const SizedBox(height: 6),
                               Column(
                               crossAxisAlignment:
@@ -713,6 +916,20 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
                                       onPressed: () => _setReplyTarget(msg),
                                       visualDensity: VisualDensity.compact,
                                     ),
+                                    if (canModerate) ...[
+                                      ActionChip(
+                                        avatar: const Icon(Icons.push_pin_outlined, size: 14),
+                                        label: Text('pin'.tr(), style: const TextStyle(fontSize: 12)),
+                                        onPressed: () => _moderateMessage(msg, delete: false),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                      ActionChip(
+                                        avatar: const Icon(Icons.delete_outline, size: 14),
+                                        label: Text('delete'.tr(), style: const TextStyle(fontSize: 12)),
+                                        onPressed: () => _moderateMessage(msg, delete: true),
+                                        visualDensity: VisualDensity.compact,
+                                      ),
+                                    ],
                                     ActionChip(
                                       avatar: const Text('👍', style: TextStyle(fontSize: 12)),
                                       label: Text('like'.tr(), style: const TextStyle(fontSize: 12)),
@@ -818,10 +1035,25 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
                               border: OutlineInputBorder(),
                             ),
                           ),
+                          if (_postImage != null || _postPoll != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Row(
+                                children: [
+                                  if (_postImage != null) const Icon(Icons.image_outlined, size: 16, color: kTeal),
+                                  if (_postImage != null) const SizedBox(width: 4),
+                                  if (_postImage != null) Expanded(child: Text(_postImage!.name, overflow: TextOverflow.ellipsis)),
+                                  if (_postPoll != null) Text('community_poll_ready'.tr(), style: const TextStyle(color: kTeal)),
+                                  IconButton(onPressed: () => setState(() { _postImage = null; _postPoll = null; }), icon: const Icon(Icons.close, size: 18)),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
+                    IconButton(onPressed: _pickPostImage, icon: const Icon(Icons.image_outlined), tooltip: 'community_attach_image'.tr()),
+                    IconButton(onPressed: _createPoll, icon: const Icon(Icons.poll_outlined), tooltip: 'community_create_poll'.tr()),
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(backgroundColor: kTeal),
                       onPressed: _sending ? null : _sendMessage,
@@ -836,6 +1068,30 @@ class _GroupChatScreenState extends State<_GroupChatScreen> {
                   ],
                 ),
               ),
+              if (canModerate)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: OutlinedButton.icon(
+                      onPressed: _showMembers,
+                      icon: const Icon(Icons.manage_accounts_outlined),
+                      label: Text('manage_group_members'.tr()),
+                    ),
+                  ),
+                ),
+              if (canModerate)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: OutlinedButton.icon(
+                      onPressed: _broadcast,
+                      icon: const Icon(Icons.notifications_active_outlined),
+                      label: Text('community_broadcast_title'.tr()),
+                    ),
+                  ),
+                ),
             ],
           );
         },

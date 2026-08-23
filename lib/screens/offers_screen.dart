@@ -4,6 +4,7 @@ import 'offer_detail_screen.dart';
 import '../services/app_session.dart';
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/stream_load_error.dart';
 
 class OffersScreen extends StatefulWidget {
   final bool embedded;
@@ -152,6 +153,9 @@ class _OffersScreenState extends State<OffersScreen> {
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError && !snapshot.hasData) {
+                return const StreamLoadError();
               }
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
                 return Center(child: Text('no_offers_available_now'.tr()));

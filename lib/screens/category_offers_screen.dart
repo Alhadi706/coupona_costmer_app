@@ -4,6 +4,7 @@ import 'offer_detail_screen.dart';
 import '../services/company_server_service.dart';
 import 'package:coupona_app/theme/design_tokens.dart';
 import 'package:coupona_app/widgets/design_system/kupuna_offer_card.dart';
+import 'package:coupona_app/widgets/stream_load_error.dart';
 
 class CategoryOffersScreen extends StatelessWidget {
   final String categoryName;
@@ -21,6 +22,9 @@ class CategoryOffersScreen extends StatelessWidget {
             .asyncMap((_) => CompanyServerService.getOffers(category: categoryName))
             .startWithFuture(CompanyServerService.getOffers(category: categoryName)),
         builder: (context, snapshot) {
+          if (snapshot.hasError && !snapshot.hasData) {
+            return const StreamLoadError();
+          }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }

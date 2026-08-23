@@ -35,6 +35,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
   String? _detectedCategory;
   List<InvoiceLineItem> _detectedItems = const <InvoiceLineItem>[];
   bool _rewardApplied = false;
+  int _detectedEarnedPoints = 0;
 
   @override
   void didChangeDependencies() {
@@ -124,7 +125,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
     }
 
     final ai = await CompanyServerService.analyzeInvoiceWithAi(
-      rawText: extractedText,
+      rawText: extractedText, // kept here just for backward-compatibility with older backend endpoints
       imageBase64: imageBase64,
       mimeType: 'image/jpeg',
     );
@@ -132,6 +133,14 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
     final aiOk = ai != null && ai['ok'] == true;
     final aiData = aiOk ? ai : null;
     final double aiConfidence = aiOk ? (aiData?['confidence'] as num?)?.toDouble() ?? 0.0 : 0.0;
+    // Gemini vision reads the actual receipt image and is far more reliable than the
+    // local Tesseract+regex fallback, so each section is gated by its OWN confidence
+    // instead of one blended score — a clear header with a blurry items table (or vice
+    // versa) no longer discards the part AI actually got right.
+    final double headerConfidence = aiOk ? (aiData?['headerConfidence'] as num?)?.toDouble() ?? aiConfidence : 0.0;
+    final double totalConfidence = aiOk ? (aiData?['totalConfidence'] as num?)?.toDouble() ?? aiConfidence : 0.0;
+    final double itemsConfidence = aiOk ? (aiData?['itemsConfidence'] as num?)?.toDouble() ?? aiConfidence : 0.0;
+    const aiMinConfidence = 0.25;
     final aiStore = aiOk ? (aiData?['merchantName'] as String?)?.trim() : null;
     final aiOrder = aiOk ? (aiData?['orderNumber'] as String?)?.trim() : null;
     final aiInvoiceNo = aiOk ? (aiData?['invoiceNumber'] as String?)?.trim() : null;
@@ -156,18 +165,21 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         .where((e) => e.name.isNotEmpty)
         .toList();
 
-    final total = aiConfidence >= 0.55 && aiTotal != null ? aiTotal : localTotal;
-    final invoiceNumber = aiConfidence >= 0.55 && (aiInvoiceNo ?? '').isNotEmpty ? aiInvoiceNo : localInvoiceNumber;
-    final orderNumber = aiConfidence >= 0.55 && (aiOrder ?? '').isNotEmpty ? aiOrder : localOrderNumber;
-    final storeName = aiConfidence >= 0.5 && (aiStore ?? '').isNotEmpty ? aiStore : localStoreName;
-    final invoiceDate = aiConfidence >= 0.55 && (aiDate ?? '').isNotEmpty ? aiDate : localInvoiceDate;
-    final finalItems = aiConfidence >= 0.5 && aiItems.isNotEmpty ? aiItems : localItems;
-    final String finalCategory = aiConfidence >= 0.55 && (aiCategory ?? '').isNotEmpty
+    final total = totalConfidence >= aiMinConfidence && aiTotal != null ? aiTotal : localTotal;
+    final invoiceNumber = headerConfidence >= aiMinConfidence && (aiInvoiceNo ?? '').isNotEmpty ? aiInvoiceNo : localInvoiceNumber;
+    final orderNumber = headerConfidence >= aiMinConfidence && (aiOrder ?? '').isNotEmpty ? aiOrder : localOrderNumber;
+    final storeName = headerConfidence >= aiMinConfidence && (aiStore ?? '').isNotEmpty ? aiStore : localStoreName;
+    final invoiceDate = headerConfidence >= aiMinConfidence && (aiDate ?? '').isNotEmpty ? aiDate : localInvoiceDate;
+    final finalItems = itemsConfidence >= aiMinConfidence && aiItems.isNotEmpty ? aiItems : localItems;
+    final String finalCategory = headerConfidence >= aiMinConfidence && (aiCategory ?? '').isNotEmpty
       ? aiCategory!
       : parsed.category;
     var rewardApplied = false;
+    var earnedPoints = 0;
 
     if (!merchantOnlyMode) {
+      // The backend now saves items, resolves the merchant/brand match, and awards
+      // split points (or the flat fallback) atomically in this single call.
       final saveResult = await CompanyServerService.saveInvoiceScan(
         rawText: extractedText,
         category: finalCategory,
@@ -184,7 +196,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                   'lineTotal': item.lineTotal,
                 })
             .toList(),
-        rewardApplied: false,
+        imageBase64: imageBase64,
       );
 
       final isDuplicate = saveResult?['duplicate'] == true;
@@ -195,37 +207,14 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       } else if (isTooOld) {
         localError = 'scan_invoice_too_old'.tr();
       } else if (total != null && total > 0) {
-        try {
-          await CompanyServerService.ensureAccountingDocuments();
-          await CompanyServerService.applyCashbackFromPurchase(
-            purchaseAmount: total,
-            reference: invoiceNumber != null && invoiceNumber.isNotEmpty
-                ? 'invoice:$invoiceNumber'
-                : (orderNumber != null && orderNumber.isNotEmpty
-                    ? 'order:$orderNumber'
-                    : 'invoice:${DateTime.now().millisecondsSinceEpoch}'),
-          );
-          rewardApplied = true;
-          await CompanyServerService.saveInvoiceScan(
-            rawText: extractedText,
-            category: finalCategory,
-            totalAmount: total,
-            invoiceNumber: invoiceNumber,
-            orderNumber: orderNumber,
-            invoiceDate: invoiceDate,
-            merchantName: storeName,
-            items: finalItems
-                .map((item) => {
-                      'name': item.name,
-                      'quantity': item.quantity,
-                      'unitPrice': item.unitPrice,
-                      'lineTotal': item.lineTotal,
-                    })
-                .toList(),
-            rewardApplied: true,
-          );
-        } catch (e) {
-          localError = 'scan_invoice_rewards_save_error'.tr(namedArgs: {'error': e.toString()});
+        rewardApplied = saveResult?['rewardApplied'] == true;
+        final awards = saveResult?['awards'] as Map?;
+        final fallback = saveResult?['fallbackReward'] as Map?;
+        earnedPoints = ((awards?['merchantPoints'] as num?)?.toInt() ?? 0) +
+            ((awards?['brandPoints'] as num?)?.toInt() ?? 0) +
+            ((fallback?['earnedPoints'] as num?)?.toInt() ?? 0);
+        if (!rewardApplied) {
+          localError = 'scan_invoice_rewards_save_error'.tr(namedArgs: {'error': 'no_reward_source'});
         }
       } else {
         localError = 'scan_invoice_total_unclear'.tr();
@@ -254,6 +243,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       _detectedCategory = finalCategory;
       _detectedItems = finalItems;
       _rewardApplied = rewardApplied;
+      _detectedEarnedPoints = earnedPoints;
       _error = localError.isEmpty ? null : localError;
       _ocrResult = extractedText;
     });
@@ -284,6 +274,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       _detectedCategory = null;
       _detectedItems = const <InvoiceLineItem>[];
       _rewardApplied = false;
+      _detectedEarnedPoints = 0;
     });
   }
 
@@ -475,12 +466,15 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
                                 ],
                                 if (InvoiceTextParser.isMerchantNameOnlyMode)
                                   Text('scan_invoice_demo_mode'.tr())
-                                else
+                                else ...[
                                   Text(
                                     _rewardApplied
                                         ? 'scan_invoice_reward_applied'.tr()
                                         : 'scan_invoice_reward_not_applied'.tr(),
                                   ),
+                                  if (_rewardApplied && _detectedEarnedPoints > 0)
+                                    Text('scan_invoice_points_earned'.tr(namedArgs: {'points': '$_detectedEarnedPoints'})),
+                                ],
                               ],
                             ),
                           ),

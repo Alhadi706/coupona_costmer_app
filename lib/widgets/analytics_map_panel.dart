@@ -39,54 +39,62 @@ class AnalyticsMapPanel extends StatelessWidget {
         validPoints.length;
 
     return SizedBox(
-      height: 220,
+      height: 340,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: FlutterMap(
           options: MapOptions(
             initialCenter: LatLng(centerLat, centerLng),
-            initialZoom: 11,
-            interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+            initialZoom: _initialZoom(validPoints),
+            interactionOptions: const InteractionOptions(flags: InteractiveFlag.all),
           ),
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.example.coupona_app',
+              userAgentPackageName: 'com.kupuna.coupona',
             ),
             MarkerLayer(
               markers: validPoints.map((point) {
                 final label = (point['label'] ?? '').toString();
                 final value = (point['value'] ?? '').toString();
+                final textValue = value.isEmpty ? label : '$label • $value';
                 return Marker(
                   point: LatLng(_toDouble(point['latitude']), _toDouble(point['longitude'])),
-                  width: 110,
-                  height: 54,
+                  width: 150,
+                  height: 62,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.location_on, color: markerColor, size: 30),
                       Container(
+                        constraints: const BoxConstraints(maxWidth: 145),
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          value.isEmpty ? label : '$label • $value',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-                        ),
+                        color: Colors.white.withValues(alpha: 0.92),
+                        child: Text(textValue, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
                 );
               }).toList(growable: false),
             ),
+            RichAttributionWidget(
+              attributions: [TextSourceAttribution('OpenStreetMap contributors')],
+            ),
           ],
         ),
       ),
     );
+  }
+
+  double _initialZoom(List<Map<String, dynamic>> points) {
+    if (points.length < 2) return 12;
+    final latitudes = points.map((p) => _toDouble(p['latitude']));
+    final longitudes = points.map((p) => _toDouble(p['longitude']));
+    final span = [latitudes.reduce((a, b) => a > b ? a : b) - latitudes.reduce((a, b) => a < b ? a : b), longitudes.reduce((a, b) => a > b ? a : b) - longitudes.reduce((a, b) => a < b ? a : b)].reduce((a, b) => a > b ? a : b);
+    if (span > 20) return 3;
+    if (span > 5) return 6;
+    if (span > 1) return 8;
+    return 11;
   }
 
   double _toDouble(dynamic value) {

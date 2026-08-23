@@ -2,6 +2,8 @@
 set -euo pipefail
 
 DBPASS=$(grep '^POSTGRES_PASSWORD=' /opt/projects/kupuna/docker/.env | cut -d= -f2-)
+GEMINI_API_KEY=$(grep '^GEMINI_API_KEY=' /opt/projects/kupuna/source/backend/.env 2>/dev/null | cut -d= -f2- || true)
+GEMINI_MODEL=$(grep '^GEMINI_MODEL=' /opt/projects/kupuna/source/backend/.env 2>/dev/null | cut -d= -f2- || true)
 cd /opt/projects/kupuna/source/backend
 
 cat > .env <<EOF
@@ -12,6 +14,8 @@ PGPORT=5434
 PGUSER=kupuna_user
 PGPASSWORD=${DBPASS}
 PGDATABASE=kupuna_db
+GEMINI_API_KEY=${GEMINI_API_KEY}
+GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
 EOF
 
 npm install --omit=dev

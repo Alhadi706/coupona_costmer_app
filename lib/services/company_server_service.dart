@@ -94,6 +94,14 @@ class CompanyServerService {
     return _decode(response);
   }
 
+  static Future<dynamic> delete(String path, {bool auth = false}) async {
+    final response = await http.delete(_uri(path), headers: await _headers(auth: auth));
+    if (response.statusCode >= 400) {
+      throw StateError('DELETE $path failed (${response.statusCode}): ${response.body}');
+    }
+    return _decode(response);
+  }
+
   static Future<Map<String, dynamic>> signUp({
     required String email,
     required String password,
@@ -326,6 +334,16 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
+  static Future<List<Map<String, dynamic>>> getBrandReportsInbox() async {
+    final data = await get('/brand/reports/inbox', auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> resolveBrandReport(String reportId, {bool grantReward = false, int rewardPoints = 10, String? resolutionNote}) async {
+    final data = await post('/brand/reports/$reportId/resolve', {'grantReward': grantReward, 'rewardPoints': rewardPoints, 'resolutionNote': resolutionNote}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
   static Future<List<Map<String, dynamic>>> getMyNotifications() async {
     final data = await get('/notifications/my', auth: true);
     return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
@@ -364,8 +382,60 @@ class CompanyServerService {
     return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
   }
 
+  static Future<List<Map<String, dynamic>>> getApprovedBillboardAds() async {
+    final offers = await getOffers();
+    return offers.where((offer) {
+      final status = (offer['lifecycleStatus'] ?? '').toString().toLowerCase();
+      final image = (offer['imageUrl'] ?? offer['image'] ?? '').toString();
+      final endDate = DateTime.tryParse((offer['endDate'] ?? '').toString());
+      return status == 'active' && image.isNotEmpty &&
+          (endDate == null || endDate.isAfter(DateTime.now()));
+    }).toList(growable: false);
+  }
+
   static Future<void> createOffer(Map<String, dynamic> payload) async {
     await post('/offers', payload, auth: true);
+  }
+
+  static Future<List<Map<String, dynamic>>> getBillboardAds() async {
+    try {
+      final data = await get('/billboard-ads', auth: true);
+      final ads = (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+      if (ads.isNotEmpty) return ads;
+    } catch (_) {
+      // Older deployed API instances may not have the dedicated feed yet.
+    }
+
+    final offers = await getOffers();
+    return offers.where((offer) {
+      final status = (offer['lifecycleStatus'] ?? '').toString().toLowerCase();
+      final image = (offer['imageUrl'] ?? offer['image'] ?? '').toString();
+      return status == 'active' && image.isNotEmpty;
+    }).toList(growable: false);
+  }
+
+  static Future<void> trackBillboardImpression(String adId) async {
+    await post('/billboard-ads/$adId/impression', <String, dynamic>{}, auth: true);
+  }
+
+  static Future<Map<String, dynamic>> trackBillboardClick(String adId) async {
+    final data = await post('/billboard-ads/$adId/click', <String, dynamic>{}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getAdminBillboardAds() async {
+    final data = await get('/admin/billboard-ads', auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> approveAdminBillboardAd(String adId) async {
+    final data = await post('/admin/billboard-ads/$adId/approve', <String, dynamic>{}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> rejectAdminBillboardAd(String adId, {String reason = 'Rejected by admin'}) async {
+    final data = await post('/admin/billboard-ads/$adId/reject', {'reason': reason}, auth: true);
+    return (data as Map).cast<String, dynamic>();
   }
 
   static Future<String?> uploadImageBytes(
@@ -385,8 +455,15 @@ class CompanyServerService {
   }
 
   static Future<List<Map<String, dynamic>>> getGroups() async {
-    final data = await get('/groups', auth: true);
-    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+    final data = await get('/community/groups/my', auth: true);
+    return (data as List).map((e) {
+      final row = (e as Map).cast<String, dynamic>();
+      return <String, dynamic>{
+        ...row,
+        'desc': row['description'] ?? '',
+        'members': row['membersCount'] ?? 0,
+      };
+    }).toList();
   }
 
   static Future<Map<String, dynamic>> createGroup({
@@ -401,7 +478,7 @@ class CompanyServerService {
   }
 
   static Future<List<Map<String, dynamic>>> getGroupMessages(String groupId) async {
-    final data = await get('/groups/$groupId/messages', auth: true);
+    final data = await get('/community/groups/$groupId/messages', auth: true);
     final rows = (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
     for (final row in rows) {
       final messageId = (row['id'] ?? '').toString();
@@ -425,8 +502,29 @@ class CompanyServerService {
     return rows;
   }
 
-  static Future<void> sendGroupMessage({required String groupId, required String text}) async {
-    await post('/groups/$groupId/messages', {'text': text}, auth: true);
+  static Future<void> sendGroupMessage({
+    required String groupId,
+    required String text,
+    String? imageUrl,
+    Map<String, dynamic>? poll,
+  }) async {
+    await post('/community/groups/$groupId/messages', {
+      'text': text,
+      'imageUrl': imageUrl,
+      'poll': poll,
+    }, auth: true);
+  }
+
+  static Future<Map<String, dynamic>> broadcastToCommunity({
+    required String groupId,
+    required String text,
+  }) async {
+    final data = await post('/community/groups/$groupId/broadcast', {'text': text}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<void> voteOnCommunityPoll({required String groupId, required String messageId, required String option}) async {
+    await post('/community/groups/$groupId/messages/$messageId/poll-vote', {'option': option}, auth: true);
   }
 
   static Future<List<Map<String, dynamic>>> getGroupMessageReplies({
@@ -434,7 +532,7 @@ class CompanyServerService {
     required String messageId,
   }) async {
     try {
-      final data = await get('/groups/$groupId/messages/$messageId/replies', auth: true);
+      final data = await get('/community/groups/$groupId/messages/$messageId/replies', auth: true);
       final serverRows = (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
       final key = _groupMessageKey(groupId, messageId);
       final localRows = _localGroupReplies[key] ?? const <Map<String, dynamic>>[];
@@ -451,7 +549,7 @@ class CompanyServerService {
     required String text,
   }) async {
     try {
-      await post('/groups/$groupId/messages/$messageId/replies', {'text': text}, auth: true);
+      await post('/community/groups/$groupId/messages/$messageId/replies', {'text': text}, auth: true);
     } catch (_) {
       final key = _groupMessageKey(groupId, messageId);
       final replies = _localGroupReplies.putIfAbsent(key, () => <Map<String, dynamic>>[]);
@@ -472,12 +570,29 @@ class CompanyServerService {
     required String emoji,
   }) async {
     try {
-      await post('/groups/$groupId/messages/$messageId/reactions', {'emoji': emoji}, auth: true);
+      await post('/community/groups/$groupId/messages/$messageId/reactions', {'emoji': emoji}, auth: true);
     } catch (_) {
       final key = _groupMessageKey(groupId, messageId);
       final reactionMap = _localGroupReactions.putIfAbsent(key, () => <String, int>{});
       reactionMap[emoji] = (reactionMap[emoji] ?? 0) + 1;
     }
+  }
+
+  static Future<void> pinGroupMessage({required String groupId, required String messageId}) async {
+    await post('/community/groups/$groupId/messages/$messageId/pin', <String, dynamic>{}, auth: true);
+  }
+
+  static Future<void> deleteGroupMessage({required String groupId, required String messageId}) async {
+    await delete('/community/groups/$groupId/messages/$messageId', auth: true);
+  }
+
+  static Future<List<Map<String, dynamic>>> getCommunityGroupMembers(String groupId) async {
+    final data = await get('/community/groups/$groupId/members', auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<void> banCommunityGroupMember({required String groupId, required String userId, String? reason}) async {
+    await post('/community/groups/$groupId/members/$userId/ban', {'reason': reason}, auth: true);
   }
 
   static Future<List<Map<String, dynamic>>> getPrivateChats() async {
@@ -575,6 +690,84 @@ class CompanyServerService {
     return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
   }
 
+  static Future<List<Map<String, dynamic>>> getMerchantRewards() async {
+    final data = await get('/merchant/rewards', auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getBrandRewards() async {
+    final data = await get('/brand/rewards', auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> createBrandReward({
+    required String rewardName,
+    required int points,
+    String? description,
+    String? imageUrl,
+    String kind = 'physical',
+    DateTime? expiresAt,
+    int? quantityLimit,
+    String? pickupInstructions,
+    bool drawEnabled = false,
+    DateTime? drawAt,
+  }) async {
+    final data = await post('/brand/rewards', {
+      'rewardName': rewardName,
+      'value': points,
+      'description': description,
+      'imageUrl': imageUrl,
+      'kind': kind,
+      'expiresAt': expiresAt?.toIso8601String(),
+      'quantityLimit': quantityLimit,
+      'pickupInstructions': pickupInstructions,
+      'drawEnabled': drawEnabled,
+      'drawAt': drawAt?.toIso8601String(),
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> drawBrandReward(String rewardId) async {
+    final data = await post('/brand/rewards/$rewardId/draw', <String, dynamic>{}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> createMerchantReward({
+    required String rewardName,
+    required int points,
+    String? description,
+    String? imageUrl,
+    String kind = 'physical',
+    DateTime? expiresAt,
+    int? quantityLimit,
+  }) async {
+    final data = await post('/merchant/rewards', {
+      'rewardName': rewardName,
+      'value': points,
+      'description': description,
+      'imageUrl': imageUrl,
+      'kind': kind,
+      'expiresAt': expiresAt?.toIso8601String(),
+      'quantityLimit': quantityLimit,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<void> updateMerchantReward(
+    String rewardId, {
+    bool? isActive,
+    int? quantityLimit,
+    DateTime? expiresAt,
+    String? description,
+  }) async {
+    await patch('/merchant/rewards/$rewardId', {
+      'isActive': isActive,
+      'quantityLimit': quantityLimit,
+      'expiresAt': expiresAt?.toIso8601String(),
+      'description': description,
+    }, auth: true);
+  }
+
   static Future<void> updateUserProfile({
     required String userId,
     required Map<String, dynamic> payload,
@@ -643,6 +836,7 @@ class CompanyServerService {
     List<Map<String, dynamic>>? items,
     String? currency,
     bool rewardApplied = false,
+    String? imageBase64,
   }) async {
     try {
       final data = await post('/invoices/scan', {
@@ -656,6 +850,7 @@ class CompanyServerService {
         'items': items ?? const <Map<String, dynamic>>[],
         'currency': currency ?? 'SAR',
         'rewardApplied': rewardApplied,
+        'imageBase64': imageBase64,
       }, auth: true);
       if (data == null) return null;
       return (data as Map).cast<String, dynamic>();
@@ -673,11 +868,11 @@ class CompanyServerService {
     try {
       final response = await http.post(
         _aiUri('/invoices/analyze-ai'),
-        headers: {'Content-Type': 'application/json'},
+        headers: await _headers(auth: true),
         body: jsonEncode({
-        'rawText': rawText,
-        'imageBase64': imageBase64,
-        'mimeType': mimeType ?? 'image/jpeg',
+          'rawText': rawText,
+          'imageBase64': imageBase64,
+          'mimeType': mimeType ?? 'image/jpeg',
         }),
       );
       if (response.statusCode >= 400) {
@@ -766,6 +961,21 @@ class CompanyServerService {
       'status': status,
     }, auth: true);
     return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<void> updateMerchantBranch({
+    required String branchId,
+    String? name,
+    String? address,
+    String? workingHours,
+    String? phone,
+  }) async {
+    await patch('/merchant/branches/$branchId', {
+      'name': name,
+      'address': address,
+      'workingHours': workingHours,
+      'phone': phone,
+    }, auth: true);
   }
 
   static Future<Map<String, dynamic>> addMerchantBranchManager({
@@ -891,6 +1101,11 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
+  static Future<List<Map<String, dynamic>>> getBrandProducts() async {
+    final data = await get('/brand/products', auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
   static Future<Map<String, dynamic>> getBrandAnalytics({
     String range = '30d',
   }) async {
@@ -959,12 +1174,14 @@ class CompanyServerService {
 
   static Future<Map<String, dynamic>> createRewardClaim({
     required int pointsCost,
+    String? rewardId,
     String sourceType = 'merchant',
     String sourceId = '',
     String rewardKind = 'physical',
   }) async {
     final data = await post('/reward-claims/create', {
       'pointsCost': pointsCost,
+      'rewardId': rewardId,
       'sourceType': sourceType,
       'sourceId': sourceId,
       'rewardKind': rewardKind,

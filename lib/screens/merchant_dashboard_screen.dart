@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../services/company_server_service.dart';
 import '../services/export_download.dart';
@@ -13,8 +14,12 @@ import '../widgets/design_system/kupuna_loyalty_health_ring.dart';
 import '../widgets/design_system/kupuna_offer_card.dart';
 import '../widgets/design_system/kupuna_status_pill.dart';
 import 'map_picker_screen.dart';
+import 'add_coupon_screen.dart';
+import 'community_screen.dart';
+import 'cashier_dashboard_screen.dart';
 import 'points_conversion_screen.dart';
 import 'reward_qr_code_screen.dart';
+import 'login_screen.dart';
 
 class MerchantDashboardScreen extends StatefulWidget {
   final bool embedded;
@@ -49,19 +54,24 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   bool _loading = true;
   bool _savingPointValue = false;
   String? _error;
+  bool _sessionExpired = false;
   String? _result;
   double? _branchLatitude;
   double? _branchLongitude;
   String _analyticsRange = '30d';
+  int _merchantTabIndex = 0;
   String _analyticsBranchId = '';
   double? _currentPointValue;
   bool _loadingAnalytics = false;
   List<Map<String, dynamic>> _branches = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _invoices = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _offers = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _merchantRewards = <Map<String, dynamic>>[];
+  String _rewardFilter = 'all';
   Map<String, dynamic> _loyalty = const <String, dynamic>{};
   Map<String, dynamic> _analytics = const <String, dynamic>{};
   Map<String, dynamic> _roles = const <String, dynamic>{};
+  Map<String, dynamic> _merchantProfile = const <String, dynamic>{};
 
   @override
   void initState() {
@@ -86,6 +96,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _sessionExpired = false;
     });
     try {
       final results = await Future.wait<dynamic>(<Future<dynamic>>[
@@ -94,6 +105,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
         CompanyServerService.getMyInvoices(limit: 20),
         CompanyServerService.getMerchantProfile(),
         CompanyServerService.getOffers(),
+        CompanyServerService.getMerchantRewards(),
         CompanyServerService.getMyRoles(),
         CompanyServerService.getMerchantAnalytics(
           range: _analyticsRange,
@@ -104,13 +116,15 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       final profile = Map<String, dynamic>.from(results[3] as Map<dynamic, dynamic>);
       final pointValueRaw = profile['pointValue'];
       final pointValue = pointValueRaw == null ? null : double.tryParse(pointValueRaw.toString());
-      final rawAnalytics = results[6];
+      final rawAnalytics = results[7];
       setState(() {
         _branches = List<Map<String, dynamic>>.from(results[0] as List<dynamic>);
         _loyalty = Map<String, dynamic>.from(results[1] as Map<dynamic, dynamic>);
         _invoices = List<Map<String, dynamic>>.from(results[2] as List<dynamic>);
         _offers = List<Map<String, dynamic>>.from(results[4] as List<dynamic>);
-        _roles = Map<String, dynamic>.from(results[5] as Map<dynamic, dynamic>);
+        _merchantRewards = List<Map<String, dynamic>>.from(results[5] as List<dynamic>);
+        _roles = Map<String, dynamic>.from(results[6] as Map<dynamic, dynamic>);
+        _merchantProfile = profile;
         _analytics = rawAnalytics is Map ? Map<String, dynamic>.from(rawAnalytics as Map<dynamic, dynamic>) : const <String, dynamic>{};
         _currentPointValue = pointValue;
         _pointValueController.text = pointValue == null ? '' : pointValue.toString();
@@ -119,6 +133,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       if (!mounted) return;
       setState(() {
         _error = e.toString();
+        _sessionExpired = e.toString().contains('401') || e.toString().toLowerCase().contains('invalid token');
       });
     } finally {
       if (mounted) {
@@ -490,7 +505,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     }
   }
 
-  Widget _buildBody() {
+  Widget _buildLegacyBody() {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -799,6 +814,15 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                   },
                   child: Text('merchant_create_reward_qr'.tr()),
                 ),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AddCouponScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.campaign_outlined),
+                  label: Text('billboard_create_ad'.tr()),
+                ),
               ],
             ),
           ),
@@ -910,6 +934,411 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildMerchantTabPlaceholder({required String title, required String subtitle, required Widget child}) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Text(title, style: kDisplayTextStyle(size: 22, weight: FontWeight.w700, color: kInk)),
+        const SizedBox(height: 4),
+        Text(subtitle, style: kBodyTextStyle(size: 13, color: kInk.withValues(alpha: 0.65))),
+        const SizedBox(height: 16),
+        child,
+      ],
+    );
+  }
+
+  Widget _buildRewardsTab() {
+    final rewards = _merchantRewards.where((reward) {
+      final active = reward['isActive'] == true;
+      return _rewardFilter == 'all' || (_rewardFilter == 'active' && active) || (_rewardFilter == 'inactive' && !active);
+    }).toList(growable: false);
+    return _buildMerchantTabPlaceholder(
+      title: 'merchant_rewards_tab_title'.tr(),
+      subtitle: 'merchant_rewards_tab_subtitle'.tr(),
+      child: Column(
+        children: [
+          Wrap(
+            spacing: 8,
+            children: [
+              ChoiceChip(label: Text('all'.tr()), selected: _rewardFilter == 'all', onSelected: (_) => setState(() => _rewardFilter = 'all')),
+              ChoiceChip(label: Text('active'.tr()), selected: _rewardFilter == 'active', onSelected: (_) => setState(() => _rewardFilter = 'active')),
+              ChoiceChip(label: Text('inactive'.tr()), selected: _rewardFilter == 'inactive', onSelected: (_) => setState(() => _rewardFilter = 'inactive')),
+              FilledButton.icon(onPressed: _showCreateRewardSheet, icon: const Icon(Icons.add), label: Text('merchant_create_reward'.tr())),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (rewards.isEmpty)
+            Card(child: ListTile(title: Text('merchant_no_rewards'.tr())))
+          else
+            ...rewards.map((reward) {
+              final active = reward['isActive'] == true;
+              final limit = reward['quantityLimit'];
+              final redeemed = reward['quantityRedeemed'] ?? 0;
+              return Card(
+                child: ListTile(
+                  leading: const Icon(Icons.card_giftcard_outlined, color: kTeal),
+                  title: Text('${reward['reward_name'] ?? ''}'),
+                  subtitle: Text('${reward['value'] ?? 0} ${'points_value'.tr(namedArgs: {'points': ''})} | ${active ? 'active'.tr() : 'inactive'.tr()}${limit == null ? '' : ' | $redeemed/$limit'}'),
+                  trailing: Switch(value: active, onChanged: (value) async {
+                    await CompanyServerService.updateMerchantReward(reward['id'].toString(), isActive: value, quantityLimit: limit is num ? limit.toInt() : null);
+                    await _load();
+                  }),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showCreateRewardSheet() async {
+    final name = TextEditingController();
+    final points = TextEditingController();
+    final description = TextEditingController();
+    final imageUrl = TextEditingController();
+    final quantity = TextEditingController();
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (sheetContext) => Padding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(sheetContext).viewInsets.bottom + 20),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('merchant_create_reward'.tr(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                TextField(controller: name, decoration: InputDecoration(labelText: 'reward_name'.tr())),
+                TextField(controller: points, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'reward_points_required'.tr())),
+                TextField(controller: description, decoration: InputDecoration(labelText: 'reward_description_optional'.tr())),
+                TextField(controller: imageUrl, decoration: InputDecoration(labelText: 'reward_image_url_optional'.tr())),
+                TextField(controller: quantity, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'reward_quantity_optional'.tr())),
+                const SizedBox(height: 12),
+                SizedBox(width: double.infinity, child: FilledButton(
+                  onPressed: () async {
+                    final value = int.tryParse(points.text.trim());
+                    final max = int.tryParse(quantity.text.trim());
+                    if (name.text.trim().isEmpty || value == null || value <= 0) return;
+                    await CompanyServerService.createMerchantReward(
+                      rewardName: name.text.trim(), points: value, description: description.text.trim(), imageUrl: imageUrl.text.trim(), quantityLimit: max,
+                    );
+                    if (!sheetContext.mounted) return;
+                    Navigator.of(sheetContext).pop();
+                    await _load();
+                  },
+                  child: Text('save'.tr()),
+                )),
+              ],
+            ),
+          ),
+        ),
+      );
+    } finally {
+      name.dispose(); points.dispose(); description.dispose(); imageUrl.dispose(); quantity.dispose();
+    }
+  }
+
+  Widget _buildAdsTab() {
+    return _buildMerchantTabPlaceholder(
+      title: 'merchant_ads_tab_title'.tr(),
+      subtitle: 'merchant_ads_tab_subtitle'.tr(),
+      child: Column(
+        children: [
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Card(
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const ColoredBox(color: kIndigo, child: Icon(Icons.campaign_outlined, size: 52, color: kGold)),
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 14,
+                    child: Text('merchant_ads_preview'.tr(), style: const TextStyle(color: kWhite, fontWeight: FontWeight.w700)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.campaign_outlined, color: kTeal),
+              title: Text('billboard_create_ad'.tr()),
+              subtitle: Text('billboard_create_ad_hint'.tr()),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddCouponScreen())),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildIndigoSection(
+            title: 'merchant_campaigns'.tr(),
+            child: Column(
+              children: _offers.where((offer) => (offer['imageUrl'] ?? offer['image'] ?? '').toString().isNotEmpty).take(8).map((offer) {
+                final status = (offer['lifecycleStatus'] ?? 'pending_review').toString();
+                final statusColor = status == 'active' ? Colors.green : (status == 'expired' ? Colors.grey : kGold);
+                return ListTile(
+                  leading: const Icon(Icons.image_outlined, color: kTeal),
+                  title: Text((offer['description'] ?? 'offer'.tr()).toString()),
+                  subtitle: Text('${'merchant_campaign_status'.tr()}: $status | ${'merchant_campaign_metrics'.tr(namedArgs: {'impressions': '${offer['impressions'] ?? 0}', 'clicks': '${offer['clicks'] ?? 0}'})}'),
+                  trailing: Icon(Icons.circle, size: 12, color: statusColor),
+                );
+              }).toList(growable: false),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommunityTab() {
+    final groupMetrics = _mapSection('groupMetrics');
+    return _buildMerchantTabPlaceholder(
+      title: 'merchant_community_tab_title'.tr(),
+      subtitle: 'merchant_community_tab_subtitle'.tr(),
+      child: Column(
+        children: [
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.groups_outlined, color: kTeal),
+              title: Text('merchant_community_members'.tr()),
+              subtitle: Text('${_intValue(groupMetrics['members'])}'),
+              trailing: const Icon(Icons.open_in_new),
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CommunityScreen())),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildAnalyticsBlock('merchant_analytics_group_metrics_title'.tr(), [
+            'merchant_analytics_group_metrics_line_1'.tr()
+                .replaceAll('{groups}', '${_intValue(groupMetrics['groups'])}')
+                .replaceAll('{members}', '${_intValue(groupMetrics['members'])}')
+                .replaceAll('{messages}', '${_intValue(groupMetrics['messages'])}'),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStoreTab() {
+    final selectedBranch = _branches.isEmpty
+        ? const <String, dynamic>{}
+        : (_branches.firstWhere(
+            (branch) => (branch['id'] ?? '').toString() == _analyticsBranchId,
+            orElse: () => _branches.first,
+          ));
+    final merchantId = (_merchantProfile['id'] ?? '').toString();
+    final branchId = (selectedBranch['id'] ?? '').toString();
+    final storeQrData = 'kupuna://store/$merchantId${branchId.isEmpty ? '' : '?branch=$branchId'}';
+    return _buildMerchantTabPlaceholder(
+      title: 'merchant_store_tab_title'.tr(),
+      subtitle: 'merchant_store_tab_subtitle'.tr(),
+      child: Column(
+        children: [
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.storefront_outlined, color: kTeal),
+              title: Text((_merchantProfile['businessName'] ?? 'merchant_name'.tr()).toString()),
+              subtitle: Text('${_merchantProfile['commercialRegistration'] ?? ''}'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Text('merchant_store_qr_title'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                  const SizedBox(height: 6),
+                  Text('merchant_store_qr_hint'.tr(), textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  if (merchantId.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      color: Colors.white,
+                      child: QrImageView(data: storeQrData, size: 190),
+                    ),
+                  const SizedBox(height: 8),
+                  Text(
+                    branchId.isEmpty ? 'merchant_all_branches'.tr() : '${selectedBranch['name'] ?? ''}',
+                    style: const TextStyle(fontWeight: FontWeight.w600, color: kTeal),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildIndigoSection(
+            title: 'merchant_branches'.tr(),
+            child: Column(
+              children: _branches.map((branch) => ListTile(
+                leading: Icon(
+                  Icons.store_outlined,
+                  color: (branch['id'] ?? '').toString() == (selectedBranch['id'] ?? '').toString() ? kTeal : null,
+                ),
+                title: Text((branch['name'] ?? 'merchant_unnamed_branch'.tr()).toString()),
+                subtitle: Text('${branch['address'] ?? ''}${(branch['workingHours'] ?? '').toString().isEmpty ? '' : ' | ${branch['workingHours']}'}'),
+                trailing: IconButton(
+                  tooltip: 'merchant_edit_branch'.tr(),
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _editBranch(branch),
+                ),
+                onTap: () => setState(() => _analyticsBranchId = (branch['id'] ?? '').toString()),
+              )).toList(growable: false),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildIndigoSection(
+            title: 'merchant_bind_cashier'.tr(),
+            child: Column(
+              children: [
+                TextField(controller: _cashierBranchIdController, decoration: InputDecoration(labelText: 'merchant_branch_id'.tr())),
+                TextField(controller: _cashierUserIdController, decoration: InputDecoration(labelText: 'merchant_cashier_user_id'.tr())),
+                const SizedBox(height: 8),
+                ElevatedButton(onPressed: _bindCashier, child: Text('merchant_bind_cashier_action'.tr())),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) return _buildLegacyBody();
+    if (_sessionExpired) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_clock_outlined, size: 48, color: kGold),
+              const SizedBox(height: 12),
+              Text('merchant_session_expired'.tr(), textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginPage())),
+                icon: const Icon(Icons.login),
+                label: Text('login_again'.tr()),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final tabs = <Widget>[
+      _buildScannerTab(),
+      _buildRewardsTab(),
+      _buildAdsTab(),
+      _buildCommunityTab(),
+      _buildStoreTab(),
+    ];
+    return Column(
+      children: [
+        Expanded(child: tabs[_merchantTabIndex]),
+        NavigationBar(
+          selectedIndex: _merchantTabIndex,
+          onDestinationSelected: (index) => setState(() => _merchantTabIndex = index),
+          destinations: [
+            NavigationDestination(icon: const Icon(Icons.qr_code_scanner), label: 'merchant_nav_scanner'.tr()),
+            NavigationDestination(icon: const Icon(Icons.card_giftcard_outlined), label: 'merchant_nav_rewards'.tr()),
+            NavigationDestination(icon: const Icon(Icons.campaign_outlined), label: 'merchant_nav_ads'.tr()),
+            NavigationDestination(icon: const Icon(Icons.groups_outlined), label: 'merchant_nav_community'.tr()),
+            NavigationDestination(icon: const Icon(Icons.store_outlined), label: 'merchant_nav_store'.tr()),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScannerTab() {
+    final sales = _mapSection('sales');
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              Expanded(child: _statCard('merchant_today_redemptions'.tr(), _intValue(sales['redemptions']))),
+              const SizedBox(width: 10),
+              Expanded(child: _statCard('merchant_points_spent'.tr(), _intValue(sales['pointsSpent']))),
+            ],
+          ),
+        ),
+        Expanded(child: CashierDashboardScreen.embedded()),
+      ],
+    );
+  }
+
+  Widget _statCard(String label, int value) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: kBodyTextStyle(size: 11, color: kInk.withValues(alpha: 0.65))),
+            const SizedBox(height: 4),
+            Text('$value', style: kPointsNumberStyle(size: 22, color: kTeal)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editBranch(Map<String, dynamic> branch) async {
+    final name = TextEditingController(text: '${branch['name'] ?? ''}');
+    final address = TextEditingController(text: '${branch['address'] ?? ''}');
+    final hours = TextEditingController(text: '${branch['workingHours'] ?? ''}');
+    final phone = TextEditingController(text: '${branch['phone'] ?? ''}');
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (sheetContext) => Padding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(sheetContext).viewInsets.bottom + 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('merchant_edit_branch'.tr(), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+              TextField(controller: name, decoration: InputDecoration(labelText: 'merchant_name'.tr())),
+              TextField(controller: address, decoration: InputDecoration(labelText: 'merchant_address'.tr())),
+              TextField(controller: hours, decoration: InputDecoration(labelText: 'merchant_working_hours'.tr())),
+              TextField(controller: phone, decoration: InputDecoration(labelText: 'merchant_phone'.tr())),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () async {
+                    await CompanyServerService.updateMerchantBranch(
+                      branchId: (branch['id'] ?? '').toString(),
+                      name: name.text.trim(),
+                      address: address.text.trim(),
+                      workingHours: hours.text.trim(),
+                      phone: phone.text.trim(),
+                    );
+                    if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                    await _load();
+                  },
+                  child: Text('save'.tr()),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      name.dispose();
+      address.dispose();
+      hours.dispose();
+      phone.dispose();
+    }
   }
 
   Widget _buildAnalyticsSuite() {

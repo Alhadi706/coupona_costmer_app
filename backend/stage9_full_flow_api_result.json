@@ -1,13 +1,13 @@
 {
   "meta": {
-    "at": "2026-08-16T21:28:15.657Z",
+    "at": "2026-08-22T22:12:30.682Z",
     "api": "http://127.0.0.1:3007/api"
   },
   "users": {
     "ahmed": {
       "name": "أحمد",
-      "email": "ahmed.stage9.20260816212815649@kupuna.test",
-      "phone": "0951815649",
+      "email": "ahmed.stage9.20260822221230681@kupuna.test",
+      "phone": "0951230681",
       "role": "customer",
       "gender": "male",
       "birthDate": "1994-04-12",
@@ -16,8 +16,8 @@
     },
     "khaled": {
       "name": "خالد",
-      "email": "khaled.stage9.20260816212815649@kupuna.test",
-      "phone": "0952815649",
+      "email": "khaled.stage9.20260822221230681@kupuna.test",
+      "phone": "0952230681",
       "role": "customer",
       "gender": "male",
       "birthDate": "1992-12-03",
@@ -26,8 +26,8 @@
     },
     "yousef": {
       "name": "يوسف",
-      "email": "yousef.stage9.20260816212815649@kupuna.test",
-      "phone": "0953815649",
+      "email": "yousef.stage9.20260822221230681@kupuna.test",
+      "phone": "0953230681",
       "role": "admin",
       "gender": "male",
       "birthDate": "1988-01-09",
@@ -36,8 +36,8 @@
     },
     "nour": {
       "name": "نور",
-      "email": "nour.stage9.20260816212815649@kupuna.test",
-      "phone": "0954815649",
+      "email": "nour.stage9.20260822221230681@kupuna.test",
+      "phone": "0954230681",
       "role": "customer",
       "gender": "female",
       "birthDate": "1991-05-17",
@@ -46,8 +46,8 @@
     },
     "sara": {
       "name": "سارة",
-      "email": "sara.stage9.20260816212815649@kupuna.test",
-      "phone": "0955815649",
+      "email": "sara.stage9.20260822221230681@kupuna.test",
+      "phone": "0955230681",
       "role": "customer",
       "gender": "female",
       "birthDate": "1998-06-18",
@@ -56,8 +56,8 @@
     },
     "omar": {
       "name": "عمر",
-      "email": "omar.stage9.20260816212815649@kupuna.test",
-      "phone": "0956815649",
+      "email": "omar.stage9.20260822221230681@kupuna.test",
+      "phone": "0956230681",
       "role": "customer",
       "gender": "male",
       "birthDate": "1985-03-01",
@@ -66,8 +66,8 @@
     },
     "lama": {
       "name": "لمى",
-      "email": "lama.stage9.20260816212815649@kupuna.test",
-      "phone": "0957815649",
+      "email": "lama.stage9.20260822221230681@kupuna.test",
+      "phone": "0957230681",
       "role": "customer",
       "gender": "female",
       "birthDate": "1975-11-27",
@@ -76,8 +76,8 @@
     },
     "rana": {
       "name": "رنا",
-      "email": "rana.stage9.20260816212815649@kupuna.test",
-      "phone": "0958815649",
+      "email": "rana.stage9.20260822221230681@kupuna.test",
+      "phone": "0958230681",
       "role": "customer",
       "gender": "female",
       "birthDate": "1990-01-10",
@@ -86,21 +86,21 @@
     }
   },
   "ids": {
-    "ahmed": "87b39fd5-4feb-4538-8fbc-a382fe3cf1f2",
-    "khaled": "dcbf1185-074d-4585-8102-9011e696f34b",
-    "yousef": "f760f09b-2ec5-4b9c-8cd2-0fa5429c89bf",
-    "nour": "e406d2cc-253b-45a2-9e02-09dcd4c3efed",
-    "sara": "74386fb8-81c3-4790-b098-976a7e0f0136",
-    "omar": "ed9d6f1a-a5f0-495b-8b6a-cbb5e155f99f",
-    "lama": "e565c678-4894-4024-a3ab-fa13c05c851e",
-    "rana": "11bc6b09-43bb-4c8e-a41b-911418efbd8b",
-    "ahmedMerchantId": "1a9eee06-01d8-45a7-9ffe-276a6d30f6bc",
-    "khaledBrandId": "9a27747f-3687-4769-88d5-c368346ac1e0",
-    "nourMerchantId": "8e369867-dfc9-43ec-9420-e13817b97b9c",
-    "ahmedBranch1Id": "195db326-d072-4142-843a-be4f163a32e8",
-    "ahmedBranch2Id": "0b28b679-4a16-4d87-aa6c-3be3ff95e053",
-    "nourBranchId": "cdbe1a8c-6814-4562-ba75-9a0d78a6ab0e",
-    "toriProductId": "ea9e0ddf-1fa2-4418-8a55-aedfda169f6d"
+    "ahmed": "7d2f7e14-88c3-4864-90d4-09f367afdbb8",
+    "khaled": "f9da08fa-d1e2-4fdd-80fb-0c9aee95f414",
+    "yousef": "0050b1f0-d0e8-4fff-8b59-1c6721a87229",
+    "nour": "c46a2d61-f1ce-4f8f-8661-77e8d08142c3",
+    "sara": "db0b599d-00f4-49c3-83c0-c738699c9e0c",
+    "omar": "7484cd65-67b5-419b-b0d9-a2d1493e313e",
+    "lama": "e9d3f9c4-7794-49e1-b575-b85aabaffae4",
+    "rana": "364ff452-458f-4858-b7d9-3a10a55c65e9",
+    "ahmedMerchantId": "5b54ca9d-35cd-41f8-88fc-7aff2d80282e",
+    "khaledBrandId": "b1c1d4c9-2f0b-4d5f-a8d8-50fcf4118bf6",
+    "nourMerchantId": "9f75375c-8524-439b-8f43-6773d763c198",
+    "ahmedBranch1Id": "e6e396d2-0a2a-4f70-9b45-2f644e741225",
+    "ahmedBranch2Id": "d622e499-e158-490c-9a83-b7b564bd90c7",
+    "nourBranchId": "55eb93a1-212c-4211-9abb-cf5611e931fb",
+    "toriProductId": "4459803f-f191-429b-bce9-2ecdf8b299aa"
   },
   "checks": {
     "9.1_ahmed_sections_and_real_numbers": {
@@ -143,14 +143,14 @@
       },
       "customerHeatmap": [
         {
-          "id": "ed9d6f1a-a5f0-495b-8b6a-cbb5e155f99f",
+          "id": "7484cd65-67b5-419b-b0d9-a2d1493e313e",
           "label": "عمر",
           "latitude": 32.9031,
           "longitude": 13.2082,
           "value": 1
         },
         {
-          "id": "74386fb8-81c3-4790-b098-976a7e0f0136",
+          "id": "db0b599d-00f4-49c3-83c0-c738699c9e0c",
           "label": "سارة",
           "latitude": 32.9022,
           "longitude": 13.2064,
@@ -163,11 +163,11 @@
         "statusBreakdown": []
       },
       "peakTimes": {
-        "peakHour": "21:00",
+        "peakHour": "22:00",
         "peakDay": "Fri",
         "byHour": [
           {
-            "label": "21:00",
+            "label": "22:00",
             "value": 2
           }
         ],
@@ -177,7 +177,7 @@
             "value": 1
           },
           {
-            "label": "Sat",
+            "label": "Thu",
             "value": 1
           }
         ]
@@ -244,7 +244,7 @@
         "churnPercent": 100
       },
       "branchScope": {
-        "id": "0b28b679-4a16-4d87-aa6c-3be3ff95e053",
+        "id": "d622e499-e158-490c-9a83-b7b564bd90c7",
         "name": "مطعم أحمد - الفرع الثاني"
       }
     },
@@ -258,14 +258,14 @@
       "ok": true,
       "distributionHeatmap": [
         {
-          "id": "1a9eee06-01d8-45a7-9ffe-276a6d30f6bc",
+          "id": "5b54ca9d-35cd-41f8-88fc-7aff2d80282e",
           "label": "مطعم أحمد",
           "latitude": 32.9012,
           "longitude": 13.205,
           "value": 50
         },
         {
-          "id": "8e369867-dfc9-43ec-9420-e13817b97b9c",
+          "id": "9f75375c-8524-439b-8f43-6773d763c198",
           "label": "مخبز نور",
           "latitude": 32.894,
           "longitude": 13.214,
@@ -277,13 +277,13 @@
           "name": "مطعم أحمد",
           "salesTotal": 50,
           "quantity": 2,
-          "key": "1a9eee06-01d8-45a7-9ffe-276a6d30f6bc"
+          "key": "5b54ca9d-35cd-41f8-88fc-7aff2d80282e"
         },
         {
           "name": "مخبز نور",
           "salesTotal": 15,
           "quantity": 1,
-          "key": "8e369867-dfc9-43ec-9420-e13817b97b9c"
+          "key": "9f75375c-8524-439b-8f43-6773d763c198"
         }
       ],
       "lowestSellingStores": [
@@ -360,21 +360,72 @@
     "9.5_yousef_platform_analytics": {
       "ok": true,
       "summary": {
-        "users": 355,
-        "merchants": 49,
-        "brands": 23,
-        "reports": 10,
-        "fraudFlags": 11,
-        "activeMerchants": 19,
-        "totalSales": 1662
+        "users": 504,
+        "merchants": 61,
+        "brands": 26,
+        "reports": 11,
+        "fraudFlags": 12,
+        "activeMerchants": 24,
+        "totalSales": 2751.5,
+        "activity": [
+          {
+            "date": "2026-08-16",
+            "approvedInvoices": 20,
+            "dailySales": 1046,
+            "reports": 6,
+            "newUsers": 116
+          },
+          {
+            "date": "2026-08-17",
+            "approvedInvoices": 2,
+            "dailySales": 400,
+            "reports": 0,
+            "newUsers": 16
+          },
+          {
+            "date": "2026-08-18",
+            "approvedInvoices": 0,
+            "dailySales": 0,
+            "reports": 0,
+            "newUsers": 0
+          },
+          {
+            "date": "2026-08-19",
+            "approvedInvoices": 1,
+            "dailySales": 55,
+            "reports": 0,
+            "newUsers": 97
+          },
+          {
+            "date": "2026-08-20",
+            "approvedInvoices": 1,
+            "dailySales": 120,
+            "reports": 0,
+            "newUsers": 0
+          },
+          {
+            "date": "2026-08-21",
+            "approvedInvoices": 4,
+            "dailySales": 292.5,
+            "reports": 0,
+            "newUsers": 0
+          },
+          {
+            "date": "2026-08-22",
+            "approvedInvoices": 4,
+            "dailySales": 82,
+            "reports": 1,
+            "newUsers": 28
+          }
+        ]
       },
       "minimumExpectedSales": 400
     }
   },
   "exports": {
-    "csvPath": "C:\\Users\\test\\coupona_app\\backend\\stage9_merchant_analytics_export.csv",
+    "csvPath": "/opt/projects/kupuna/source/backend/stage9_merchant_analytics_export.csv",
     "csvBytes": 211,
-    "pdfPath": "C:\\Users\\test\\coupona_app\\backend\\stage9_merchant_analytics_export.pdf",
+    "pdfPath": "/opt/projects/kupuna/source/backend/stage9_merchant_analytics_export.pdf",
     "pdfBytes": 853
   },
   "notes": [

@@ -28,9 +28,11 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   String? _location;
+  String _ctaType = 'store';
   bool _isLoading = false;
 
   final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _ctaValueController = TextEditingController();
 
   // بدل النصوص الثابتة في القوائم بمفاتيح ترجمة
   final List<String> _offerTypes = [
@@ -42,6 +44,13 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
   final List<String> _categories = [
     'restaurants', 'real_estate', 'clothes', 'electronics', 'resthouses', 'health', 'activities', 'other'
   ];
+
+  @override
+  void dispose() {
+    _locationController.dispose();
+    _ctaValueController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -143,6 +152,8 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
         'lifecycleStatus': 'pending_review',
         'lifecycleUpdatedAt': now.toIso8601String(),
         'lifecycleReason': 'created_from_add_coupon_screen',
+        'ctaType': _ctaType,
+        'ctaValue': _ctaValueController.text.trim(),
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -280,6 +291,30 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
                 ),
                 const SizedBox(height: 16),
                 
+                DropdownButtonFormField<String>(
+                  decoration: InputDecoration(
+                    labelText: 'billboard_cta_label'.tr(),
+                    border: const OutlineInputBorder(),
+                  ),
+                  initialValue: _ctaType,
+                  items: [
+                    DropdownMenuItem(value: 'store', child: Text('billboard_cta_store'.tr())),
+                    DropdownMenuItem(value: 'reward', child: Text('billboard_cta_reward'.tr())),
+                    DropdownMenuItem(value: 'external', child: Text('billboard_cta_external'.tr())),
+                  ],
+                  onChanged: (value) => setState(() => _ctaType = value ?? 'store'),
+                ),
+                if (_ctaType != 'store') ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _ctaValueController,
+                    decoration: InputDecoration(
+                      labelText: _ctaType == 'reward' ? 'billboard_cta_reward_id'.tr() : 'billboard_cta_url'.tr(),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     ElevatedButton.icon(

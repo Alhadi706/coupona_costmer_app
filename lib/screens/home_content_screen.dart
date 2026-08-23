@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/design_system/kupuna_offer_card.dart';
 import '../widgets/design_system/kupuna_top_tabs.dart';
+import '../widgets/stream_load_error.dart';
+import 'ads_banner_slider.dart';
 import 'store_details_screen.dart';
 
 class HomeContentScreen extends StatefulWidget {
@@ -34,6 +37,8 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   String _selectedDiscoverCategory = '';
   double? _customerLat;
   double? _customerLng;
+  late Future<List<Map<String, dynamic>>> _storesFuture;
+  late Future<List<Map<String, dynamic>>> _billboardAdsFuture;
 
   static const List<String> _bannerKeys = <String>[
     'home_banner_1',
@@ -44,7 +49,15 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   @override
   void initState() {
     super.initState();
+    _storesFuture = CompanyServerService.getStores();
+    _billboardAdsFuture = CompanyServerService.getBillboardAds();
     _resolveCustomerLocation();
+  }
+
+  void _reloadStores() {
+    setState(() {
+      _storesFuture = CompanyServerService.getStores();
+    });
   }
 
   Future<void> _resolveCustomerLocation() async {
@@ -122,6 +135,39 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   }
 
   Widget _buildBanner() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _billboardAdsFuture,
+      builder: (context, snapshot) {
+        final ads = snapshot.data ?? const <Map<String, dynamic>>[];
+        if (ads.isNotEmpty) {
+          return AdsBannerSlider(
+            ads: ads,
+            height: 170,
+            onAdTap: _handleBillboardTap,
+            onAdImpression: (ad) {
+              final id = (ad['id'] ?? '').toString();
+              if (id.isNotEmpty) CompanyServerService.trackBillboardImpression(id).catchError((_) {});
+            },
+          );
+        }
+        if (snapshot.hasError) {
+          return _buildDefaultBanner();
+        }
+        return Container(
+          height: 170,
+          width: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: kTealDark,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: const CircularProgressIndicator(color: kGold),
+        );
+      },
+    );
+  }
+
+  Widget _buildDefaultBanner() {
     final String bannerText = _bannerKeys[_bannerIndex].tr();
     return Container(
       width: double.infinity,
@@ -172,6 +218,70 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
         ],
       ),
     );
+  }
+
+  void _showBillboardDetails(Map<String, dynamic> ad) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) {
+        final imageUrl = (ad['imageUrl'] ?? ad['image'] ?? '').toString();
+        final assetPath = imageUrl;
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (imageUrl.startsWith('http'))
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.network(imageUrl, width: double.infinity, height: 180, fit: BoxFit.cover),
+                  ),
+                if (!imageUrl.startsWith('http') && assetPath.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.asset(assetPath, width: double.infinity, height: 180, fit: BoxFit.cover),
+                  ),
+                const SizedBox(height: 14),
+                Text(
+                  (ad['description'] ?? ad['title'] ?? 'home_billboard_ad_default_title'.tr()).toString(),
+                  style: kDisplayTextStyle(size: 20, weight: FontWeight.w700),
+                ),
+                if ((ad['category'] ?? '').toString().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text((ad['category']).toString(), style: kBodyTextStyle(color: kTeal, weight: FontWeight.w600)),
+                ],
+                if ((ad['location'] ?? '').toString().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text((ad['location']).toString(), style: kBodyTextStyle(color: kInk.withValues(alpha: 0.7))),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _handleBillboardTap(Map<String, dynamic> ad) async {
+    final id = (ad['id'] ?? '').toString();
+    if (id.isNotEmpty) {
+      try {
+        await CompanyServerService.trackBillboardClick(id);
+      } catch (_) {}
+    }
+    final ctaType = (ad['ctaType'] ?? 'store').toString();
+    final ctaValue = (ad['ctaValue'] ?? '').toString().trim();
+    if (ctaType == 'external' && ctaValue.isNotEmpty) {
+      final uri = Uri.tryParse(ctaValue);
+      if (uri != null && await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    }
+    if (mounted) _showBillboardDetails(ad);
   }
 
   Widget _buildSearchBar() {
@@ -232,8 +342,23 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
       title: 'home_discover_section_title'.tr(),
       subtitle: 'home_list_live_subtitle'.tr(),
       child: FutureBuilder<List<Map<String, dynamic>>>(
-        future: CompanyServerService.getStores(),
+        future: _storesFuture,
         builder: (context, snapshot) {
+          if (snapshot.hasError && !snapshot.hasData) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const StreamLoadError(),
+                  TextButton(
+                    onPressed: _reloadStores,
+                    child: Text('retry'.tr()),
+                  ),
+                ],
+              ),
+            );
+          }
           if (!snapshot.hasData) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 20),
@@ -422,6 +547,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
             .asyncMap((_) => CompanyServerService.getOffers())
             .startWithFuture(CompanyServerService.getOffers()),
         builder: (context, snapshot) {
+          if (snapshot.hasError && !snapshot.hasData) {
+            return const StreamLoadError();
+          }
           if (!snapshot.hasData) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 20),
@@ -484,6 +612,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
             .asyncMap((_) => CompanyServerService.getOffers())
             .startWithFuture(CompanyServerService.getOffers()),
         builder: (context, snapshot) {
+          if (snapshot.hasError && !snapshot.hasData) {
+            return const StreamLoadError();
+          }
           if (!snapshot.hasData) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 20),

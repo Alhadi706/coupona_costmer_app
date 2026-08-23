@@ -145,6 +145,17 @@ async function signupAndLogin(user) {
     locationLng: user.lng,
   });
 
+  if (user.role === 'admin') {
+    await pool.query(
+      `UPDATE users
+          SET role = 'admin',
+              email_verified = TRUE,
+              profile_completed = TRUE
+        WHERE email = $1`,
+      [user.email]
+    );
+  }
+
   const login = await api('/auth/login', 'POST', {
     email: user.email,
     password: PASSWORD,
@@ -258,7 +269,7 @@ async function createApprovedInvoice({
 
   const lineItemsResponse = await api(`/invoices/${scan.data.id}/line-items`, 'POST', {
     items: lineItems,
-  }, token);
+  }, approverToken);
 
   if (brandMatch) {
     await api(`/invoices/${scan.data.id}/brand-matches`, 'POST', {
@@ -270,7 +281,7 @@ async function createApprovedInvoice({
           confidence: brandMatch.confidence,
         },
       ],
-    }, token);
+    }, approverToken);
   }
 
   await api(`/invoices/${scan.data.id}/state-transition`, 'POST', {

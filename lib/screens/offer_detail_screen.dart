@@ -433,7 +433,7 @@ class _ShareOptions extends StatelessWidget {
                   if (await canLaunchUrl(Uri.parse(url))) {
                     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
                   } else {
-                    Share.share(shareText);
+                    SharePlus.instance.share(ShareParams(text: shareText));
                   }
                 },
                 tooltip: 'whatsapp'.tr(),
@@ -441,14 +441,14 @@ class _ShareOptions extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.facebook, color: Colors.blue, size: 32),
                 onPressed: () {
-                  Share.share(shareText);
+                  SharePlus.instance.share(ShareParams(text: shareText));
                 },
                 tooltip: 'facebook'.tr(),
               ),
               IconButton(
                 icon: const Icon(Icons.telegram, color: Colors.blueAccent, size: 32),
                 onPressed: () {
-                  Share.share(shareText);
+                  SharePlus.instance.share(ShareParams(text: shareText));
                 },
                 tooltip: 'telegram'.tr(),
               ),

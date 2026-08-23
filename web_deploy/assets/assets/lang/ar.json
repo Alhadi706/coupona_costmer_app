@@ -99,6 +99,14 @@
   "reports": "البلاغات",
   "report_sent": "تم إرسال البلاغ",
   "report_sent_message": "تم إرسال بلاغك وسيتم مراجعته خلال 24 ساعة. شكرًا لمساهمتك في تحسين الخدمة.",
+  "please_select_eligible_store": "يرجى اختيار محل من قائمة المحلات المؤهلة.",
+  "report_send_failed": "تعذر إرسال البلاغ. حاول مرة أخرى.",
+  "report_eligible_stores_only_hint": "يمكنك تقديم البلاغ فقط على المحلات التي لديك معها تعاملات معتمدة.",
+  "report_store_search_label": "بحث عن محل في قائمتك",
+  "report_no_eligible_stores": "لا توجد محلات مؤهلة للبلاغ حالياً. يجب أن يكون لديك فاتورة معتمدة أو تعامل مسجل.",
+  "report_no_matching_eligible_stores": "لا توجد نتائج مطابقة ضمن المحلات المؤهلة.",
+  "report_eligible_stores_load_error": "تعذر تحميل قائمة المحلات المؤهلة.",
+  "report_store_interactions_with_date": "عدد التعاملات: {count} | آخر تعامل: {date}",
   "ok": "حسنًا",
   "report_product_or_service": "بلّغ عن منتج أو خدمة",
   "report_type": "نوع البلاغ",
@@ -118,6 +126,70 @@
   "attach_image_or_invoice": "إرفاق صورة أو فاتورة",
   "image_selected_report": "تم اختيار صورة",
   "send_report": "إرسال البلاغ",
+  "billboard_create_ad": "إضافة إعلان للوحة الرئيسية",
+  "billboard_create_ad_hint": "أرسل إعلاناً مصوراً ليظهر بعد موافقة الإدارة.",
+  "billboard_review_title": "مراجعة إعلانات اللوحة الرئيسية",
+  "billboard_no_pending": "لا توجد إعلانات بانتظار المراجعة.",
+  "billboard_ad_approved": "تمت الموافقة على الإعلان.",
+  "billboard_ad_rejected": "تم رفض الإعلان.",
+  "merchant_nav_scanner": "الرئيسية",
+  "merchant_nav_rewards": "الجوائز",
+  "merchant_nav_ads": "الإعلانات",
+  "merchant_nav_community": "مجتمعي",
+  "merchant_nav_store": "المتجر",
+  "merchant_session_expired": "انتهت جلسة الدخول. يرجى تسجيل الدخول مرة أخرى.",
+  "login_again": "تسجيل الدخول مجددًا",
+  "admin_session_expired": "انتهت جلسة الأدمن. يرجى تسجيل الدخول مرة أخرى.",
+  "admin_load_failed": "تعذر تحميل هذا القسم.",
+  "merchant_rewards_tab_title": "إدارة الجوائز",
+  "merchant_rewards_tab_subtitle": "حدد قيمة النقطة وتابع عروض المكافآت المرتبطة بعملائك.",
+  "merchant_ads_tab_title": "إعلانات البانر المتحرك",
+  "merchant_ads_tab_subtitle": "أرسل حملاتك المصورة للمراجعة لتظهر في الصفحة الرئيسية.",
+  "merchant_community_tab_title": "مجتمعي",
+  "merchant_community_tab_subtitle": "تابع مجتمع المحل وتفاعل مع الزبائن.",
+  "merchant_store_tab_title": "إعدادات المتجر",
+  "merchant_store_tab_subtitle": "الفروع والكاشير وبيانات المتجر.",
+  "merchant_community_members": "أعضاء مجتمع المحل",
+  "manage_group_members": "إدارة أعضاء القروب",
+  "pin": "تثبيت",
+  "delete": "حذف",
+  "ban": "حظر",
+  "community_attach_image": "إرفاق صورة",
+  "community_create_poll": "إنشاء استبيان",
+  "community_poll_question": "سؤال الاستبيان",
+  "community_poll_option": "الخيار {number}",
+  "community_add_poll_option": "إضافة خيار",
+  "community_poll_ready": "استبيان جاهز للنشر",
+  "community_broadcast_title": "إرسال إشعار جماعي",
+  "community_broadcast_hint": "اكتب التحديث الذي سيصل لأعضاء القروب",
+  "merchant_create_reward": "إنشاء جائزة",
+  "merchant_no_rewards": "لا توجد جوائز مضافة لهذا المتجر.",
+  "reward_name": "اسم الجائزة",
+  "reward_points_required": "النقاط المطلوبة",
+  "reward_description_optional": "الوصف (اختياري)",
+  "reward_image_url_optional": "رابط صورة الجائزة (اختياري)",
+  "reward_quantity_optional": "حد الاستخدام (اختياري)",
+    "billboard_cta_label": "الإجراء عند الضغط",
+    "billboard_cta_store": "فتح صفحة المتجر",
+    "billboard_cta_reward": "فتح جائزة",
+    "billboard_cta_external": "فتح رابط خارجي",
+    "billboard_cta_reward_id": "معرف الجائزة",
+    "billboard_cta_url": "الرابط الخارجي",
+    "merchant_ads_preview": "معاينة البانر كما سيظهر للزبائن",
+    "merchant_campaigns": "حملات الإعلانات",
+    "merchant_campaign_status": "الحالة",
+    "merchant_campaign_metrics": "المشاهدات {impressions} | النقرات {clicks}",
+  "merchant_today_redemptions": "استبدالات اليوم",
+  "merchant_points_spent": "النقاط المستهلكة",
+  "merchant_store_qr_title": "كود QR الخاص بالمتجر",
+  "merchant_store_qr_hint": "اطبع الكود واعرضه في الفرع للتعريف بالمتجر والفرع.",
+  "merchant_edit_branch": "تعديل بيانات الفرع",
+  "merchant_working_hours": "ساعات العمل",
+  "merchant_phone": "رقم التواصل",
+  "cashier_scan_reward_qr": "مسح QR المكافأة",
+  "cashier_confirm_redemption_title": "تأكيد تسليم المكافأة",
+  "cashier_confirm_redemption_body": "تأكد من حضور الزبون وأن المكافأة جاهزة للتسليم.",
+  "cashier_confirm_redemption": "تأكيد وتسليم المكافأة",
   "offline_no_internet": "لا يوجد اتصال بالإنترنت",
   "wallet_ledger": "المحفظة والدفتر المحاسبي",
   "planned_feature_coming_soon": "{feature} ستكون متاحة قريبًا.",
@@ -150,6 +222,7 @@
   "scan_invoice_demo_mode": "وضع تجريبي: تم إيقاف حفظ الفاتورة والمكافآت مؤقتًا.",
   "scan_invoice_reward_applied": "تم تسجيل الكاش باك والنقاط بنجاح.",
   "scan_invoice_reward_not_applied": "لم يتم تطبيق النقاط تلقائيًا لهذه الفاتورة بعد.",
+  "scan_invoice_points_earned": "النقاط المكتسبة: {points}",
   "scan_invoice_no_text_extracted": "لا يوجد نص مستخرج بعد.",
   "scan_invoice_reanalyze": "إعادة التحليل",
   "scan_invoice_new_image": "صورة جديدة",
@@ -188,6 +261,9 @@
   "free_gift": "هدية مجانية",
   "expand_map": "تكبير الخريطة",
   "stores_map_title": "خريطة المحلات",
+  "store_details_title": "تفاصيل المتجر",
+  "store_details_back_to_map": "العودة إلى الخريطة",
+  "home_discover_distance_unit": "كم",
   "search_store_or_category_hint": "ابحث عن محل أو فئة...",
   "offers_for_category": "عروض {category}",
   "no_offers_for_category": "لا توجد عروض متاحة لهذه الفئة",
@@ -212,9 +288,28 @@
   "available_rewards": "الجوائز المتاحة",
   "no_rewards_available_now": "لا توجد جوائز متاحة حالياً.",
   "redeem_points_value": "استبدال {value}",
+  "my_coupons": "كوبوناتي",
+  "no_coupons_yet": "لم تقم باستبدال أي كوبونات بعد.",
+  "coupon_status_pending_pickup": "بانتظار الاستلام من المتجر",
+  "coupon_status_used": "تم الاستخدام",
+  "coupon_status_expired": "منتهي الصلاحية",
+  "coupon_status_refunded_as_points": "تمت إعادته كنقاط",
+  "coupon_digital_code_label": "رمز الكوبون",
+  "coupon_value_label": "قسيمة بقيمة {value} نقطة",
+  "coupon_qr_hint": "أظهر هذا الرمز عند المتجر لاستخدام الكوبون",
+  "coupon_expires_at": "صالح حتى {value}",
+  "reward_store_label": "من متجر: {value}",
   "transactions_log": "سجل العمليات",
   "no_log_entries_yet": "لا يوجد سجل بعد.",
   "points_value": "{points} نقطة",
+  "wallet_points_caption": "نقطة",
+  "wallet_points_to_next_reward": "يلزمك {value} نقطة للجائزة القادمة",
+  "wallet_all_rewards_unlocked": "لقد فتحت جميع الجوائز!",
+  "reward_locked_label": "قفل",
+  "reward_locked_points_needed": "تحتاج {value} نقطة أخرى",
+  "tx_receipt_scan_approved": "تم قبول مسح الإيصال",
+  "tx_reward_redeemed": "استبدال {reward}",
+  "tx_reward_redeemed_generic": "استبدال جائزة",
   "currency_amount_value": "{amount} ر.س",
   "groups_tab": "القروبات",
   "private_messages_tab": "الرسائل الخاصة",
@@ -272,95 +367,92 @@
   "hide_chat": "إخفاء المحادثة",
   "delete_from_list": "مسح من قائمتي",
   "block_user": "حظر المستخدم",
-  "write_private_message_hint": "اكتب رسالة خاصة..."
-  ,"login_title": "تسجيل الدخول"
-  ,"login_error": "خطأ في تسجيل الدخول: {error}"
-  ,"enter_email": "أدخل البريد الإلكتروني."
-  ,"invalid_email_format": "صيغة البريد الإلكتروني غير صحيحة."
-  ,"enter_password": "أدخل كلمة المرور."
-  ,"password_min_length": "كلمة المرور يجب أن تكون 8 أحرف على الأقل."
-  ,"login_button": "دخول"
-  ,"new_user_create_account": "مستخدم جديد؟ أنشئ حساب"
-  ,"signup_title": "تسجيل حساب جديد"
-  ,"passwords_do_not_match": "كلمتا المرور غير متطابقتين!"
-  ,"account_created_success": "تم إنشاء الحساب بنجاح."
-  ,"generic_error_with_message": "خطأ: {error}"
-  ,"confirm_password_prompt": "أكد كلمة المرور."
-  ,"signup_button": "تسجيل حساب جديد"
-  ,"available_offers_now_title": "العروض المتوفرة حاليًا"
-  ,"untitled_offer": "بدون عنوان"
-  ,"location_on_map": "الموقع على الخريطة"
-  ,"no_precise_coordinates_offer": "لا توجد إحداثيات دقيقة لهذا العرض"
-  ,"open_in_maps": "فتح في الخرائط"
-  ,"offer_details_title": "تفاصيل العرض"
-  ,"conditions": "الشروط"
-  ,"phone_number": "رقم الهاتف"
-  ,"could_not_open_call": "تعذر فتح الاتصال"
-  ,"call": "اتصال"
-  ,"share_offer": "مشاركة العرض"
-  ,"share_via": "مشاركة عبر:"
-  ,"share_offer_text": "عرض من كوبونا:\n{storeName}\n{description}\n{location}"
-  ,"whatsapp": "واتساب"
-  ,"facebook": "فيسبوك"
-  ,"telegram": "تليجرام"
-  ,"shared_in_community_success": "تمت المشاركة في مجتمع كوبونا!"
-  ,"users_list_title": "قائمة المستخدمين"
-  ,"no_users_found": "لا يوجد مستخدمون"
-  ,"message": "مراسلة"
-  ,"profile_no_data": "لا توجد بيانات للملف الشخصي"
-  ,"profile_email_value": "البريد الإلكتروني: {email}"
-  ,"profile_name_value": "الاسم: {name}"
-  ,"profile_gender_value": "الجنس: {gender}"
-  ,"profile_city_value": "المدينة: {city}"
-  ,"profile_country_value": "الدولة: {country}"
-  ,"report_issue_title": "تبليغ عن مشكلة"
-  ,"report_issue_placeholder": "شاشة التبليغ (قيد الإنشاء)"
-  ,"pick_location_on_map": "تحديد الموقع على الخريطة"
-  ,"choose_this_location": "اختيار هذا الموقع"
-  ,"my_points_value": "نقاطي: {points}"
-  ,"day_value": "يوم {day}"
-  ,"points_progress_last_7_days": "تطور نقاطك خلال آخر 7 أيام"
-  ,"reward_redeem_error": "تعذر استلام الجائزة: {error}"
-  ,"complete_profile_title": "استكمال البيانات"
-  ,"full_name": "الاسم الكامل"
-  ,"male": "ذكر"
-  ,"female": "أنثى"
-  ,"gender": "الجنس"
-  ,"city": "المدينة"
-  ,"country": "الدولة"
-  ,"save_data": "حفظ البيانات"
-  ,"profile_saved_success": "تم حفظ البيانات بنجاح!"
-  ,"profile_save_error": "خطأ في حفظ البيانات: {error}"
-  ,"coupon_lifecycle_title": "محرك دورة حياة الكوبون"
-  ,"lifecycle_draft": "مسودة"
-  ,"lifecycle_pending_review": "بانتظار المراجعة"
-  ,"lifecycle_approved": "موافق عليه"
-  ,"lifecycle_rejected": "مرفوض"
-  ,"lifecycle_active": "نشط"
-  ,"lifecycle_redeemed": "مستعمل"
-  ,"lifecycle_expired": "منتهي"
-  ,"lifecycle_archived": "مؤرشف"
-  ,"offer_id_required": "رقم العرض مطلوب."
-  ,"lifecycle_load_success": "تم تحميل دورة حياة العرض بنجاح."
-  ,"lifecycle_bind_error": "فشل ربط العرض: {error}"
-  ,"bind_offer_first": "اربط العرض أولاً."
-  ,"lifecycle_changed_to": "تم تغيير الحالة إلى {status}."
-  ,"lifecycle_change_error": "فشل تغيير الحالة: {error}"
-  ,"offer_id_label": "رقم العرض (Offer ID)"
-  ,"bind_offer": "ربط العرض"
-  ,"lifecycle_reason_optional": "سبب الإجراء (اختياري)"
-  ,"offer_value": "العرض: {value}"
-  ,"last_updated_value": "آخر تحديث: {value}"
-  ,"reason_value": "السبب: {value}"
-  ,"send_for_review": "إرسال للمراجعة"
-  ,"approve": "موافقة"
-  ,"reject": "رفض"
-  ,"activate": "تفعيل"
-  ,"confirm_redemption": "تأكيد الاستخدام"
-  ,"expire": "إنهاء الصلاحية"
-  ,"archive": "أرشفة"
-  ,"lifecycle_note": "ملاحظة: هذه الشاشة إدارية لإدارة حالات العرض من المسودة حتى الأرشفة."
-,
+  "write_private_message_hint": "اكتب رسالة خاصة...",
+  "login_title": "تسجيل الدخول",
+  "login_error": "خطأ في تسجيل الدخول: {error}",
+  "enter_email": "أدخل البريد الإلكتروني.",
+  "invalid_email_format": "صيغة البريد الإلكتروني غير صحيحة.",
+  "enter_password": "أدخل كلمة المرور.",
+  "password_min_length": "كلمة المرور يجب أن تكون 8 أحرف على الأقل.",
+  "login_button": "دخول",
+  "new_user_create_account": "مستخدم جديد؟ أنشئ حساب",
+  "signup_title": "تسجيل حساب جديد",
+  "passwords_do_not_match": "كلمتا المرور غير متطابقتين!",
+  "account_created_success": "تم إنشاء الحساب بنجاح.",
+  "generic_error_with_message": "خطأ: {error}",
+  "confirm_password_prompt": "أكد كلمة المرور.",
+  "signup_button": "تسجيل حساب جديد",
+  "available_offers_now_title": "العروض المتوفرة حاليًا",
+  "untitled_offer": "بدون عنوان",
+  "location_on_map": "الموقع على الخريطة",
+  "no_precise_coordinates_offer": "لا توجد إحداثيات دقيقة لهذا العرض",
+  "open_in_maps": "فتح في الخرائط",
+  "offer_details_title": "تفاصيل العرض",
+  "conditions": "الشروط",
+  "phone_number": "رقم الهاتف",
+  "could_not_open_call": "تعذر فتح الاتصال",
+  "call": "اتصال",
+  "share_offer": "مشاركة العرض",
+  "share_via": "مشاركة عبر:",
+  "share_offer_text": "عرض من كوبونا:\n{storeName}\n{description}\n{location}",
+  "whatsapp": "واتساب",
+  "facebook": "فيسبوك",
+  "telegram": "تليجرام",
+  "shared_in_community_success": "تمت المشاركة في مجتمع كوبونا!",
+  "users_list_title": "قائمة المستخدمين",
+  "no_users_found": "لا يوجد مستخدمون",
+  "profile_no_data": "لا توجد بيانات للملف الشخصي",
+  "profile_email_value": "البريد الإلكتروني: {email}",
+  "profile_name_value": "الاسم: {name}",
+  "profile_gender_value": "الجنس: {gender}",
+  "profile_city_value": "المدينة: {city}",
+  "profile_country_value": "الدولة: {country}",
+  "report_issue_title": "تبليغ عن مشكلة",
+  "report_issue_placeholder": "شاشة التبليغ (قيد الإنشاء)",
+  "pick_location_on_map": "تحديد الموقع على الخريطة",
+  "choose_this_location": "اختيار هذا الموقع",
+  "my_points_value": "نقاطي: {points}",
+  "day_value": "يوم {day}",
+  "points_progress_last_7_days": "تطور نقاطك خلال آخر 7 أيام",
+  "complete_profile_title": "استكمال البيانات",
+  "full_name": "الاسم الكامل",
+  "male": "ذكر",
+  "female": "أنثى",
+  "gender": "الجنس",
+  "city": "المدينة",
+  "country": "الدولة",
+  "save_data": "حفظ البيانات",
+  "profile_saved_success": "تم حفظ البيانات بنجاح!",
+  "profile_save_error": "خطأ في حفظ البيانات: {error}",
+  "coupon_lifecycle_title": "محرك دورة حياة الكوبون",
+  "lifecycle_draft": "مسودة",
+  "lifecycle_pending_review": "بانتظار المراجعة",
+  "lifecycle_approved": "موافق عليه",
+  "lifecycle_rejected": "مرفوض",
+  "lifecycle_active": "نشط",
+  "lifecycle_redeemed": "مستعمل",
+  "lifecycle_expired": "منتهي",
+  "lifecycle_archived": "مؤرشف",
+  "offer_id_required": "رقم العرض مطلوب.",
+  "lifecycle_load_success": "تم تحميل دورة حياة العرض بنجاح.",
+  "lifecycle_bind_error": "فشل ربط العرض: {error}",
+  "bind_offer_first": "اربط العرض أولاً.",
+  "lifecycle_changed_to": "تم تغيير الحالة إلى {status}.",
+  "lifecycle_change_error": "فشل تغيير الحالة: {error}",
+  "offer_id_label": "رقم العرض (Offer ID)",
+  "bind_offer": "ربط العرض",
+  "lifecycle_reason_optional": "سبب الإجراء (اختياري)",
+  "offer_value": "العرض: {value}",
+  "last_updated_value": "آخر تحديث: {value}",
+  "reason_value": "السبب: {value}",
+  "send_for_review": "إرسال للمراجعة",
+  "approve": "موافقة",
+  "reject": "رفض",
+  "activate": "تفعيل",
+  "confirm_redemption": "تأكيد الاستخدام",
+  "expire": "إنهاء الصلاحية",
+  "archive": "أرشفة",
+  "lifecycle_note": "ملاحظة: هذه الشاشة إدارية لإدارة حالات العرض من المسودة حتى الأرشفة.",
   "my_roles_title": "أدواري",
   "my_roles_active_role": "الوضع الحالي: {role}",
   "role_customer": "عميل",
@@ -379,8 +471,7 @@
   "role_mode_cashier": "وضع الكاشير",
   "role_placeholder_merchant": "لوحة تحكم التاجر قيد الإنشاء في هذه المرحلة.",
   "role_placeholder_brand": "لوحة تحكم العلامة التجارية قيد الإنشاء في هذه المرحلة.",
-  "role_placeholder_cashier": "سيتم تفعيل أدوات الكاشير في مرحلة لاحقة."
-,
+  "role_placeholder_cashier": "سيتم تفعيل أدوات الكاشير في مرحلة لاحقة.",
   "role_request_business_name": "اسم النشاط التجاري",
   "role_request_commercial_registration": "السجل التجاري",
   "role_request_plan_type": "نوع الخطة",
@@ -437,7 +528,7 @@
   "admin_dashboard_title": "لوحة الإدارة",
   "admin_tab_role_requests": "طلبات العضوية",
   "admin_tab_peer_ads": "إعلانات الأفراد",
-  "admin_tab_analytics": "التحليلات",
+  "admin_tab_analytics": "النظرة العامة",
   "admin_no_pending_role_requests": "لا توجد طلبات عضوية معلقة.",
   "admin_no_pending_peer_ads": "لا توجد إعلانات أفراد معلقة.",
   "admin_phone_value": "الهاتف: {value}",
@@ -556,8 +647,30 @@
   "cashier_redeeming": "جارٍ التسليم...",
   "cashier_redeem_claim_action": "تسليم المطالبة",
   "cashier_enter_valid_purchase_amount": "يرجى إدخال مبلغ مشتريات صحيح.",
+  "cashier_enter_branch_id": "يرجى إدخال معرّف الفرع.",
   "cashier_grant_result": "تم منح نقاط: {points}، الكسر: {fraction}",
   "cashier_redeem_result": "تم تسليم المطالبة. الحالة: {status}",
+  "cashier_scan_prompt": "امسح رمز QR الخاص بالعميل للتعرّف عليه.",
+  "cashier_scan_action": "مسح",
+  "cashier_rescan": "إعادة المسح",
+  "cashier_qr_scanned": "تم مسح رمز QR الخاص بالعميل بنجاح.",
+  "cashier_scan_customer_qr_title": "مسح رمز QR الخاص بالعميل",
+  "cashier_manual_override_title": "إدخال يدوي (تعذّر استخدام الكاميرا)",
+  "cashier_manual_override_warning": "يتم تسجيل الإدخالات اليدوية ووسمها لمراجعة التاجر/الأدمن.",
+  "cashier_manual_override_reason": "السبب (إلزامي)",
+  "cashier_scan_or_manual_required": "امسح رمز QR الخاص بالعميل، أو استخدم الإدخال اليدوي أدناه.",
+  "cashier_manual_reason_required": "يرجى إدخال معرّف العميل وسبب الإدخال اليدوي.",
+  "cashier_qr_already_used": "تم استخدام هذا الكود مسبقًا.",
+  "cashier_qr_expired": "انتهت صلاحية هذا الكود. اطلب من العميل تحديث شاشة QR.",
+  "cashier_qr_invalid": "هذا الكود غير صالح.",
+  "cashier_daily_limit_reached": "تم بلوغ الحد اليومي لهذا العميل.",
+  "cashier_not_authorized_error": "أنت لست كاشيرًا مخوَّلًا بهذا الفرع.",
+  "pos_qr_title": "اعرض هذا الرمز على الكاشير",
+  "pos_qr_show_button": "اعرض QR لكسب نقاط",
+  "pos_qr_expires_in": "تنتهي الصلاحية خلال {seconds} ثانية",
+  "pos_qr_auto_refresh_note": "يتحدّث هذا الرمز تلقائيًا ويمكن استخدامه مرة واحدة فقط.",
+  "retry": "إعادة المحاولة",
+  "stream_load_retry_message": "تعذّر تحميل البيانات، جاري إعادة المحاولة تلقائياً...",
   "merchant_pick_branch_location": "اختر موقع الفرع على الخريطة",
   "merchant_branch_geo_required": "الموقع الجغرافي مطلوب لإنشاء الفرع.",
   "merchant_branch_geo_selected": "تم اختيار الموقع: {lat}, {lng}",
@@ -620,7 +733,6 @@
   "search_location_hint": "ابحث عن عنوان أو مكان",
   "location_not_found": "لم يتم العثور على موقع مطابق للبحث.",
   "location_lookup_failed": "فشل البحث عن الموقع. جرّب عبارة أخرى.",
-  "full_name": "الاسم الكامل",
   "enter_full_name": "يرجى إدخال الاسم الكامل",
   "birth_date": "تاريخ الميلاد",
   "calculated_age": "العمر: {age}",
@@ -635,5 +747,88 @@
   "location_rationale_title": "سبب طلب صلاحية الموقع",
   "location_rationale_body": "نستخدم موقعك لترتيب المتاجر القريبة في تبويب اكتشف، وتحسين ملاءمة العروض، والتحقق من طلبات الأدوار.",
   "my_roles_section_owned": "أدواري",
-  "my_roles_section_granted_permissions": "صلاحيات ممنوحة لي"
+  "my_roles_section_granted_permissions": "صلاحيات ممنوحة لي",
+  "admin_active_merchants": "التجار النشطون",
+  "admin_total_sales": "إجمالي المبيعات",
+  "admin_users": "المستخدمون",
+  "admin_reports": "البلاغات",
+  "admin_fraud_flags": "إشارات الاحتيال",
+  "admin_groups": "المجموعات",
+  "admin_operations_control_center": "مركز التحكم والعمليات",
+  "admin_platform_activity": "نشاط المنصة (30 يوم)",
+  "admin_operational_pulse": "مؤشر العمليات",
+  "admin_customer_reports": "بلاغات العملاء",
+  "admin_reports_received": "تم استلام {count} بلاغ",
+  "admin_open_queue": "الطابور مفتوح",
+  "admin_risk_review": "مراجعة المخاطر",
+  "admin_risk_flags_detected": "تم رصد {count} إشارة خطر",
+  "admin_review_needed": "تحتاج مراجعة",
+  "admin_merchant_activity": "نشاط التجار",
+  "admin_active_merchants_30_days": "{count} نشطين خلال 30 يوم",
+  "admin_live": "مباشر",
+  "admin_monitoring_and_actions": "المراقبة والإجراءات",
+  "admin_business_footprint": "البصمة التجارية: {m} تاجر | {b} براند | {u} مستخدم",
+  "admin_review_role_requests": "مراجعة طلبات الصلاحيات",
+  "admin_pending_count": "{count} قيد الانتظار",
+  "admin_approve_ads": "اعتماد الإعلانات",
+  "admin_escalate_reports": "تصعيد البلاغات",
+  "admin_reports_count": "{count} بلاغات",
+  "admin_fraud_monitor": "مراقب الاحتيال",
+  "admin_flags_count": "{count} إشارات",
+  "admin_operations_queue": "طابور العمليات",
+  "admin_operations_queue_desc": "قم بمراجعة بلاغات العملاء وإشارات المخاطر والاعتمادات من مكان واحد.",
+  "admin_customer_reports_count": "بلاغات العملاء ({count})",
+  "admin_no_reports_need_review": "لا يوجد بلاغات تحتاج إلى مراجعة حالياً.",
+  "admin_risk_signals_count": "إشارات المخاطر ({count})",
+  "admin_no_fraud_flags_found": "لم يتم العثور على أي إشارات احتيال.",
+  "admin_unknown_risk": "خطر غير معروف",
+  "admin_unknown_reporter": "مستخدم غير معروف",
+  "admin_review": "مراجعة",
+  "admin_pending_approvals": "الاعتمادات",
+  "admin_op_role_requests": "طلبات الصلاحيات",
+  "admin_awaiting_verification": "{count} بانتظار التحقق",
+  "admin_open_tab": "افتح التبويب",
+  "admin_op_peer_ads": "إعلانات الأعضاء",
+  "admin_awaiting_review": "{count} بانتظار المراجعة",
+  "admin_status_new": "جديد",
+  "admin_unknown_target": "كيان غير معروف",
+  "admin_no_description": "لا يوجد وصف",
+  "admin_start_review": "بدء المراجعة",
+  "admin_accept": "قبول",
+  "admin_reject_btn": "رفض",
+  "admin_grant_reward": "منح مكافأة",
+  "admin_close": "إغلاق",
+  "admin_lbl_report": "بلاغ",
+  "admin_tab_operations": "العمليات",
+  "admin_portal": "بوابة الإدارة",
+  "admin_user_distribution": "توزيع المستخدمين",
+  "notif_title_report_thank_you": "شكراً لتبليغك",
+  "notif_body_report_thank_you": "لقد استلمنا البلاغ وهو قيد المراجعة.",
+  "notif_title_report_accepted_reward": "تم قبول البلاغ مع مكافأة",
+  "notif_body_report_accepted_reward": "تم قبول البلاغ وإضافة المكافأة.",
+  "notif_title_report_accepted": "تم قبول البلاغ",
+  "notif_body_report_accepted": "تم قبول بلاغك.",
+  "notif_title_report_reward_granted": "تم منح مكافأة",
+  "notif_body_report_reward_granted": "تم منحك مكافأة بناءً على بلاغك.",
+  "notif_title_role_request_approved": "تم اعتماد الصلاحية",
+  "notif_body_role_request_approved": "تم قبول طلب ترقية حسابك وتفعيل الصلاحية.",
+  "notif_title_points_confirmed": "تم إضافة نقاط",
+  "notif_body_points_confirmed": "تم تأكيد إضافة النقاط לחسابك.",
+  "notif_title_points_expiry_soon": "نقاط تنتهي قريباً",
+  "notif_body_points_expiry_soon": "بعض نقاطك ستنتهي صلاحيتها خلال 7 أيام.",
+  "notif_title_invoice_approved": "تم اعتماد الفاتورة",
+  "notif_body_invoice_approved": "تم قبول واعتماد الفاتورة بنجاح.",
+  "notif_title_invoice_rejected": "فاتورة مرفوضة",
+  "notif_body_invoice_rejected": "عُذراً، تم رفض الفاتورة. بإمكانك التظلم إن أردت.",
+  "notif_title_invoice_dispute_denied": "تم رفض طلب التظلم",
+  "notif_body_invoice_dispute_denied": "تمت مراجعة طلب التظلم ورُفض.",
+  "notif_title_sourcing_inquiry": "استفسار توريد جديد",
+  "notif_body_sourcing_inquiry": "تواصل معك تاجر بشأن إعلانك.",
+  "notif_title_group_message": "رسالة جديدة في مجتمعك",
+  "notif_body_group_message": "تم نشر رسالة جديدة في أحد مجتمعاتك.",
+  "notif_title_targeted_offer": "عرض جديد مخصص لك",
+  "notif_body_targeted_offer": "لديك عرض جديد مصمم خصيصاً لك.",
+  "ref_invoice_prefix": "فاتورة: ",
+  "ref_reward_prefix": "مكافأة: ",
+  "ref_manual_prefix": "يدوي: "
 }

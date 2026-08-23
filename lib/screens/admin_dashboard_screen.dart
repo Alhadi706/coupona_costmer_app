@@ -53,6 +53,7 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   late Future<List<Map<String, dynamic>>> _roleRequestsFuture;
   late Future<List<Map<String, dynamic>>> _peerAdsFuture;
+  late Future<List<Map<String, dynamic>>> _billboardAdsFuture;
   late Future<Map<String, dynamic>> _summaryFuture;
   late Future<Map<String, dynamic>> _operationsFuture;
 
@@ -69,6 +70,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _peerAdsFuture = widget.peerAdsLoader != null
         ? widget.peerAdsLoader!('pending_admin_review')
         : CompanyServerService.getAdminPeerAds(status: 'pending_admin_review');
+      _billboardAdsFuture = CompanyServerService.getAdminBillboardAds();
     _summaryFuture = (widget.summaryLoader ?? CompanyServerService.getAdminDashboardSummary)();
     _operationsFuture = CompanyServerService.getAdminOperationsQueue();
   }
@@ -93,6 +95,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _rejectPeerAd(String adId) async {
     await (widget.rejectPeerAd ?? CompanyServerService.rejectAdminPeerAd)(adId);
+    if (!mounted) return;
+    setState(_refreshAll);
+  }
+
+  Future<void> _approveBillboardAd(String adId) async {
+    await CompanyServerService.approveAdminBillboardAd(adId);
+    if (!mounted) return;
+    setState(_refreshAll);
+  }
+
+  Future<void> _rejectBillboardAd(String adId) async {
+    await CompanyServerService.rejectAdminBillboardAd(adId);
     if (!mounted) return;
     setState(_refreshAll);
   }
@@ -152,10 +166,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Widget _buildLoadError(AsyncSnapshot<dynamic> snapshot) {
+    final message = snapshot.error.toString();
+    final sessionExpired = message.contains('401') || message.toLowerCase().contains('invalid token');
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(sessionExpired ? Icons.lock_clock_outlined : Icons.cloud_off_outlined, color: Colors.orange, size: 40),
+            const SizedBox(height: 10),
+            Text(
+              sessionExpired
+                  ? _tx('admin_session_expired', 'Admin session expired. Please sign in again.')
+                  : _tx('admin_load_failed', 'Could not load this section.'),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: () => setState(_refreshAll),
+              icon: const Icon(Icons.refresh),
+              label: Text(_tx('retry', 'Retry')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRoleRequests() {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _roleRequestsFuture,
       builder: (context, snapshot) {
+        if (snapshot.hasError) return _buildLoadError(snapshot);
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -225,6 +269,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _peerAdsFuture,
       builder: (context, snapshot) {
+        if (snapshot.hasError) return _buildLoadError(snapshot);
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -273,10 +318,57 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  Widget _buildBillboardAds() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _billboardAdsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return _buildLoadError(snapshot);
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        final rows = snapshot.data!.where((row) => row['lifecycleStatus'] == 'pending_review').toList();
+        if (rows.isEmpty) return Text(_tx('billboard_no_pending', 'No ads waiting for review.'));
+        return ListView.builder(
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final row = rows[index];
+            final adId = (row['id'] ?? '').toString();
+            final imageUrl = (row['imageUrl'] ?? '').toString();
+            return _sectionCard(
+              title: (row['description'] ?? '-').toString(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (imageUrl.isNotEmpty)
+                    Image.network(imageUrl, height: 120, width: double.infinity, fit: BoxFit.cover),
+                  const SizedBox(height: 8),
+                  Text((row['category'] ?? '').toString()),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      ElevatedButton(
+                        onPressed: adId.isEmpty ? null : () => _approveBillboardAd(adId),
+                        child: Text(_tx('approve', 'Approve')),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: adId.isEmpty ? null : () => _rejectBillboardAd(adId),
+                        child: Text(_tx('reject', 'Reject')),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildSummary() {
     return FutureBuilder<Map<String, dynamic>>(
       future: _summaryFuture,
       builder: (context, snapshot) {
+        if (snapshot.hasError) return _buildLoadError(snapshot);
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -463,6 +555,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return FutureBuilder<Map<String, dynamic>>(
       future: _operationsFuture,
       builder: (context, snapshot) {
+        if (snapshot.hasError) return _buildLoadError(snapshot);
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -658,7 +751,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildBody() {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Column(
         children: [
           TabBar(
@@ -668,6 +761,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               Tab(text: _tx('admin_tab_operations', 'Operations')),
               Tab(text: _tx('admin_tab_role_requests', 'Role Requests')),
               Tab(text: _tx('admin_tab_peer_ads', 'Peer Ads')),
+              Tab(text: _tx('billboard_review_title', 'Home Billboard Ads')),
             ],
           ),
           Expanded(
@@ -677,6 +771,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _buildOperationsQueue(),
                 _buildRoleRequests(),
                 _buildPeerAds(),
+                _buildBillboardAds(),
               ],
             ),
           ),

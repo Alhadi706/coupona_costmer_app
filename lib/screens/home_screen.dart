@@ -79,6 +79,31 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _openNotificationTarget(Map<String, dynamic> notification) async {
+    final targetScreen = (notification['targetScreen'] ?? '').toString().toLowerCase();
+    final type = (notification['type'] ?? '').toString().toLowerCase();
+    final target = targetScreen.isNotEmpty
+        ? targetScreen
+        : (type.contains('group')
+              ? 'community'
+              : (type.contains('report')
+                    ? 'reports'
+                    : (type.contains('invoice') || type.contains('point')
+                          ? 'wallet'
+                          : '')));
+
+    final index = switch (target) {
+      'home' || 'discover' => 0,
+      'wallet' || 'rewards' || 'points' => 1,
+      'community' || 'community_group' || 'groups' => 2,
+      'reports' || 'report' => 3,
+      'settings' || 'account' => 4,
+      _ => null,
+    };
+    if (index == null || !mounted) return;
+    setState(() => _selectedIndex = index);
+  }
+
   Future<void> _openNotificationsSheet() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -122,12 +147,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: () async {
                           final id = (n['id'] ?? '').toString();
                           if (id.isNotEmpty && !isRead) {
-                            await CompanyServerService.markNotificationRead(id);
-                            await _loadNotifications();
+                            try {
+                              await CompanyServerService.markNotificationRead(id);
+                            } catch (_) {
+                              // Navigation should still work if read-state sync fails.
+                            }
                           }
                           if (context.mounted) {
                             Navigator.of(context).pop();
                           }
+                          await _openNotificationTarget(n);
                         },
                       );
                     },

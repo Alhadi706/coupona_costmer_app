@@ -31,8 +31,12 @@
 
   <title>coupona_app</title>
   <link rel="manifest" href="manifest.json">
-  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- google_maps_flutter is unused on web (all maps use flutter_map/OpenStreetMap);
+       the previous blocking <script> here (with an invalid placeholder key) only
+       added a failed network request + console error before every page load. -->
+  <!-- Tesseract.js is only needed by the invoice OCR scan screen; deferred so it
+       no longer blocks the initial paint of every other screen. -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
