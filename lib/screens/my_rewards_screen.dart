@@ -60,6 +60,8 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
   bool _loading = true;
   bool _redeeming = false;
   Map<String, dynamic> _points = const <String, dynamic>{};
+  Map<String, dynamic> _tiers = const <String, dynamic>{};
+  Map<String, dynamic> _pending = const <String, dynamic>{};
   List<Map<String, dynamic>> _rewards = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _ledger = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _claims = const <Map<String, dynamic>>[];
@@ -74,12 +76,20 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      await CompanyServerService.ensureAccountingDocuments();
+      await CompanyServerService.ensureAccountingDocuments().catchError((_) => null);
+      final pointsFuture = CompanyServerService.getPointAccount().catchError((_) => <String, dynamic>{});
+      final rewardsFuture = CompanyServerService.getRewards().catchError((_) => <Map<String, dynamic>>[]);
+      final ledgerFuture = CompanyServerService.getLedgerEntries(limit: 20).catchError((_) => <Map<String, dynamic>>[]);
+      final claimsFuture = CompanyServerService.getMyRewardClaims(limit: 20).catchError((_) => <Map<String, dynamic>>[]);
+      final tiersFuture = CompanyServerService.getCustomerPointTiers().catchError((_) => <String, dynamic>{});
+      final pendingFuture = CompanyServerService.getCustomerPendingPoints().catchError((_) => <String, dynamic>{});
       final results = await Future.wait<dynamic>([
-        CompanyServerService.getPointAccount(),
-        CompanyServerService.getRewards(),
-        CompanyServerService.getLedgerEntries(limit: 20),
-        CompanyServerService.getMyRewardClaims(limit: 20),
+        pointsFuture,
+        rewardsFuture,
+        ledgerFuture,
+        claimsFuture,
+        tiersFuture,
+        pendingFuture,
       ]);
 
       if (!mounted) return;
@@ -88,6 +98,8 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
         _rewards = (results[1] as List<Map<String, dynamic>>);
         _ledger = (results[2] as List<Map<String, dynamic>>);
         _claims = (results[3] as List<Map<String, dynamic>>);
+        _tiers = (results[4] as Map<String, dynamic>);
+        _pending = (results[5] as Map<String, dynamic>);
         _loading = false;
       });
     } catch (e) {
@@ -345,11 +357,14 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     final storeName = (reward['storeName'] ?? '').toString();
     final imageUrl = (reward['imageUrl'] ?? '').toString();
     final rewardName = (reward['reward_name'] ?? '').toString();
-    final fallbackIcon = rewardName.toLowerCase().contains('coffee') || rewardName.contains('قهوة')
+    final lowerName = rewardName.toLowerCase();
+    final fallbackIcon = lowerName.contains('coffee') || rewardName.contains('قهوة')
       ? Icons.local_cafe_outlined
-      : (rewardName.toLowerCase().contains('meal') || rewardName.contains('وجبة')
+      : (lowerName.contains('meal') || rewardName.contains('وجبة')
         ? Icons.restaurant_outlined
-        : Icons.card_giftcard_outlined);
+        : (lowerName.contains('car') || lowerName.contains('vehicle') || rewardName.contains('سيارة') || rewardName.contains('سياره') || rewardName.contains('مركبة')
+          ? Icons.directions_car_outlined
+          : Icons.card_giftcard_outlined));
 
     return Container(
       width: 168,
@@ -444,14 +459,16 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
               children: [
                 ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: cost <= 0 ? 0 : (availablePoints / cost).clamp(0.0, 1.0), minHeight: 5, color: locked ? kGold : kTeal, backgroundColor: kLine)),
                 const SizedBox(height: 3),
-                Text(locked ? 'جمعت $availablePoints من $cost نقطة' : 'مبروك، وصلت إلى الجائزة!', maxLines: 1, overflow: TextOverflow.ellipsis, style: kBodyTextStyle(size: 10, color: locked ? kInk.withValues(alpha: 0.65) : kTeal, weight: FontWeight.w700)),
+                Text(locked ? 'reward_progress'.tr(namedArgs: {'available': '$availablePoints', 'cost': '$cost'}) : 'reward_reached'.tr(), maxLines: 1, overflow: TextOverflow.ellipsis, style: kBodyTextStyle(size: 10, color: locked ? kInk.withValues(alpha: 0.65) : kTeal, weight: FontWeight.w700)),
               ],
             ),
           ),
           if ((reward['expiresAt'] ?? '').toString().isNotEmpty)
-            Text('تنتهي: ${(reward['expiresAt'] ?? '').toString().split('T').first}', style: kBodyTextStyle(size: 10, color: kInk.withValues(alpha: 0.6))),
+            Text('reward_expires'.tr(namedArgs: {'date': (reward['expiresAt'] ?? '').toString().split('T').first}), style: kBodyTextStyle(size: 10, color: kInk.withValues(alpha: 0.6))),
+          if (reward['drawEnabled'] == true)
+            Text('لا حاجة لأي شراء إضافي للمشاركة، السحب مبني على نقاطك المكتسبة من مشترياتك العادية.', maxLines: 3, overflow: TextOverflow.ellipsis, style: kBodyTextStyle(size: 10, color: kInk.withValues(alpha: 0.72), weight: FontWeight.w700)),
           if (!locked && (reward['pickupInstructions'] ?? '').toString().isNotEmpty)
-            Text('الاستلام: ${(reward['pickupInstructions'] ?? '').toString()}', maxLines: 2, overflow: TextOverflow.ellipsis, style: kBodyTextStyle(size: 10, color: kTeal, weight: FontWeight.w600)),
+            Text('reward_pickup'.tr(namedArgs: {'instructions': (reward['pickupInstructions'] ?? '').toString()}), maxLines: 2, overflow: TextOverflow.ellipsis, style: kBodyTextStyle(size: 10, color: kTeal, weight: FontWeight.w600)),
           const Spacer(),
           SizedBox(
             width: double.infinity,
@@ -474,6 +491,25 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     );
   }
 
+  String _rewardKindKey(dynamic raw, {String? rewardName}) {
+    final value = (raw ?? '').toString().toLowerCase();
+    final name = (rewardName ?? '').toString().toLowerCase();
+    if (value.isEmpty) {
+      if (name.contains('car') || name.contains('vehicle') || name.contains('سيارة') || name.contains('سياره') || name.contains('مركبة')) {
+        return 'physical';
+      }
+      return 'physical';
+    }
+    if (value.contains('digital') || value.contains('voucher') || value.contains('coupon') || value.contains('code')) {
+      return 'digital';
+    }
+    if (value.contains('physical') || value.contains('pickup') || value.contains('product') || value.contains('vehicle') || value.contains('car') || value.contains('gift') ||
+        name.contains('car') || name.contains('vehicle') || name.contains('سيارة') || name.contains('سياره') || name.contains('مركبة')) {
+      return 'physical';
+    }
+    return value;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -481,10 +517,10 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     }
 
     final availablePoints = _toInt(_points['availablePoints']);
-    final kind = _rewardTab == 0 ? 'digital' : 'physical';
     final visibleRewards = _rewards.where((reward) {
-      final rewardKind = (reward['kind'] ?? 'digital').toString().toLowerCase();
-      return rewardKind == kind;
+      if (_rewardTab == 0) return true;
+      final rewardKind = _rewardKindKey(reward['kind'], rewardName: (reward['reward_name'] ?? '').toString());
+      return rewardKind == (_rewardTab == 1 ? 'digital' : 'physical');
     }).toList();
     final nextMilestone = _nextMilestoneValue(availablePoints);
     final progress = nextMilestone == null
@@ -542,8 +578,12 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
             ),
           ),
           const SizedBox(height: 14),
+          _buildTierCounters(),
+          const SizedBox(height: 14),
+          _buildPendingPointsCard(),
+          const SizedBox(height: 14),
           KupunaTopTabs(
-            tabs: const <String>['رقمي', 'مادي'],
+            tabs: const <String>['الكل', 'رقمي', 'مادي'],
             activeIndex: _rewardTab,
             onSelect: (index) => setState(() => _rewardTab = index),
           ),
@@ -649,6 +689,61 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
               );
             }),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTierCounters() {
+    final tiers = (_tiers['tiers'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final definitions = <Map<String, dynamic>>[
+      {'key': 'bronze', 'label': 'wallet_bronze_points', 'scope': 'wallet_bronze_scope', 'icon': Icons.workspace_premium_outlined, 'color': Colors.brown},
+      {'key': 'silver', 'label': 'wallet_silver_points', 'scope': 'wallet_silver_scope', 'icon': Icons.workspace_premium_outlined, 'color': Colors.blueGrey},
+      {'key': 'gold', 'label': 'wallet_gold_points', 'scope': 'wallet_gold_scope', 'icon': Icons.workspace_premium_outlined, 'color': Colors.amber.shade800},
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('wallet_tier_title'.tr(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        ...definitions.map((definition) {
+          final tier = (tiers[definition['key']] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+          final balance = _toInt(tier['balance']);
+          final color = definition['color'] as Color;
+          return Card(
+            child: ListTile(
+              leading: Icon(definition['icon'] as IconData, color: color),
+              title: Text('${definition['label']}'.tr()),
+              subtitle: Text('${definition['scope']}'.tr()),
+              trailing: Text('$balance', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildPendingPointsCard() {
+    final pending = List<dynamic>.from(_pending['pending'] ?? const []);
+    if (pending.isEmpty) return const SizedBox.shrink();
+    return Card(
+      color: Colors.orange.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('wallet_pending_title'.tr(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Text('wallet_pending_description'.tr(namedArgs: {'points': '${_pending['total_points'] ?? 0}'})),
+          const SizedBox(height: 8),
+          ...pending.map((item) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.hourglass_top, color: Colors.orange),
+                title: Text('${item['merchant_name'] ?? 'merchant'}'),
+                subtitle: Text('wallet_pending_item'.tr(namedArgs: {
+                  'points': '${item['points_remaining'] ?? 0}',
+                  'tier': '${item['tier'] ?? ''}',
+                })),
+              )),
+        ]),
       ),
     );
   }

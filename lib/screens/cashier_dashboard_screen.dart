@@ -20,6 +20,7 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
   final TextEditingController _branchIdController = TextEditingController();
   final TextEditingController _purchaseAmountController = TextEditingController();
   final TextEditingController _pickupQrCodeController = TextEditingController();
+  final TextEditingController _promoQrCodeController = TextEditingController();
   final TextEditingController _manualCustomerIdController = TextEditingController();
   final TextEditingController _manualOverrideReasonController = TextEditingController();
 
@@ -27,6 +28,7 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
   bool _isResultError = false;
   bool _loadingGrant = false;
   bool _loadingRedeem = false;
+  bool _loadingPromoRedeem = false;
   bool _cashierActive = true;
   String? _scannedQrToken;
   bool _manualOverrideOpen = false;
@@ -65,6 +67,18 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
     if (normalized.contains('cashier_not_authorized')) {
       return _tx('cashier_not_authorized_error', 'You are not an authorized cashier for this branch.');
     }
+    if (normalized.contains('coupon_already_used')) {
+      return 'تم استخدام هذا الكوبون مسبقاً.';
+    }
+    if (normalized.contains('coupon_expired')) {
+      return 'انتهت صلاحية هذا الكوبون.';
+    }
+    if (normalized.contains('coupon_not_valid_for_this_store')) {
+      return 'هذا الكوبون غير صالح في هذا المتجر.';
+    }
+    if (normalized.contains('coupon_not_found')) {
+      return 'رمز الكوبون غير معروف.';
+    }
     return raw;
   }
 
@@ -99,6 +113,7 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
     _branchIdController.dispose();
     _purchaseAmountController.dispose();
     _pickupQrCodeController.dispose();
+    _promoQrCodeController.dispose();
     _manualCustomerIdController.dispose();
     _manualOverrideReasonController.dispose();
     super.dispose();
@@ -260,6 +275,59 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
     if (confirmed == true) await _redeemClaim();
   }
 
+  Future<void> _scanPromoQr() async {
+    final scanned = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const _QrScannerScreen()),
+    );
+    if (scanned == null || scanned.isEmpty || !mounted) return;
+    setState(() => _promoQrCodeController.text = scanned);
+    await _confirmPromoRedemption();
+  }
+
+  Future<void> _confirmPromoRedemption() async {
+    final qrCode = _promoQrCodeController.text.trim();
+    if (qrCode.isEmpty || _loadingPromoRedeem) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('تأكيد استخدام الكوبون'),
+        content: const Text('تحقق من حضور العميل. سيصبح الكوبون مستخدماً ولا يمكن مسحه مرة أخرى.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('تأكيد الاستخدام')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _loadingPromoRedeem = true;
+      _isResultError = false;
+    });
+    try {
+      final response = await CompanyServerService.redeemCampaignCoupon(qrCode: qrCode);
+      if (!mounted) return;
+      final campaignType = (response['campaignType'] ?? '').toString();
+      final discount = response['discountPercentage'];
+      final gift = (response['giftDescription'] ?? '').toString();
+      setState(() {
+        _result = campaignType == 'early_access_discount'
+            ? 'تم قبول الكوبون. طبّق خصماً بنسبة ${num.tryParse(discount.toString())?.toStringAsFixed(0) ?? discount}%.'
+            : 'تم قبول كوبون الهدية${gift.isEmpty ? '.' : ': $gift'}';
+        _isResultError = false;
+        _promoQrCodeController.clear();
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _result = _localizeGrantError(error.toString());
+        _isResultError = true;
+      });
+    } finally {
+      if (mounted) setState(() => _loadingPromoRedeem = false);
+    }
+  }
+
   Widget _buildBody() {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -378,6 +446,39 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
           child: Text(_loadingRedeem
               ? _tx('cashier_redeeming', 'Redeeming...')
               : _tx('cashier_redeem_claim_action', 'Redeem claim')),
+        ),
+        const Divider(height: 32),
+        const Text('مسح كوبون ترويجي', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        const Text('امسح كوبون الخصم أو الهدية من هاتف العميل للتحقق من صلاحيته واستخدامه.'),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _promoQrCodeController,
+          onChanged: (_) => setState(() {}),
+          decoration: const InputDecoration(
+            labelText: 'رمز الكوبون الترويجي',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.local_activity_outlined),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: FilledButton.icon(
+            onPressed: (!_cashierActive || _loadingPromoRedeem) ? null : _scanPromoQr,
+            icon: _loadingPromoRedeem
+                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.qr_code_scanner),
+            label: Text(_loadingPromoRedeem ? 'جارٍ التحقق...' : 'مسح كوبون ترويجي'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: (!_cashierActive || _loadingPromoRedeem || _promoQrCodeController.text.trim().isEmpty)
+              ? null
+              : _confirmPromoRedemption,
+          child: const Text('التحقق من الرمز المكتوب'),
         ),
         if (_result != null) ...[
           const SizedBox(height: 12),

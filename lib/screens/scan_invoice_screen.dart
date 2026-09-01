@@ -176,6 +176,7 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       : parsed.category;
     var rewardApplied = false;
     var earnedPoints = 0;
+    var degradedLocalMode = false;
 
     if (!merchantOnlyMode) {
       // The backend now saves items, resolves the merchant/brand match, and awards
@@ -208,6 +209,8 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
         localError = 'scan_invoice_too_old'.tr();
       } else if (total != null && total > 0) {
         rewardApplied = saveResult?['rewardApplied'] == true;
+        degradedLocalMode = saveResult?['degradedLocalMode'] == true ||
+          (saveResult?['awards'] as Map?)?['degradedLocalMode'] == true;
         final awards = saveResult?['awards'] as Map?;
         final fallback = saveResult?['fallbackReward'] as Map?;
         earnedPoints = ((awards?['merchantPoints'] as num?)?.toInt() ?? 0) +
@@ -247,6 +250,12 @@ class _ScanInvoiceScreenState extends State<ScanInvoiceScreen> {
       _error = localError.isEmpty ? null : localError;
       _ocrResult = extractedText;
     });
+    if (degradedLocalMode && mounted) {
+      await CompanyServerService.showDegradedLocalModeGuard(
+        context,
+        merchantName: storeName ?? '',
+      );
+    }
   }
 
   Future<void> _reanalyzeCurrentImage() async {

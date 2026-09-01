@@ -22,6 +22,16 @@ server {
     try_files $uri $uri/ /index.html;
   }
 
+  location = /index.html {
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;
+    try_files $uri =404;
+  }
+
+  location ~* \.(js|json)$ {
+    add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" always;
+    try_files $uri =404;
+  }
+
   location = /health {
     add_header Content-Type text/plain;
     return 200 'ok';

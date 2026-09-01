@@ -9,6 +9,7 @@ import 'brand_dashboard_screen.dart';
 import 'cashier_dashboard_screen.dart';
 import 'community_screen.dart';
 import 'home_content_screen.dart';
+import 'full_map_screen.dart';
 import 'merchant_dashboard_screen.dart';
 import 'my_rewards_screen.dart';
 import 'my_roles_screen.dart';
@@ -92,12 +93,19 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? 'wallet'
                           : '')));
 
+    if (target == 'wallet' || target == 'rewards' || target == 'points') {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const MyRewardsScreen()),
+      );
+      return;
+    }
+
     final index = switch (target) {
       'home' || 'discover' => 0,
-      'wallet' || 'rewards' || 'points' => 1,
       'community' || 'community_group' || 'groups' => 2,
-      'reports' || 'report' => 3,
-      'settings' || 'account' => 4,
+      'reports' || 'report' => 0,
+      'settings' || 'account' => 3,
       _ => null,
     };
     if (index == null || !mounted) return;
@@ -242,10 +250,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final List<Widget> customerTabs = <Widget>[
       HomeContentScreen(
-        onOpenOffersTab: () => _onItemTapped(1),
+        onOpenOffersTab: () => _onItemTapped(0),
         onOpenPeerAdsTab: () => _onItemTapped(2),
+        onOpenMap: () => _onItemTapped(1),
+        onOpenRewards: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const MyRewardsScreen()),
+        ),
+        onOpenCommunity: () => _onItemTapped(2),
+        onScanReceipt: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ScanInvoiceScreen())),
       ),
-      MyRewardsScreen(),
+      const FullMapScreen(embedded: true),
       const CommunityScreen.embedded(),
       const ReportScreen(),
       const SettingsScreen.embedded(),
@@ -325,6 +339,9 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Icon(Icons.camera_alt, color: kWhite),
             )
           : null,
+      floatingActionButtonLocation: _activeRole == 'customer'
+          ? FloatingActionButtonLocation.endFloat
+          : FloatingActionButtonLocation.endDocked,
       bottomNavigationBar: _activeRole != 'customer'
           ? null
           : BottomNavigationBar(
@@ -341,9 +358,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: _tx('home_bottom_home', 'Home'),
                 ),
                 BottomNavigationBarItem(
-                  icon: const Icon(Icons.account_balance_wallet_outlined),
-                  activeIcon: const Icon(Icons.account_balance_wallet),
-                  label: _tx('home_bottom_wallet', 'Wallet'),
+                  icon: const Icon(Icons.map_outlined),
+                  activeIcon: const Icon(Icons.map),
+                  label: _tx('home_bottom_map', 'Map'),
                 ),
                 BottomNavigationBarItem(
                   icon: Stack(

@@ -16,11 +16,21 @@ import 'store_details_screen.dart';
 class HomeContentScreen extends StatefulWidget {
   final VoidCallback onOpenOffersTab;
   final VoidCallback onOpenPeerAdsTab;
+  final VoidCallback? onOpenMap;
+  final VoidCallback? onOpenRewards;
+  final VoidCallback? onOpenCommunity;
+  final VoidCallback? onScanReceipt;
+  final Future<List<Map<String, dynamic>>> Function()? billboardAdsLoader;
 
   const HomeContentScreen({
     super.key,
     required this.onOpenOffersTab,
     required this.onOpenPeerAdsTab,
+    this.onOpenMap,
+    this.onOpenRewards,
+    this.onOpenCommunity,
+    this.onScanReceipt,
+    this.billboardAdsLoader,
   });
 
   @override
@@ -39,6 +49,8 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   double? _customerLng;
   late Future<List<Map<String, dynamic>>> _storesFuture;
   late Future<List<Map<String, dynamic>>> _billboardAdsFuture;
+  late Future<Map<String, dynamic>> _pointsFuture;
+  late Future<List<Map<String, dynamic>>> _rewardsFuture;
 
   static const List<String> _bannerKeys = <String>[
     'home_banner_1',
@@ -49,8 +61,16 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   @override
   void initState() {
     super.initState();
-    _storesFuture = CompanyServerService.getStores();
-    _billboardAdsFuture = CompanyServerService.getBillboardAds();
+    _storesFuture = CompanyServerService.getStores().timeout(
+      const Duration(seconds: 10),
+      onTimeout: () => const <Map<String, dynamic>>[],
+    );
+    _billboardAdsFuture = (widget.billboardAdsLoader?.call() ?? CompanyServerService.getBillboardAds()).timeout(
+      const Duration(seconds: 8),
+      onTimeout: () => const <Map<String, dynamic>>[],
+    );
+    _pointsFuture = CompanyServerService.getPointAccount().catchError((_) => <String, dynamic>{});
+    _rewardsFuture = CompanyServerService.getRewards().catchError((_) => <Map<String, dynamic>>[]);
     _resolveCustomerLocation();
   }
 
@@ -122,6 +142,12 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
             children: [
               _buildBanner(),
               const SizedBox(height: 12),
+              _buildWelcomeSummary(),
+              const SizedBox(height: 12),
+              _buildCurrentMission(),
+              const SizedBox(height: 12),
+              _buildNearbyPreview(),
+              const SizedBox(height: 12),
               _buildSearchBar(),
               const SizedBox(height: 12),
               _buildTopTabs(),
@@ -132,6 +158,143 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildWelcomeSummary() {
+    return FutureBuilder<dynamic>(
+      future: Future.wait<dynamic>([_pointsFuture, _rewardsFuture]),
+      builder: (context, snapshot) {
+        final points = snapshot.hasData && snapshot.data![0] is Map
+            ? Map<String, dynamic>.from(snapshot.data![0] as Map)
+            : <String, dynamic>{};
+        final rewards = snapshot.hasData && snapshot.data![1] is List
+            ? List<Map<String, dynamic>>.from(snapshot.data![1] as List)
+            : <Map<String, dynamic>>[];
+        final balance = _toInt(points['availablePoints']);
+        final next = rewards.where((reward) => _toInt(reward['value']) > balance).fold<Map<String, dynamic>?>(null, (current, reward) {
+          if (current == null || _toInt(reward['value']) < _toInt(current['value'])) return reward;
+          return current;
+        });
+        final target = _toInt(next?['value']);
+        final remaining = target > balance ? target - balance : 0;
+        final expiresAt = DateTime.tryParse('${next?['expiresAt'] ?? ''}');
+        final expiryMessage = expiresAt == null
+            ? ''
+            : 'home_reward_expires_suffix'.tr(namedArgs: {'date': expiresAt.toLocal().toString().split(' ').first});
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: kTealDark,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: kShadowFloating,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Expanded(child: Text('home_reward_journey_title'.tr(), style: const TextStyle(color: kWhite, fontSize: 18, fontWeight: FontWeight.w800))),
+                Text('points_value'.tr(namedArgs: {'points': '$balance'}), style: const TextStyle(color: kGold, fontSize: 16, fontWeight: FontWeight.w800)),
+              ]),
+              const SizedBox(height: 6),
+              Text(
+                next == null
+                    ? 'home_reward_journey_all_unlocked'.tr()
+                    : 'home_reward_journey_remaining'.tr(namedArgs: {
+                          'remaining': '$remaining',
+                          'reward': (next['reward_name'] ?? 'home_mission_next_reward_fallback'.tr()).toString(),
+                        }) +
+                        expiryMessage,
+                style: TextStyle(color: kWhite.withValues(alpha: 0.9)),
+              ),
+              const SizedBox(height: 10),
+              ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: target <= 0 ? 1 : (balance / target).clamp(0.0, 1.0), minHeight: 8, color: kGold, backgroundColor: kWhite.withValues(alpha: 0.2))),
+              const SizedBox(height: 12),
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                _quickAction(Icons.camera_alt_outlined, 'home_quick_scan'.tr(), widget.onScanReceipt),
+                _quickAction(Icons.emoji_events_outlined, 'home_quick_rewards'.tr(), widget.onOpenRewards),
+                _quickAction(Icons.map_outlined, 'home_quick_map'.tr(), widget.onOpenMap),
+                _quickAction(Icons.groups_outlined, 'home_quick_community'.tr(), widget.onOpenCommunity),
+              ]),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _quickAction(IconData icon, String label, VoidCallback? onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(color: kWhite.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [const SizedBox(width: 2), Icon(icon, color: kWhite, size: 18), const SizedBox(width: 6), Text(label, style: const TextStyle(color: kWhite, fontWeight: FontWeight.w700))]),
+      ),
+    );
+  }
+
+  Widget _buildCurrentMission() {
+    return FutureBuilder<dynamic>(
+      future: Future.wait<dynamic>([_pointsFuture, _rewardsFuture]),
+      builder: (context, snapshot) {
+        final points = snapshot.hasData && snapshot.data![0] is Map ? Map<String, dynamic>.from(snapshot.data![0] as Map) : <String, dynamic>{};
+        final rewards = snapshot.hasData && snapshot.data![1] is List ? List<Map<String, dynamic>>.from(snapshot.data![1] as List) : <Map<String, dynamic>>[];
+        final balance = _toInt(points['availablePoints']);
+        final next = rewards.where((reward) => _toInt(reward['value']) > balance).fold<Map<String, dynamic>?>(null, (current, reward) => current == null || _toInt(reward['value']) < _toInt(current['value']) ? reward : current);
+        final remaining = next == null ? 0 : _toInt(next['value']) - balance;
+        return Card(
+          color: const Color(0xFFFFF7E8),
+          child: ListTile(
+            leading: const CircleAvatar(backgroundColor: Color(0xFFFFE0A3), child: Icon(Icons.flag_outlined, color: Color(0xFF9A6500))),
+            title: Text('home_mission_title'.tr(), style: const TextStyle(fontWeight: FontWeight.w800)),
+            subtitle: Text(
+              next == null
+                  ? 'home_mission_default'.tr()
+                  : 'home_mission_progress'.tr(namedArgs: {
+                      'reward': (next['reward_name'] ?? 'home_mission_next_reward_fallback'.tr()).toString(),
+                      'remaining': '$remaining',
+                    }),
+            ),
+            trailing: const Icon(Icons.arrow_back_ios_new, size: 16),
+            onTap: widget.onOpenRewards,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildNearbyPreview() {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _storesFuture,
+      builder: (context, snapshot) {
+        final stores = (snapshot.data ?? const <Map<String, dynamic>>[]).take(3).toList(growable: false);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [Expanded(child: Text('nearby_stores'.tr(), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))), TextButton.icon(onPressed: widget.onOpenMap, icon: const Icon(Icons.map_outlined, size: 17), label: Text('map'.tr()))]),
+            if (stores.isEmpty) Text('nearby_stores_loading'.tr()) else
+              SizedBox(
+                height: 96,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: stores.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final store = stores[index];
+                    return SizedBox(width: 220, child: Card(child: ListTile(dense: true, leading: const Icon(Icons.storefront_outlined, color: kTeal), title: Text((store['name'] ?? '-').toString(), maxLines: 1, overflow: TextOverflow.ellipsis), subtitle: Text((store['category'] ?? 'store'.tr()).toString()), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => StoreDetailsScreen(store: store))))));
+                  },
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  int _toInt(dynamic value) {
+    if (value is num) return value.toInt();
+    return int.tryParse('${value ?? 0}') ?? 0;
   }
 
   Widget _buildBanner() {
@@ -151,6 +314,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           );
         }
         if (snapshot.hasError) {
+          return _buildDefaultBanner();
+        }
+        if (snapshot.hasData && ads.isEmpty) {
           return _buildDefaultBanner();
         }
         return Container(

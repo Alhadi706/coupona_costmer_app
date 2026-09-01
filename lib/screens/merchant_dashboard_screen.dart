@@ -17,9 +17,11 @@ import 'map_picker_screen.dart';
 import 'add_coupon_screen.dart';
 import 'community_screen.dart';
 import 'cashier_dashboard_screen.dart';
+import 'merchant_campaign_screen.dart';
 import 'points_conversion_screen.dart';
 import 'reward_qr_code_screen.dart';
 import 'login_screen.dart';
+import 'merchant_networks_screen.dart';
 
 class MerchantDashboardScreen extends StatefulWidget {
   final bool embedded;
@@ -823,6 +825,15 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                   icon: const Icon(Icons.campaign_outlined),
                   label: Text('billboard_create_ad'.tr()),
                 ),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const MerchantNetworksScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.hub_outlined),
+                  label: Text('merchant_nav_networks'.tr()),
+                ),
               ],
             ),
           ),
@@ -1076,6 +1087,18 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.ads_click_outlined, color: kGold),
+              title: const Text('إطلاق حملة مستهدفة'),
+              subtitle: const Text('استهدف أفضل العملاء وأرسل كوبونات QR خاصة أو تذاكر سحب.'),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MerchantCampaignScreen()),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           _buildIndigoSection(
             title: 'merchant_campaigns'.tr(),
             child: Column(
@@ -1237,9 +1260,36 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       _buildAdsTab(),
       _buildCommunityTab(),
       _buildStoreTab(),
+      const MerchantNetworksScreen(),
     ];
     return Column(
       children: [
+        FutureBuilder<Map<String, dynamic>>(
+          future: CompanyServerService.getMerchantPendingPoints(),
+          builder: (context, snapshot) {
+            final data = snapshot.data;
+            final points = int.tryParse('${data?['total_points'] ?? 0}') ?? 0;
+            final customers = int.tryParse('${data?['customer_count'] ?? 0}') ?? 0;
+            if (points <= 0 || snapshot.hasError) return const SizedBox.shrink();
+            return Card(
+              color: Colors.orange.shade50,
+              margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: ListTile(
+                leading: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                title: Text('merchant_pending_points_title'.tr()),
+                subtitle: Text('merchant_pending_points_message'.tr(namedArgs: {
+                  'points': '$points',
+                  'customers': '$customers',
+                })),
+                trailing: IconButton(
+                  icon: const Icon(Icons.account_balance_wallet_outlined),
+                  tooltip: 'merchant_token_wallet_open'.tr(),
+                  onPressed: () => setState(() => _merchantTabIndex = 0),
+                ),
+              ),
+            );
+          },
+        ),
         Expanded(child: tabs[_merchantTabIndex]),
         NavigationBar(
           selectedIndex: _merchantTabIndex,
@@ -1250,6 +1300,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
             NavigationDestination(icon: const Icon(Icons.campaign_outlined), label: 'merchant_nav_ads'.tr()),
             NavigationDestination(icon: const Icon(Icons.groups_outlined), label: 'merchant_nav_community'.tr()),
             NavigationDestination(icon: const Icon(Icons.store_outlined), label: 'merchant_nav_store'.tr()),
+            NavigationDestination(icon: const Icon(Icons.hub_outlined), label: 'merchant_nav_networks'.tr()),
           ],
         ),
       ],

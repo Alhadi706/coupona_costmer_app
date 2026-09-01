@@ -8,9 +8,11 @@ import 'package:image_picker/image_picker.dart';
 import '../services/company_server_service.dart';
 import '../widgets/analytics_map_panel.dart';
 import 'add_coupon_screen.dart';
+import 'merchant_campaign_screen.dart';
 import 'points_conversion_screen.dart';
 import 'reward_qr_code_screen.dart';
 import 'community_screen.dart';
+import 'brand_network_screens.dart';
 
 typedef BrandOffersLoader = Future<List<Map<String, dynamic>>> Function();
 typedef BrandInvoicesLoader = Future<List<Map<String, dynamic>>> Function({int limit});
@@ -272,6 +274,7 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
       _buildStoresTab(),
       _buildRewardsTab(),
       _buildOperationsTab(),
+      _buildNetworkTab(),
     ];
 
     return Column(
@@ -286,6 +289,7 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
             NavigationDestination(icon: Icon(Icons.store_outlined), selectedIcon: Icon(Icons.store), label: 'المتاجر'),
             NavigationDestination(icon: Icon(Icons.card_giftcard_outlined), selectedIcon: Icon(Icons.card_giftcard), label: 'المكافآت'),
             NavigationDestination(icon: Icon(Icons.tune_outlined), selectedIcon: Icon(Icons.tune), label: 'الإدارة'),
+            NavigationDestination(icon: Icon(Icons.hub_outlined), selectedIcon: Icon(Icons.hub), label: 'الشبكة'),
           ],
         ),
       ],
@@ -298,6 +302,45 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
       children: [
         _sectionHeader('خريطة الذكاء الجغرافي'),
         _buildAnalyticsCard(),
+      ],
+    );
+  }
+
+  Widget _buildNetworkTab() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _sectionHeader('brand_network_title'.tr()),
+        Text('brand_network_subtitle'.tr()),
+        const SizedBox(height: 16),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.account_balance_outlined),
+            title: Text('brand_network_clearinghouse'.tr()),
+            subtitle: Text('brand_network_clearinghouse_hint'.tr()),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BrandCoalitionClearinghouseScreen()),
+            ),
+          ),
+        ),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.hub_outlined),
+            title: Text('brand_network_coalitions'.tr()),
+            subtitle: Text('brand_network_coalitions_hint'.tr()),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BrandCoalitionsScreen()),
+            ),
+          ),
+        ),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.card_giftcard_outlined),
+            title: Text('brand_network_gifting'.tr()),
+            subtitle: Text('brand_network_gifting_hint'.tr()),
+            onTap: () => setState(() => _brandTabIndex = 3),
+          ),
+        ),
       ],
     );
   }
@@ -736,6 +779,17 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
                     MaterialPageRoute(builder: (_) => const AddCouponScreen()),
                   );
                 },
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.ads_click_outlined, color: Color(0xFFE0A21A)),
+                title: const Text('إطلاق حملة مستهدفة'),
+                subtitle: const Text('استهدف العملاء وأرسل كوبونات QR خاصة أو تذاكر سحب مؤهلة.'),
+                trailing: const Icon(Icons.chevron_left),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MerchantCampaignScreen()),
+                ),
               ),
             ),
             ExpansionTile(
@@ -1310,8 +1364,16 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
           TextField(controller: description, decoration: const InputDecoration(labelText: 'وصف الجائزة')),
           TextField(controller: pickup, decoration: const InputDecoration(labelText: 'أين وكيف يتم الاستلام؟')),
           TextField(controller: quantity, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'عدد الجوائز (اختياري)')),
-          DropdownButtonFormField<String>(value: kind, decoration: const InputDecoration(labelText: 'نوع الجائزة'), items: const [DropdownMenuItem(value: 'physical', child: Text('استلام مباشر')), DropdownMenuItem(value: 'digital', child: Text('رقمية'))], onChanged: (value) => setDialogState(() => kind = value ?? 'physical')),
+          DropdownButtonFormField<String>(initialValue: kind, decoration: const InputDecoration(labelText: 'نوع الجائزة'), items: const [DropdownMenuItem(value: 'physical', child: Text('استلام مباشر')), DropdownMenuItem(value: 'digital', child: Text('رقمية'))], onChanged: (value) => setDialogState(() => kind = value ?? 'physical')),
           SwitchListTile(title: const Text('سحب عشوائي عند انتهاء المدة'), value: drawEnabled, onChanged: (value) => setDialogState(() => drawEnabled = value)),
+          if (drawEnabled)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'لا حاجة لأي شراء إضافي للمشاركة، السحب مبني على نقاط العميل المكتسبة من مشترياته العادية. يجب تحديد تاريخ انتهاء قبل تنفيذ السحب.',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
           ListTile(contentPadding: EdgeInsets.zero, title: Text(expiresAt == null ? 'تحديد مدة الجائزة' : 'تنتهي في ${expiresAt!.toLocal().toString().split(' ').first}'), trailing: const Icon(Icons.event_outlined), onTap: () async { final picked = await showDatePicker(context: context, firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 730)), initialDate: expiresAt ?? DateTime.now().add(const Duration(days: 30))); if (picked != null) setDialogState(() => expiresAt = picked); }),
           OutlinedButton.icon(onPressed: () async { final picked = await ImagePicker().pickImage(source: ImageSource.gallery); if (picked != null) setDialogState(() => image = picked); }, icon: const Icon(Icons.photo_library_outlined), label: Text(image == null ? 'اختيار صورة' : 'تم اختيار الصورة')),
           OutlinedButton.icon(onPressed: () async { final picked = await ImagePicker().pickImage(source: ImageSource.camera); if (picked != null) setDialogState(() => image = picked); }, icon: const Icon(Icons.camera_alt_outlined), label: const Text('التقاط صورة بالكاميرا')),
@@ -1321,6 +1383,7 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
           ElevatedButton(onPressed: () async {
             final cost = int.tryParse(points.text.trim());
             if (name.text.trim().isEmpty || cost == null || cost <= 0) return;
+            if (drawEnabled && expiresAt == null) return;
             String? imageUrl;
             if (image != null) imageUrl = await CompanyServerService.uploadImageBytes(await image!.readAsBytes());
             await CompanyServerService.createBrandReward(rewardName: name.text.trim(), points: cost, description: description.text.trim(), imageUrl: imageUrl, kind: kind, expiresAt: expiresAt, quantityLimit: int.tryParse(quantity.text.trim()), pickupInstructions: pickup.text.trim(), drawEnabled: drawEnabled, drawAt: expiresAt);

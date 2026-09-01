@@ -5,6 +5,7 @@ import '../modules/accounting/models/point_account.dart';
 import '../modules/accounting/models/wallet_account.dart';
 import '../modules/accounting/services/accounting_service.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/customer_campaign_coupons_section.dart';
 import '../widgets/design_system/kupuna_dual_wallet_rings.dart';
 
 class WalletEngineScreen extends StatefulWidget {
@@ -160,6 +161,8 @@ class _WalletEngineScreenState extends State<WalletEngineScreen> {
                   _buildWalletCard(),
                   const SizedBox(height: 12),
                   _buildPointsCard(),
+                  const SizedBox(height: 16),
+                  const CustomerCampaignCouponsSection(),
                   const SizedBox(height: 16),
                   _buildCashbackForm(),
                   const SizedBox(height: 16),

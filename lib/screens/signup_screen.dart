@@ -38,7 +38,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         content: Text(
           _tx(
             'location_rationale_body',
-            'We use your location to sort nearby stores in Discover, improve offers relevance, and verify role requests.',
+            'We use your location to show nearby offers and merchants, improve offer relevance, verify role requests, and personalize promotional offers.',
           ),
         ),
         actions: [

@@ -1,7 +1,11 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../screens/co_branded_reward_dialog.dart';
+import '../screens/degraded_local_mode_guard.dart';
+import '../screens/gift_selection_dialog.dart';
 import 'app_session.dart';
 
 class CompanyServerService {
@@ -316,20 +320,37 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
-  static Future<List<Map<String, dynamic>>> getEligibleReportStores() async {
-    final data = await get('/reports/eligible-stores', auth: true);
+  static Future<List<Map<String, dynamic>>> getEligibleReportStores({String query = ''}) async {
+    final data = await get('/reports/store-options', query: query.isEmpty ? null : {'q': query}, auth: true);
+    return (data as List).map((row) => (row as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getReportProductOptions(String query) async {
+    final data = await get('/reports/product-options', query: {'q': query}, auth: true);
     return (data as List).map((row) => (row as Map).cast<String, dynamic>()).toList();
   }
 
   static Future<Map<String, dynamic>> createReport({
     required String reportType,
-    required String targetStoreId,
+    String? targetStoreId,
+    String? targetBrandId,
     required String description,
+    String? productName,
+    String? imageUrl,
+    double? locationLat,
+    double? locationLng,
+    String? locationAddress,
   }) async {
     final data = await post('/reports', {
       'reportType': reportType,
-      'targetStoreId': targetStoreId,
+      if (targetStoreId != null) 'targetStoreId': targetStoreId,
+      if (targetBrandId != null) 'targetBrandId': targetBrandId,
       'description': description,
+      if (productName != null) 'productName': productName,
+      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (locationLat != null) 'locationLat': locationLat,
+      if (locationLng != null) 'locationLng': locationLng,
+      if (locationAddress != null) 'locationAddress': locationAddress,
     }, auth: true);
     return (data as Map).cast<String, dynamic>();
   }
@@ -351,6 +372,143 @@ class CompanyServerService {
 
   static Future<void> markNotificationRead(String notificationId) async {
     await post('/notifications/$notificationId/read', <String, dynamic>{}, auth: true);
+  }
+
+  static Future<Map<String, dynamic>> createMerchantGiftTrigger({
+    required int thresholdPoints,
+    required String merchantName,
+    required String messageTemplate,
+  }) async {
+    final data = await post('/merchant/gifts/trigger', {
+      'thresholdPoints': thresholdPoints,
+      'merchantName': merchantName,
+      'messageTemplate': messageTemplate,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> dispatchDirectGift({
+    required String customerUserId,
+    required String merchantName,
+    required int thresholdPoints,
+    List<Map<String, dynamic>>? voucherOptions,
+  }) async {
+    final data = await post('/customer/gifts/dispatch', {
+      'customerUserId': customerUserId,
+      'merchantName': merchantName,
+      'thresholdPoints': thresholdPoints,
+      'voucherOptions': voucherOptions ?? const <Map<String, dynamic>>[],
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<void> showGiftSelectionDialog(
+    BuildContext context, {
+    required String merchantName,
+    required int thresholdPoints,
+    List<Map<String, dynamic>>? vouchers,
+  }) async {
+    await GiftSelectionDialog.show(
+      context,
+      merchantName: merchantName,
+      thresholdPoints: thresholdPoints,
+      vouchers: vouchers,
+    );
+  }
+
+  static Future<void> showCoBrandedRewardDialog(
+    BuildContext context, {
+    required String rewardTitle,
+    required List<String> sponsorNames,
+  }) async {
+    await CoBrandedRewardDialog.show(
+      context,
+      rewardTitle: rewardTitle,
+      sponsorNames: sponsorNames,
+    );
+  }
+
+  static Future<void> showDegradedLocalModeGuard(
+    BuildContext context, {
+    required String merchantName,
+  }) async {
+    await DegradedLocalModeGuard.show(
+      context,
+      merchantName: merchantName,
+    );
+  }
+
+  static Future<List<Map<String, dynamic>>> getGiftVoucherOptions({
+    String? merchantName,
+    String? category,
+  }) async {
+    final data = await get('/customer/gifts/vouchers', query: {
+      if (merchantName != null && merchantName.isNotEmpty) 'merchantName': merchantName,
+      if (category != null && category.isNotEmpty) 'category': category,
+    }, auth: true);
+    return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> checkMerchantTokenBalance({
+    required String merchantId,
+  }) async {
+    final data = await get('/merchant/tokens/$merchantId/status', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> recordLocalOnlyPoints({
+    required String merchantId,
+    required int points,
+    required String receiptId,
+    String? customerUserId,
+  }) async {
+    final data = await post('/merchant/tokens/local-points', {
+      'merchantId': merchantId,
+      'points': points,
+      'receiptId': receiptId,
+      'customerUserId': customerUserId,
+      'is_local_only': true,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> redeemLocalOnlyPoints({
+    required String merchantId,
+    required int points,
+    required String cashierQrCode,
+  }) async {
+    final data = await post('/merchant/tokens/local-redeem', {
+      'merchantId': merchantId,
+      'points': points,
+      'cashierQrCode': cashierQrCode,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> rechargeMerchantTokens({
+    required String merchantId,
+    required double amount,
+  }) async {
+    final data = await post('/merchant/tokens/recharge', {
+      'merchantId': merchantId,
+      'amount': amount,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getPublicCoalitionWalletBalance() async {
+    final data = await get('/merchant/token-wallet/balance', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> activatePublicCoalition() async {
+    final data = await post('/merchant/coalitions/join-public', const {}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> topUpPublicCoalitionWallet(int amount) async {
+    final data = await post('/merchant/token-wallet/top-up', {'amount': amount}, auth: true);
+    return (data as Map).cast<String, dynamic>();
   }
 
   static Future<List<Map<String, dynamic>>> getMyRoleRequests() async {
@@ -464,6 +622,120 @@ class CompanyServerService {
         'members': row['membersCount'] ?? 0,
       };
     }).toList();
+  }
+
+  static Future<Map<String, dynamic>> getMerchantCoalitions() async {
+    final data = await get('/merchant/coalitions', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getMerchantCoalitionsMine() async {
+    final data = await get('/merchant/coalitions/mine', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getMerchantCoalitionSuggestions({
+    String activityFilter = 'all',
+    int radiusKm = 50,
+    int limit = 20,
+  }) async {
+    final data = await get(
+      '/merchant/coalitions/suggestions',
+      query: {
+        'activity_filter': activityFilter,
+        'radius_km': radiusKm,
+        'limit': limit,
+      },
+      auth: true,
+    );
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> createMerchantCoalition({
+    required String name,
+    String type = 'general',
+    String? category,
+    String? region,
+    int? monthlyPointsCap,
+  }) async {
+    final data = await post('/merchant/coalitions', {
+      'name': name,
+      'type': type,
+      'category': category,
+      'region': region,
+      if (monthlyPointsCap != null) 'monthly_points_cap': monthlyPointsCap,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<void> joinMerchantCoalition(String coalitionId) async {
+    await post('/merchant/coalitions/$coalitionId/join', const <String, dynamic>{}, auth: true);
+  }
+
+  static Future<void> inviteMerchantToCoalition(String coalitionId, String invitedMerchantId) async {
+    await post('/merchant/coalitions/$coalitionId/invite', {
+      'invited_merchant_id': invitedMerchantId,
+    }, auth: true);
+  }
+
+  static Future<Map<String, dynamic>> getMerchantCoalitionInvitations() async {
+    final data = await get('/merchant/coalitions/invitations', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<void> acceptMerchantCoalitionInvitation(String invitationId) async {
+    final invitations = await getMerchantCoalitionInvitations();
+    final match = (invitations['invitations'] as List? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>()
+        .firstWhere(
+          (entry) => (entry['id'] ?? '').toString() == invitationId,
+          orElse: () => <String, dynamic>{},
+        );
+    final coalitionId = (match['coalition_id'] ?? '').toString();
+    if (coalitionId.isEmpty) {
+      throw StateError('coalition_id_not_found_for_invitation');
+    }
+    await post('/merchant/coalitions/invitations/$invitationId/accept', const <String, dynamic>{}, auth: true);
+    await post('/merchant/coalitions/$coalitionId/join', const <String, dynamic>{}, auth: true);
+  }
+
+  static Future<void> rejectMerchantCoalitionInvitation(String invitationId) async {
+    final invitations = await getMerchantCoalitionInvitations();
+    final match = (invitations['invitations'] as List? ?? const <dynamic>[])
+        .cast<Map<String, dynamic>>()
+        .firstWhere(
+          (entry) => (entry['id'] ?? '').toString() == invitationId,
+          orElse: () => <String, dynamic>{},
+        );
+    final coalitionId = (match['coalition_id'] ?? '').toString();
+    if (coalitionId.isNotEmpty) {
+      await post('/merchant/coalitions/$coalitionId/reject-invite', const <String, dynamic>{}, auth: true);
+      return;
+    }
+    await post('/merchant/coalitions/invitations/$invitationId/reject', const <String, dynamic>{}, auth: true);
+  }
+
+  static Future<Map<String, dynamic>> getMerchantCoalitionLedger({String? period}) async {
+    final data = await get('/merchant/coalitions/ledger', query: period == null ? null : {'period': period}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getMerchantCoalitionClearinghouse() async {
+    final data = await get('/merchant/coalitions/clearinghouse', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> settleMerchantCoalitionClearinghouse({
+    required String coalitionId,
+    required String toMerchantId,
+    required String period,
+  }) async {
+    final data = await post('/merchant/coalitions/clearinghouse/settle', {
+      'coalition_id': coalitionId,
+      'to_merchant_id': toMerchantId,
+      'period': period,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
   }
 
   static Future<Map<String, dynamic>> createGroup({
@@ -797,6 +1069,21 @@ class CompanyServerService {
 
   static Future<Map<String, dynamic>> getPointAccount() async {
     final data = await get('/wallet/points', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getCustomerPointTiers() async {
+    final data = await get('/customer/wallet/tiers', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getCustomerPendingPoints() async {
+    final data = await get('/customer/wallet/pending-points', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getMerchantPendingPoints() async {
+    final data = await get('/merchant/wallet/pending-points', auth: true);
     return (data as Map).cast<String, dynamic>();
   }
 
@@ -1198,8 +1485,132 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
+  static Future<Map<String, dynamic>> createCampaign({
+    required String campaignType,
+    required String title,
+    required String segmentFilter,
+    required DateTime startsAt,
+    required DateTime endsAt,
+    String? description,
+    num? discountPercentage,
+    String? giftDescription,
+    num? minInvoiceAmount,
+    Map<String, dynamic>? segmentParams,
+  }) async {
+    final data = await post('/campaigns', {
+      'campaignType': campaignType,
+      'title': title,
+      'description': description,
+      'discountPercentage': discountPercentage,
+      'giftDescription': giftDescription,
+      'minInvoiceAmount': minInvoiceAmount,
+      'segmentFilter': segmentFilter,
+      'segmentParams': segmentParams ?? const <String, dynamic>{},
+      'startsAt': startsAt.toUtc().toIso8601String(),
+      'endsAt': endsAt.toUtc().toIso8601String(),
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getMyCampaigns() async {
+    final data = await get('/campaigns/mine', auth: true);
+    final campaigns = (data as Map)['campaigns'] as List? ?? const <dynamic>[];
+    return campaigns.map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getMyCampaignCoupons() async {
+    final data = await get('/customer/campaigns/my-coupons', auth: true);
+    final coupons = (data as Map)['coupons'] as List? ?? const <dynamic>[];
+    return coupons.map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> redeemCampaignCoupon({
+    required String qrCode,
+  }) async {
+    final data = await post('/merchant/campaigns/redeem', {
+      'qrCode': qrCode,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
   static Future<List<Map<String, dynamic>>> getMyRewardClaims({int limit = 50}) async {
     final data = await get('/reward-claims/my', query: {'limit': limit}, auth: true);
     return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
   }
+
+  // ── Coalition Gift Catalog (Pro-Rata Multi-Sponsor) ─────────────────────────
+
+  static Future<Map<String, dynamic>> getCoalitionGiftCatalog(String coalitionId) async {
+    final data = await get('/merchant/coalitions/$coalitionId/gifts', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> createCoalitionGift({
+    required String coalitionId,
+    required String title,
+    String? description,
+    required int requiredPoints,
+    double? monetaryValue,
+    String campaignType = 'standard',
+    int discountPercentage = 0,
+    int? quantityLimit,
+    String? expiresAt,
+    bool targetNewCustomers = false,
+    bool targetVipCustomers = false,
+    int? minPurchaseFrequency,
+    int? maxDaysSinceLastVisit,
+  }) async {
+    final data = await post('/merchant/coalitions/$coalitionId/gifts', {
+      'title': title,
+      'description': description,
+      'required_points': requiredPoints,
+      'monetary_value': monetaryValue,
+      'campaign_type': campaignType,
+      'discount_percentage': discountPercentage,
+      'quantity_limit': quantityLimit,
+      'expires_at': expiresAt,
+      'target_new_customers': targetNewCustomers,
+      'target_vip_customers': targetVipCustomers,
+      'min_purchase_frequency': minPurchaseFrequency,
+      'max_days_since_last_visit': maxDaysSinceLastVisit,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getCustomerCoalitionBalances(String coalitionId) async {
+    final data = await get('/customer/coalitions/$coalitionId/balances', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> redeemCoalitionGift({
+    required String giftId,
+    required String fulfillerMerchantId,
+  }) async {
+    final data = await post('/customer/coalitions/redeem-gift', {
+      'gift_id': giftId,
+      'fulfiller_merchant_id': fulfillerMerchantId,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getCoalitionImpactReport(String coalitionId) async {
+    final data = await get('/merchant/coalitions/$coalitionId/gift-impact', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getBrandCoalitions() async {
+    final data = await get('/brand/coalitions', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> joinBrandCoalition(String coalitionId) async {
+    final data = await post('/brand/coalitions/$coalitionId/join', const {}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getBrandCoalitionClearinghouse() async {
+    final data = await get('/brand/coalitions/clearinghouse', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
 }
+

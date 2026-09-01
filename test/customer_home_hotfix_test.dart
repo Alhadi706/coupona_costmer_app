@@ -25,9 +25,9 @@ void main() {
     final nav = tester.widget<BottomNavigationBar>(find.byType(BottomNavigationBar));
     expect(nav.items.map((item) => item.label), <String>[
       'Home',
-      'Wallet',
+      'Map',
       'Communities',
-      'Reports',
+      'Wallet',
       'My Account',
     ]);
   });
@@ -38,6 +38,11 @@ void main() {
         HomeContentScreen(
           onOpenOffersTab: () {},
           onOpenPeerAdsTab: () {},
+          onOpenMap: () {},
+          onOpenRewards: () {},
+          onOpenCommunity: () {},
+          onScanReceipt: () {},
+          billboardAdsLoader: () async => <Map<String, dynamic>>[],
         ),
       ),
     );

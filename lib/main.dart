@@ -54,6 +54,7 @@ void main() async {
         fallbackLocale: const Locale('ar'),
         saveLocale: true,
         useOnlyLangCode: true,
+        useFallbackTranslations: true,
         child: const MyApp(),
       ),
     );

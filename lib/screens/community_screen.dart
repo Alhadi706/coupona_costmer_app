@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:image_picker/image_picker.dart';
@@ -175,6 +177,26 @@ class _GroupsTabState extends State<_GroupsTab> {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _poll<List<Map<String, dynamic>>>(CompanyServerService.getGroups),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 42, color: kTeal),
+                  const SizedBox(height: 12),
+                  Text('community_load_error'.tr()),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () => setState(() {}),
+                    child: Text('retry'.tr()),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -1325,6 +1347,7 @@ class _PrivateChatsTabState extends State<_PrivateChatsTab> {
                         ),
                       PopupMenuButton<String>(
                         onSelected: (value) async {
+                          final messenger = ScaffoldMessenger.maybeOf(context);
                           try {
                             if (value == 'hide') {
                               await _hideChat(chatId);
@@ -1345,8 +1368,8 @@ class _PrivateChatsTabState extends State<_PrivateChatsTab> {
                               await _unpinChat(chatId);
                             }
                           } catch (error) {
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            if (!mounted || messenger == null) return;
+                            messenger.showSnackBar(
                               SnackBar(content: Text('action_failed'.tr(namedArgs: {'error': error.toString()}))),
                             );
                           }
@@ -1380,11 +1403,12 @@ class _PrivateChatsTabState extends State<_PrivateChatsTab> {
                   onTap: blockedByMe
                       ? null
                       : () async {
+                          final navigator = Navigator.of(context);
                           try {
                             await CompanyServerService.markPrivateChatAsRead(chatId);
                           } catch (_) {}
-                          if (!context.mounted) return;
-                          Navigator.of(context).push(
+                          if (!mounted) return;
+                          navigator.push(
                             MaterialPageRoute(
                               builder: (_) => PrivateChatScreen(
                                 chatId: chatId,
@@ -1542,8 +1566,14 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
 
 Stream<T> _poll<T>(Future<T> Function() loader) {
   return Stream.periodic(const Duration(seconds: 4))
-      .asyncMap((_) => loader())
-      .startWithFuture(loader());
+      .asyncMap((_) => loader().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => throw TimeoutException('community_loader_timeout'),
+      ))
+      .startWithFuture(loader().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => throw TimeoutException('community_loader_timeout'),
+      ));
 }
 
 extension _StreamInit<T> on Stream<T> {

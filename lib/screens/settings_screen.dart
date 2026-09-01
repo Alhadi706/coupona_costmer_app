@@ -134,7 +134,7 @@ class _AccountSection extends StatelessWidget {
         ListTile(
           contentPadding: EdgeInsets.zero,
           leading: const Icon(Icons.manage_accounts),
-          title: const Text('Account settings'),
+          title: Text('account_settings'.tr()),
           onTap: () async {
             await showDialog(
               context: context,
@@ -186,7 +186,7 @@ class _AccountSettingsDialogState extends State<_AccountSettingsDialog> {
     final newPassword = _newPasswordController.text.trim();
 
     if (email.isEmpty || !email.contains('@')) {
-      _showError('Please enter a valid email address.');
+      _showError('valid_email'.tr());
       return;
     }
 
@@ -199,7 +199,7 @@ class _AccountSettingsDialogState extends State<_AccountSettingsDialog> {
       }
       if (currentPassword.isNotEmpty || newPassword.isNotEmpty) {
         if (currentPassword.isEmpty || newPassword.isEmpty) {
-          throw StateError('Both current and new password are required to change the password.');
+          throw StateError('passwords_required'.tr());
         }
         await CompanyServerService.changePassword(
           currentPassword: currentPassword,
@@ -209,7 +209,7 @@ class _AccountSettingsDialogState extends State<_AccountSettingsDialog> {
       if (!mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account settings updated successfully.')),
+        SnackBar(content: Text('account_settings_updated'.tr())),
       );
     } catch (e) {
       _showError(e.toString());
@@ -226,7 +226,7 @@ class _AccountSettingsDialogState extends State<_AccountSettingsDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Account settings'),
+      title: Text('account_settings'.tr()),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -235,20 +235,20 @@ class _AccountSettingsDialogState extends State<_AccountSettingsDialog> {
             children: [
               TextField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email address'),
+                decoration: InputDecoration(labelText: 'email_address'.tr()),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _currentPasswordController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Current password'),
+                decoration: InputDecoration(labelText: 'current_password'.tr()),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _newPasswordController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'New password'),
+                decoration: InputDecoration(labelText: 'new_password'.tr()),
               ),
             ],
           ),
@@ -257,11 +257,11 @@ class _AccountSettingsDialogState extends State<_AccountSettingsDialog> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text('cancel'.tr()),
         ),
         ElevatedButton(
           onPressed: _saving ? null : _save,
-          child: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save'),
+          child: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Text('save'.tr()),
         ),
       ],
     );

@@ -6,7 +6,9 @@ import '../services/company_server_service.dart';
 import 'package:coupona_app/theme/design_tokens.dart';
 
 class FullMapScreen extends StatefulWidget {
-  const FullMapScreen({super.key});
+  final bool embedded;
+
+  const FullMapScreen({super.key, this.embedded = false});
 
   @override
   State<FullMapScreen> createState() => _FullMapScreenState();
@@ -73,6 +75,97 @@ class _FullMapScreenState extends State<FullMapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final body = FutureBuilder<List<Map<String, dynamic>>>(
+      future: _storesFuture,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final stores = snapshot.data!;
+        // فلترة حسب البحث والتصنيف
+        final filteredStores = stores.where((store) {
+          final matchesSearch = searchText.isEmpty || (store['name']?.toString().contains(searchText) ?? false);
+          final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
+          return matchesSearch && matchesCategory;
+        }).toList();
+        final categories = stores
+            .map((store) => (store['category'] ?? '').toString().trim())
+            .where((c) => c.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
+        return Stack(
+          children: [
+            FlutterMap(
+              mapController: _mapController,
+              options: MapOptions(
+                initialCenter: _mapCenter,
+                initialZoom: _mapZoom,
+                onPositionChanged: (position, hasGesture) {
+                  final LatLng? center = position.center;
+                  if (center == null) return;
+                  _mapCenter = center;
+                  _mapZoom = position.zoom ?? _mapZoom;
+                },
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.kupuna.coupona',
+                ),
+                MarkerLayer(
+                  markers: [
+                    for (final store in filteredStores)
+                      Marker(
+                        width: 40,
+                        height: 40,
+                        point: LatLng(_toDouble(store['lat']), _toDouble(store['lng'])),
+                        child: GestureDetector(
+                          onTap: () => _showStoreDetails(store),
+                          child: const Icon(Icons.location_on, color: kGold, size: 36),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: Material(
+                elevation: 4,
+                borderRadius: BorderRadius.circular(12),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'search_store_or_category_hint'.tr(),
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.96),
+                  ),
+                  onChanged: (value) => setState(() => searchText = value),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 80,
+              left: 16,
+              right: 16,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(children: [
+                  FilterChip(label: Text('all_categories'.tr()), selected: selectedCategory.isEmpty, onSelected: (_) => setState(() => selectedCategory = '')),
+                  ...categories.map((category) => Padding(padding: const EdgeInsets.only(left: 6), child: FilterChip(label: Text(_localizeCategory(category)), selected: selectedCategory == category, onSelected: (_) => setState(() => selectedCategory = selectedCategory == category ? '' : category)))),
+                ]),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (widget.embedded) return body;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: kTeal,
@@ -82,9 +175,9 @@ class _FullMapScreenState extends State<FullMapScreen> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _storesFuture,
-        builder: (context, snapshot) {
+      body: body,
+      /* legacy map layout removed in favor of the shared embedded map body. */
+      /* builder: (context, snapshot) {
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -224,8 +317,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
               ),
             ],
           );
-        },
-      ),
+        }, */
     );
   }
 

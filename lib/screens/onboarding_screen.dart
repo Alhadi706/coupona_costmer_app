@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_ringtone_player/flutter_ringtone_player.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:easy_localization/easy_localization.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onFinish;
@@ -15,18 +16,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _controller = PageController();
   int _currentPage = 0;
 
-  final List<Map<String, String>> _pages = [
+  List<Map<String, String>> get _pages => [
     {
-      'title': 'مرحبًا بك في كوبونا!',
-      'desc': 'كل كوبون، كل عرض، كل نقاطك في مكان واحد. استمتع بتجربة تسوق ذكية ومكافآت حقيقية.'
+      'title': 'onboarding_p1_title'.tr(),
+      'desc': 'onboarding_p1_desc'.tr(),
     },
     {
-      'title': 'اجمع النقاط بسهولة',
-      'desc': 'امسح فواتيرك، استخدم كوبوناتك، وادعُ أصدقاءك لتحصل على المزيد من النقاط.'
+      'title': 'onboarding_p2_title'.tr(),
+      'desc': 'onboarding_p2_desc'.tr(),
     },
     {
-      'title': 'جوائز وعروض حصرية',
-      'desc': 'استبدل نقاطك بجوائز حقيقية، وكن أول من يعرف عن العروض الجديدة.'
+      'title': 'onboarding_p3_title'.tr(),
+      'desc': 'onboarding_p3_desc'.tr(),
     },
   ];
 
@@ -117,7 +118,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         _playClickSound();
                         _finishOnboarding();
                       },
-                      child: const Text('تخطي'),
+                      child: Text('onboarding_skip'.tr()),
                     ),
                   const Spacer(),
                   ElevatedButton(
@@ -130,7 +131,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             _playClickSound();
                             _controller.nextPage(duration: const Duration(milliseconds: 400), curve: Curves.ease);
                           },
-                    child: Text(_currentPage == _pages.length - 1 ? 'ابدأ' : 'التالي'),
+                    child: Text(_currentPage == _pages.length - 1 ? 'onboarding_start'.tr() : 'onboarding_next'.tr()),
                   ),
                 ],
               ),
