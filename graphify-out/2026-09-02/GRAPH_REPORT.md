@@ -1,16 +1,16 @@
-# Graph Report - source  (2026-09-02)
+# Graph Report - source  (2026-09-01)
 
 ## Corpus Check
-- 447 files · ~478,570 words
+- 388 files · ~417,447 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4894 nodes · 5976 edges · 335 communities (302 shown, 33 thin omitted)
-- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 194 edges (avg confidence: 0.53)
+- 4086 nodes · 4975 edges · 284 communities (256 shown, 28 thin omitted)
+- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 189 edges (avg confidence: 0.53)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c0352145`
+- Built from commit: `b854d967`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -34,8 +34,8 @@
 - add_coupon_screen.dart
 - home_screen.dart
 - ads_banner_slider.dart
-- StatelessWidget
-- package:easy_localization/easy_localization.dart
+- settings_screen.dart
+- kupuna_cashier_mode_screen_wrapper.dart
 - my_application.cc
 - role_activation_request_screen.dart
 - stage9_full_flow_api_check.js
@@ -46,7 +46,7 @@
 - main.dart
 - points_conversion_screen.dart
 - dependencies
-- package:coupona_app/theme/design_tokens.dart
+- package:flutter/material.dart
 - offer_detail_screen.dart
 - full_map_screen.dart
 - ../theme/design_tokens.dart
@@ -88,14 +88,14 @@
 - accounting_rules.dart
 - 10) Completion Metrics (Category-Based)
 - phase0_stage_role_flow_api_check.js
-- brand_analytics_charts.dart
+- analytics_map_panel.dart
 - 📊 التقرير النهائي للاختبار الشامل - نظام تحالف الولاء متعدد المستويات
 - wallet_account.dart
 - Customer Component Wiring Evidence
 - activity_log_screen.dart
 - 1) Completed Work
 - rewards_screen.dart
-- kupuna_loyalty_health_ring_test.dart
+- cashier_dashboard_screen_test.dart
 - onboarding_screen.dart
 - point_account.dart
 - phase0_five_users_proof.js
@@ -103,7 +103,7 @@
 - app_logger.dart
 - subscription_state_machine.dart
 - coupon_lifecycle_model_test.dart
-- offers_list_screen.dart
+- package:easy_localization/easy_localization.dart
 - investigate_sales_points_gap.js
 - phase18_full_app_e2e_test.ps1
 - phase4_17_endpoint_test.ps1
@@ -164,7 +164,7 @@
 - القسم 5: تدفقات البيانات التفصيلية الكاملة (End-to-End Data Flows)
 - HOTFIX: Arabic Localization Corruption in Role Keys
 - KUPUNA SERVER MIGRATION REPORT
-- brand_product_catalog.dart
+- kupuna_loyalty_health_ring.dart
 - PHASE 3 SUBSCRIPTIONS REPORT
 - coupon_lifecycle_rules.dart
 - PHASE 2 MY ROLES UI REPORT
@@ -181,7 +181,7 @@
 - التحقق المعزول (Port 3006)
 - التحقق المعزول (Port 3006)
 - التحقق المعزول (Port 3006)
-- merchant_team_screen.dart
+- CustomPainter
 - src.bak.1787457923/services-social.js
 - PHASE_4_IMPLEMENTATION_REPORT.md
 - Coupon Lifecycle Module - Implementation Report
@@ -204,13 +204,13 @@
 - security_api_matrix.md
 - bootstrap_owner.js
 - merchant_networks_screen.dart
-- admin_public_coalition_requests_screen.dart
-- coalition_clearinghouse_screen.dart
+- package:latlong2/latlong.dart
+- String?
 - live_brand_merchant_dual_scenario.js
 - patch_charts.js
 - patch_charts2.js
-- _AdminDashboardScreenState
-- customer_coalitions_screen.dart
+- AdminDashboardScreen
+- src/access-control.js
 - report_issue_screen.dart
 - package.json
 - customer_pos_qr_screen.dart
@@ -229,7 +229,7 @@
 - الجزء الثاني: فازات نظام التصميم البصري الكامل (القسم 18 من `docs/KUPUNA_MASTER_SPEC.md`)
 - MessageHandler
 - merchant_prepaid_wallet_regression.js
-- package:flutter/material.dart
+- coalition_badge.dart
 - src.bak.1787457923/routes/analytics.js
 - src.bak.1787457923/routes/auth.js
 - src.bak.1787457923/routes/exchange-rewards.js
@@ -247,7 +247,7 @@
 - src.bak.1787457923/routes/users.js
 - src.bak.1787457923/routes/wallet-actions.js
 - src.bak.1787457923/routes/wallet-core.js
-- brand_product_cross_role_test.js
+- src/routes/analytics.js
 - src/routes/auth.js
 - src/routes/exchange-rewards.js
 - src/routes/invoices.js
@@ -258,7 +258,7 @@
 - src/routes/offers-billboard.js
 - src/routes/offers-lifecycle-stats.js
 - src/routes/peerads-sourcing-admin.js
-- merchant_reports_workflow_test.js
+- src/routes/reports.js
 - src/routes/rewards.js
 - src/routes/roles-subscriptions.js
 - src/routes/users.js
@@ -271,73 +271,22 @@
 - Backend module map (فهرسة الملفات)
 - degraded_local_mode_guard.dart
 - RegisterPlugins
-- public_coalition_legacy_activation_test.js
-- merchant_invoices_screen.dart
+- widget_test.dart
 - accounting_rules_test.dart
 - kupuna_dual_wallet_rings_test.dart
 - MyRewardsScreen
-- customer_reports_screen.dart
-- merchant_reports_screen.dart
-- public_coalition_membership_screen.dart
-- سجل التنفيذ
-- reward_creation_dialog.dart
-- خطة تطوير كوبونا المترابطة بين الأدوار
-- brand_team_screen.dart
-- customer_invoices_screen.dart
-- reward_qr_code_screen.dart
-- reward_funding_card.dart
-- String?
-- foundation_verifier.dart
-- merchant_team_workflow_test.js
-- public_coalition_membership_test.js
-- reward_funding_test.js
-- my_roles_screen_test.dart
-- reward_claim_transaction_test.js
-- brand_products_route_test.js
-- brand_team_workflow_test.js
-- merchant_invoices_route_test.js
-- merchant_reward_claim_visibility_test.js
-- users_screen.dart
-- badge_helper.dart
-- live_reward_phase5_e2e.js
-- خطة تطوير لوحة العلامة التجارية المتكاملة
-- category_offers_screen.dart
-- reward_claim_service_test.js
-- Map
-- ../services/company_server_service.dart
-- merchant_dashboard_screen_test.dart
-- merchant_invoices_screen_test.dart
-- الفازة 2: دليل المنتجات المشترك
-- الفازة 5: المكافآت والنقاط والاسترداد
-- الفازة 6: الجودة والبلاغات والتواصل
-- الفازة 7: الفريق والشبكة والمقاصة
-- الفازة 3: مركز التحليلات والتوزيع
-- الفازة 4: الحملات والعروض العابرة للأدوار
-- customer_invoices_screen_test.dart
-- merchant_team_screen_test.dart
-- kupuna_cashier_mode_screen_wrapper_test.dart
-- الفازة 1: الأساس والموثوقية والتنقل
-- brand_team_screen_test.dart
-- cashier_dashboard_screen_test.dart
-- reward_transaction_reference_test.dart
-- report_issue_screen_test.dart
-- reward_funding_card_test.dart
-- CashierDashboardScreen
-- _QrScannerScreen
-- HomeContentScreen
-- HomeScreen
 
 ## God Nodes (most connected - your core abstractions)
 1. `Code Citations` - 94 edges
 2. `Win32Window` - 22 edges
 3. `خطة تنفيذ كوبونا الشاملة (Kupuna Master Execution Plan)` - 21 edges
-4. `سجل التنفيذ` - 19 edges
-5. `PHASE 0 — PROJECT DISCOVERY REPORT` - 15 edges
-6. `القسم 18-ج: مواصفات كل شاشة — تطبيق العميل (Customer App)` - 14 edges
-7. `القسم 4: المحركات (Engine Layer) — بالتفصيل الكامل مع الصيغ والحالات` - 14 edges
-8. `10) Completion Metrics (Category-Based)` - 14 edges
-9. `خطة تطوير لوحة العلامة التجارية المتكاملة` - 13 edges
-10. `main()` - 13 edges
+4. `PHASE 0 — PROJECT DISCOVERY REPORT` - 15 edges
+5. `القسم 18-ج: مواصفات كل شاشة — تطبيق العميل (Customer App)` - 14 edges
+6. `القسم 4: المحركات (Engine Layer) — بالتفصيل الكامل مع الصيغ والحالات` - 14 edges
+7. `10) Completion Metrics (Category-Based)` - 14 edges
+8. `main()` - 13 edges
+9. `KUPUNA SERVER MIGRATION RUNBOOK` - 12 edges
+10. `القسم 18-د: مواصفات كل شاشة — لوحة تحكم التاجر (Merchant Dashboard)` - 12 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `OnCreate` --calls--> `RegisterPlugins()`  [INFERRED]
@@ -347,22 +296,22 @@
 - `wWinMain()` --calls--> `CreateAndAttachConsole()`  [INFERRED]
   windows/runner/main.cpp → windows/runner/utils.cpp
 - `mapRewardRow()` --calls--> `toIso()`  [EXTRACTED]
-  backend/src/services-matching.js → backend/src/helpers.js
+  backend/src.bak.1787457923/services-matching.js → backend/src.bak.1787457923/helpers.js
 - `applyInvoiceApprovalRewards()` --calls--> `insertNotification()`  [EXTRACTED]
-  backend/src/services-matching.js → backend/src/services-social.js
+  backend/src.bak.1787457923/services-matching.js → backend/src.bak.1787457923/services-social.js
 
 ## Import Cycles
 - None detected.
 
-## Communities (335 total, 33 thin omitted)
+## Communities (284 total, 28 thin omitted)
 
 ### Community 0 - "company_server_service.dart"
 Cohesion: 0.01
-Nodes (215): app_session.dart, acceptMerchantCoalitionInvitation, acceptMerchantReport, activatePublicCoalitionMembershipRequest, addBrandTeamMember, addMerchantBranchManager, _aiBaseUrl, _aiUri (+207 more)
+Nodes (174): app_session.dart, acceptMerchantCoalitionInvitation, activatePublicCoalition, addBrandTeamMember, addMerchantBranchManager, _aiBaseUrl, _aiUri, analyzeInvoiceWithAi (+166 more)
 
 ### Community 1 - "merchant_dashboard_screen.dart"
 Cohesion: 0.02
-Nodes (102): add_coupon_screen.dart, _addManager, _analytics, _analyticsBranchId, analyticsLoader, _analyticsRange, any, _bindCashier (+94 more)
+Nodes (90): add_coupon_screen.dart, _addManager, _analytics, _analyticsBranchId, _analyticsRange, _bindCashier, _branchAddressController, _branches (+82 more)
 
 ### Community 2 - "design_tokens.dart"
 Cohesion: 0.03
@@ -382,7 +331,7 @@ Nodes (13): add(), api(), bcrypt, createAdminFixture(), crypto, { execSync }, jw
 
 ### Community 6 - "community_screen.dart"
 Cohesion: 0.04
-Nodes (54): _blockUser, _broadcast, chatId, _cleanMessageText, CommunityScreen, _CommunityScreenState, _createPoll, createState (+46 more)
+Nodes (54): _blockUser, _broadcast, chatId, _cleanMessageText, _createPoll, createState, _deleteChat, dispose (+46 more)
 
 ### Community 7 - "GeneratedPluginRegistrant.swift"
 Cohesion: 0.06
@@ -390,27 +339,27 @@ Nodes (30): Any, Cocoa, file_selector_macos, Flutter, FlutterAppDelegate, Flutte
 
 ### Community 8 - "signup_screen.dart"
 Cohesion: 0.08
-Nodes (24): build, _calculatedAge, _confirmPasswordController, createState, dispose, _emailController, _formKey, _fullNameController (+16 more)
+Nodes (25): int?, build, _calculatedAge, _confirmPasswordController, createState, dispose, _emailController, _formKey (+17 more)
 
 ### Community 9 - "server.js"
 Cohesion: 0.09
-Nodes (20): accessControl, { app, ...appConsts }, createCampaignTables, createCoalitionTables, createCoreTables, createExtraTables, deps, helpers (+12 more)
+Nodes (21): accessControl, { app, ...appConsts }, createCampaignTables, createCoalitionTables, createCoreTables, createExtraTables, deps, helpers (+13 more)
 
 ### Community 10 - "admin_dashboard_screen.dart"
-Cohesion: 0.04
-Nodes (46): admin_public_coalition_requests_screen.dart, admin_report_detail_screen.dart, _actionChip, _actionLabel, AdminPeerAdAction, AdminPeerAdsLoader, AdminRoleRequestAction, AdminRoleRequestsLoader (+38 more)
+Cohesion: 0.05
+Nodes (39): admin_report_detail_screen.dart, _actionChip, AdminPeerAdAction, AdminPeerAdsLoader, AdminRoleRequestAction, AdminRoleRequestsLoader, AdminSummaryLoader, _approveBillboardAd (+31 more)
 
 ### Community 11 - "app_session.dart"
-Cohesion: 0.13
-Nodes (14): AppSession, clear, email, _emailKey, _isExpiredJwt, role, _roleKey, save (+6 more)
+Cohesion: 0.06
+Nodes (34): app_logger.dart, bool get, asLogString, _canLoadLocalizationAsset, _canReadPreferences, FoundationVerificationReport, FoundationVerifier, isStable (+26 more)
 
 ### Community 12 - "brand_dashboard_screen.dart"
 Cohesion: 0.02
-Nodes (116): brand_network_screens.dart, brand_team_screen.dart, _addTeamMember, _analytics, _analyticsDropdown, analyticsFilterLoader, analyticsLoader, _analyticsLoading (+108 more)
+Nodes (90): brand_network_screens.dart, _addTeamMember, _analytics, analyticsLoader, BrandAnalyticsLoader, BrandCommunityLoader, BrandInvoicesLoader, BrandOffersLoader (+82 more)
 
 ### Community 13 - "home_content_screen.dart"
 Cohesion: 0.04
-Nodes (55): ads_banner_slider.dart, action, _activeTab, _bannerIndex, _bannerKeys, _billboardAdsFuture, build, _buildBanner (+47 more)
+Nodes (51): ads_banner_slider.dart, action, _activeTab, _bannerIndex, _bannerKeys, _billboardAdsFuture, build, _buildBanner (+43 more)
 
 ### Community 14 - "scan_invoice_screen.dart"
 Cohesion: 0.06
@@ -421,48 +370,48 @@ Cohesion: 0.06
 Nodes (35): AccountingService, build, _buildCashbackForm, _buildLedgerSection, _buildPointsCard, _buildRedeemForm, _buildWalletCard, _cashbackReferenceController (+27 more)
 
 ### Community 16 - "add_coupon_screen.dart"
-Cohesion: 0.06
-Nodes (31): dart:ui, AddCouponScreen, _AddCouponScreenState, _categories, _category, createState, _ctaType, _ctaValueController (+23 more)
+Cohesion: 0.07
+Nodes (29): _categories, _category, createState, _ctaType, _ctaValueController, _description, didChangeDependencies, _discountType (+21 more)
 
 ### Community 17 - "home_screen.dart"
-Cohesion: 0.06
-Nodes (35): customer_coalitions_screen.dart, customer_invoices_screen.dart, customer_reports_screen.dart, full_map_screen.dart, home_content_screen.dart, _activeRole, age, _buildRoleSurface (+27 more)
+Cohesion: 0.07
+Nodes (29): admin_dashboard_screen.dart, full_map_screen.dart, home_content_screen.dart, _activeRole, age, _buildRoleSurface, categoryBarType, createState (+21 more)
 
 ### Community 18 - "ads_banner_slider.dart"
 Cohesion: 0.12
 Nodes (16): ads, AdsBannerSlider, _AdsBannerSliderState, build, createState, _currentPage, dispose, _fallback (+8 more)
 
-### Community 19 - "StatelessWidget"
+### Community 19 - "settings_screen.dart"
 Cohesion: 0.06
-Nodes (38): admin_dashboard_screen.dart, brand_dashboard_screen.dart, cashier_dashboard_screen.dart, _SectionCard, _AccountSection, AppDrawer, _buildSettingsBody, createState (+30 more)
+Nodes (37): brand_dashboard_screen.dart, cashier_dashboard_screen.dart, _SectionCard, _AccountSection, AppDrawer, createState, _currentPasswordController, currentRole (+29 more)
 
-### Community 20 - "package:easy_localization/easy_localization.dart"
+### Community 20 - "kupuna_cashier_mode_screen_wrapper.dart"
 Cohesion: 0.07
-Nodes (26): AddInvoiceIcon, build, iconSize, onTap, AdminDrawer, build, currentRole, onSwitchRole (+18 more)
+Nodes (24): AddInvoiceIcon, build, iconSize, onTap, _ActionButton, body, build, KupunaCashierModeScreenWrapper (+16 more)
 
 ### Community 21 - "my_application.cc"
 Cohesion: 0.10
 Nodes (20): FlPluginRegistry, GApplication, gboolean, gchar, GObject, GtkApplication, fl_register_plugins(), main() (+12 more)
 
 ### Community 22 - "role_activation_request_screen.dart"
-Cohesion: 0.09
-Nodes (23): brandSubmitter, build, _businessNameController, _commercialRegistrationController, createState, dispose, _formKey, initialPickedLocation (+15 more)
+Cohesion: 0.08
+Nodes (24): brandSubmitter, build, _businessNameController, _commercialRegistrationController, createState, dispose, _formKey, initialPickedLocation (+16 more)
 
 ### Community 23 - "stage9_full_flow_api_check.js"
 Cohesion: 0.14
 Nodes (22): api(), backdateInvoiceArtifacts(), buildSimplePdf(), createApprovedInvoice(), crypto, dotenv, exportCsvPath, exportPdfPath (+14 more)
 
 ### Community 24 - "kupuna_dual_wallet_rings.dart"
-Cohesion: 0.09
-Nodes (22): CustomPainter, dart:math, _PointsRingPainter, brandPoints, build, color, _DualRingPainter, innerProgress (+14 more)
+Cohesion: 0.17
+Nodes (11): brandPoints, build, color, innerProgress, KupunaDualWalletRings, label, _LegendItem, merchantPoints (+3 more)
 
 ### Community 25 - "cashier_dashboard_screen.dart"
-Cohesion: 0.06
-Nodes (35): _branchIdController, build, _buildBody, _cashierActive, _confirmPromoRedemption, _confirmRedeemClaim, _controller, createState (+27 more)
+Cohesion: 0.05
+Nodes (41): _branchIdController, build, _buildBody, _cashierActive, CashierDashboardScreen, _CashierDashboardScreenState, _confirmPromoRedemption, _confirmRedeemClaim (+33 more)
 
 ### Community 26 - "State"
 Cohesion: 0.09
-Nodes (32): BrandDashboardScreen, _BrandDashboardScreenState, BrandTeamScreen, _BrandTeamScreenState, CoalitionImpactReportScreen, _CoalitionImpactReportScreenState, _GroupChatScreen, _GroupChatScreenState (+24 more)
+Nodes (33): AddCouponScreen, _AddCouponScreenState, AdminReportDetailScreen, _AdminReportDetailScreenState, BrandDashboardScreen, _BrandDashboardScreenState, CoalitionDashboardScreen, _CoalitionDashboardScreenState (+25 more)
 
 ### Community 27 - "coupon_lifecycle_screen.dart"
 Cohesion: 0.10
@@ -470,7 +419,7 @@ Nodes (21): _bindOffer, build, CouponLifecycleScreen, _CouponLifecycleScreenStat
 
 ### Community 28 - "main.dart"
 Cohesion: 0.12
-Nodes (18): foundation/app_logger.dart, build, _checkConnection, createState, initState, _isOffline, main, MainAppWithFeatures (+10 more)
+Nodes (18): dart:ui, foundation/app_logger.dart, build, _checkConnection, createState, initState, _isOffline, main (+10 more)
 
 ### Community 29 - "points_conversion_screen.dart"
 Cohesion: 0.10
@@ -480,9 +429,9 @@ Nodes (20): build, _convert, createState, _destinationIdController, _destination
 Cohesion: 0.08
 Nodes (24): dependencies, bcrypt, bcryptjs, cors, dotenv, express, jsonwebtoken, nodemailer (+16 more)
 
-### Community 31 - "package:coupona_app/theme/design_tokens.dart"
-Cohesion: 0.13
-Nodes (12): Container, package:coupona_app/theme/app_themes.dart, package:coupona_app/theme/design_tokens.dart, package:coupona_app/widgets/design_system/kupuna_bottom_navbar.dart, package:coupona_app/widgets/design_system/kupuna_chat_bubble.dart, package:coupona_app/widgets/design_system/kupuna_status_pill.dart, main, main (+4 more)
+### Community 31 - "package:flutter/material.dart"
+Cohesion: 0.06
+Nodes (29): AboutScreen, build, Container, build, categoryName, CategoryOffersScreen, startWithFuture, build (+21 more)
 
 ### Community 32 - "offer_detail_screen.dart"
 Cohesion: 0.11
@@ -490,15 +439,15 @@ Nodes (19): address, build, _buildMapCard, _buildOfferImage, createState, _extra
 
 ### Community 33 - "full_map_screen.dart"
 Cohesion: 0.11
-Nodes (18): build, createState, embedded, FullMapScreen, _FullMapScreenState, initState, _localizeCategory, _mapCenter (+10 more)
+Nodes (19): build, createState, embedded, FullMapScreen, _FullMapScreenState, initState, _localizeCategory, _mapCenter (+11 more)
 
 ### Community 34 - "../theme/design_tokens.dart"
-Cohesion: 0.10
-Nodes (18): build, ReportIssueScreen, _showToast, build, ChatSenderKind, isCurrentUser, KupunaChatBubble, message (+10 more)
+Cohesion: 0.07
+Nodes (25): build, ReportIssueScreen, _showToast, AdminDrawer, build, currentRole, onSwitchRole, build (+17 more)
 
 ### Community 35 - "package:flutter_test/flutter_test.dart"
-Cohesion: 0.13
-Nodes (12): dart:io, package:flutter_test/flutter_test.dart, main, main, main, main, main, main (+4 more)
+Cohesion: 0.12
+Nodes (13): dart:io, package:flutter_test/flutter_test.dart, main, main, main, main, main, main (+5 more)
 
 ### Community 36 - "Code Citations"
 Cohesion: 0.02
@@ -513,48 +462,48 @@ Cohesion: 0.15
 Nodes (13): invoice_ocr_service.dart, invoice_ocr_service_stub.dart, createInvoiceOcrService, extractText, InvoiceOcrService, createInvoiceOcrServiceImpl, extractText, _MobileInvoiceOcrService (+5 more)
 
 ### Community 39 - "customer_pos_qr_screen.dart"
-Cohesion: 0.12
-Nodes (17): build, _countdownTimer, createState, CustomerPosQrScreen, _CustomerPosQrScreenState, dispose, _error, _expiresAt (+9 more)
+Cohesion: 0.06
+Nodes (32): build, _countdownTimer, createState, CustomerPosQrScreen, _CustomerPosQrScreenState, dispose, _error, _expiresAt (+24 more)
 
 ### Community 40 - "my_roles_screen.dart"
-Cohesion: 0.11
-Nodes (19): build, _buildCashierAssociationCard, createState, currentRole, initState, _loadRoles, _localizeLifecycleStatus, MyRolesScreen (+11 more)
+Cohesion: 0.12
+Nodes (16): build, _buildCashierAssociationCard, createState, currentRole, initState, _localizeLifecycleStatus, MyRolesScreen, _MyRolesScreenState (+8 more)
 
 ### Community 41 - "my_rewards_screen.dart"
-Cohesion: 0.04
-Nodes (55): build, _buildBalanceHeader, _buildDynamicVoucherCard, _buildGiftCatalogSection, _buildGiftRow, _buildPendingPointsCard, _buildRewardCard, _buildRewardsBody (+47 more)
+Cohesion: 0.06
+Nodes (35): build, _buildPendingPointsCard, _buildRewardCard, _buildTierCounters, _buildTransactions, _claimRewardLabel, _claims, _claimStatusColor (+27 more)
 
 ### Community 42 - "_gallery_screen.dart"
 Cohesion: 0.13
 Nodes (15): kupuna_bottom_navbar.dart, kupuna_cashier_mode_screen_wrapper.dart, kupuna_chat_bubble.dart, kupuna_dual_wallet_rings.dart, kupuna_loyalty_health_ring.dart, kupuna_offer_card.dart, kupuna_status_pill.dart, kupuna_top_tabs.dart (+7 more)
 
 ### Community 43 - "map_bar.dart"
-Cohesion: 0.06
-Nodes (30): AnalyticsMapPanel, build, emptyLabel, _initialZoom, markerColor, points, _toDouble, build (+22 more)
+Cohesion: 0.12
+Nodes (16): build, createState, _expandMap, initState, _localizeCategory, onExpand, onTargetLocationChanged, searchText (+8 more)
 
 ### Community 44 - "invoice_text_parser_test.dart"
-Cohesion: 0.12
-Nodes (14): package:coupona_app/modules/invoice/services/invoice_text_parser.dart, main, category, _ExpectedInvoice, invoiceDate, invoiceNumber, main, name (+6 more)
+Cohesion: 0.15
+Nodes (12): category, _ExpectedInvoice, invoiceDate, invoiceNumber, main, name, orderNumber, SAR (+4 more)
 
 ### Community 45 - "customer_home_hotfix_test.dart"
-Cohesion: 0.18
-Nodes (9): AnimatedContainer, BottomNavigationBar, KupunaTopTabs, package:coupona_app/screens/ads_banner_slider.dart, package:coupona_app/screens/home_content_screen.dart, package:coupona_app/widgets/design_system/kupuna_top_tabs.dart, app, main (+1 more)
+Cohesion: 0.13
+Nodes (12): AnimatedContainer, BottomNavigationBar, KupunaTopTabs, package:coupona_app/screens/home_content_screen.dart, package:coupona_app/screens/home_screen.dart, package:coupona_app/screens/my_roles_screen.dart, package:coupona_app/widgets/design_system/kupuna_top_tabs.dart, app (+4 more)
 
 ### Community 46 - "offers_screen.dart"
-Cohesion: 0.12
-Nodes (16): build, _buildOfferImage, _buildOffersBody, _buildTargetingBar, createState, dispose, embedded, _loadOffers (+8 more)
+Cohesion: 0.13
+Nodes (14): build, _buildOfferImage, _buildOffersBody, _buildTargetingBar, createState, dispose, embedded, _loadOffers (+6 more)
 
 ### Community 47 - "invoice_ocr_service_web.dart"
-Cohesion: 0.13
-Nodes (14): dart:js_interop, dart:js_interop_unsafe, ImageElement, invoice_text_parser.dart, InvoiceOcrService, _buildCandidateDataUrls, _bytesToImageUrl, createInvoiceOcrServiceImpl (+6 more)
+Cohesion: 0.12
+Nodes (15): dart:async, dart:js_interop, dart:js_interop_unsafe, ImageElement, invoice_text_parser.dart, InvoiceOcrService, _buildCandidateDataUrls, _bytesToImageUrl (+7 more)
 
 ### Community 48 - "خطة تنفيذ كوبونا الشاملة (Kupuna Master Execution Plan)"
 Cohesion: 0.10
 Nodes (21): 0. قواعد إلزامية تحكم تنفيذ كل فازة (اقرأها قبل أي سطر كود), الفازة 0 — تجهيزات وشبكة أمان قبل البدء, الفازة 10 — محرك البلاغات والاعتراضات (Reports & Disputes), الفازة 11 — الضمان/التسوية + تبادل النقاط + سوق المكافآت + استلام عبر الكاشير, الفازة 12 — إعلانات الأفراد والتوريد (Peer Ads & Sourcing), الفازة 13 — محرك إدارة الأدوار والاشتراكات الكامل, الفازة 14 — محرك التنبؤ بالسلوك + Loyalty Health Score, الفازة 15 — مصفوفة الصلاحيات والأمان الشامل (تدقيق وإنفاذ) (+13 more)
 
 ### Community 49 - "map_picker_screen.dart"
-Cohesion: 0.15
-Nodes (13): LatLng, build, createState, dispose, initialLocation, initState, MapPickerScreen, _MapPickerScreenState (+5 more)
+Cohesion: 0.14
+Nodes (14): dart:convert, LatLng?, build, createState, dispose, initialLocation, initState, MapPickerScreen (+6 more)
 
 ### Community 50 - "complete_profile_screen.dart"
 Cohesion: 0.18
@@ -577,8 +526,8 @@ Cohesion: 0.17
 Nodes (11): amount, createdAt, fromMap, LedgerEntry, LedgerEntryType, ownerId, _parseType, points (+3 more)
 
 ### Community 55 - "MaterialPageRoute"
-Cohesion: 0.10
-Nodes (20): build, _buildReportQueueItem, _buildAdsCampaignsTab, _buildLegacyOverviewTab, _buildNetworkTab, _buildOperationsTab, _buildStoresTab, build (+12 more)
+Cohesion: 0.12
+Nodes (17): build, _buildReportQueueItem, _buildLegacyOverviewTab, _buildNetworkTab, _buildOperationsTab, build, _buildDiscoverList, _buildNearbyPreview (+9 more)
 
 ### Community 56 - "accounting_service.dart"
 Cohesion: 0.17
@@ -637,8 +586,8 @@ Cohesion: 0.07
 Nodes (28): ACCESS_TOKEN_TTL, EMAIL_FROM, GEMINI_API_KEY, GEMINI_FALLBACK_MODELS, OWNER_MFA_CODE_TTL_MS, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT (+20 more)
 
 ### Community 70 - "accounting_rules.dart"
-Cohesion: 0.12
-Nodes (14): AccountingRules, calculateCashback, calculatePoints, cashbackRate, normalizeAmount, pointsPerUnit, validateRedemption, cashValueForPoints (+6 more)
+Cohesion: 0.20
+Nodes (9): AccountingRules, calculateCashback, calculatePoints, cashbackRate, normalizeAmount, pointsPerUnit, validateRedemption, static const double (+1 more)
 
 ### Community 71 - "10) Completion Metrics (Category-Based)"
 Cohesion: 0.07
@@ -648,9 +597,9 @@ Nodes (27): 10.10 Admin — 5%, 10.11 Agent — 5%, 10.12 Testing — 35%, 10.13
 Cohesion: 0.33
 Nodes (8): callApi(), fs, login(), outPath, parseEmailsFromProof(), path, proofPath, run()
 
-### Community 73 - "brand_analytics_charts.dart"
-Cohesion: 0.06
-Nodes (32): analytics_map_panel.dart, analytics, _barChart, _blue, BrandAnalyticsCharts, build, _categoryLegend, _chartCard (+24 more)
+### Community 73 - "analytics_map_panel.dart"
+Cohesion: 0.22
+Nodes (8): AnalyticsMapPanel, build, emptyLabel, _initialZoom, markerColor, points, _toDouble, package:flutter_map/flutter_map.dart
 
 ### Community 74 - "📊 التقرير النهائي للاختبار الشامل - نظام تحالف الولاء متعدد المستويات"
 Cohesion: 0.06
@@ -676,9 +625,9 @@ Nodes (20): 1.10 Test Baseline Stabilization, 1.1 Folder Structure Verification,
 Cohesion: 0.25
 Nodes (8): build, createState, fetchRewards, initState, isLoading, rewards, RewardsScreen, _RewardsScreenState
 
-### Community 80 - "kupuna_loyalty_health_ring_test.dart"
-Cohesion: 0.10
-Nodes (10): package:coupona_app/foundation/app_logger.dart, package:coupona_app/foundation/foundation_verifier.dart, package:coupona_app/modules/subscription/subscription_state_machine.dart, package:coupona_app/widgets/design_system/kupuna_loyalty_health_ring.dart, package:coupona_app/widgets/reward_creation_dialog.dart, main, main, main (+2 more)
+### Community 80 - "cashier_dashboard_screen_test.dart"
+Cohesion: 0.12
+Nodes (8): package:coupona_app/foundation/app_logger.dart, package:coupona_app/modules/subscription/subscription_state_machine.dart, package:coupona_app/screens/cashier_dashboard_screen.dart, package:coupona_app/widgets/design_system/kupuna_loyalty_health_ring.dart, main, main, main, main
 
 ### Community 81 - "onboarding_screen.dart"
 Cohesion: 0.14
@@ -708,9 +657,9 @@ Nodes (5): assertAllowed, canTransition, parse, SubscriptionStateMachine, Subscr
 Cohesion: 0.33
 Nodes (4): package:coupona_app/modules/coupon_lifecycle/coupon_lifecycle_rules.dart, package:coupona_app/modules/coupon_lifecycle/models/coupon_lifecycle_record.dart, main, main
 
-### Community 88 - "offers_list_screen.dart"
-Cohesion: 0.12
-Nodes (16): Future, build, createState, fetchOffers, initState, _offersFuture, OffersListScreen, _OffersListScreenState (+8 more)
+### Community 88 - "package:easy_localization/easy_localization.dart"
+Cohesion: 0.07
+Nodes (28): community_screen.dart, Future, build, createState, fetchOffers, initState, _offersFuture, build (+20 more)
 
 ### Community 89 - "investigate_sales_points_gap.js"
 Cohesion: 0.70
@@ -725,12 +674,12 @@ Cohesion: 0.60
 Nodes (3): Assert-HttpError(), Invoke-Api(), Json()
 
 ### Community 92 - "src/app.js"
-Cohesion: 0.04
-Nodes (43): ACCESS_TOKEN_TTL, app, AUTH_RATE_LIMIT_WINDOW_MS, bcrypt, cors, CORS_ALLOWED_ORIGINS, crypto, devOwnerChallenges (+35 more)
+Cohesion: 0.06
+Nodes (30): AUTH_RATE_LIMIT_WINDOW_MS, bcrypt, cors, CORS_ALLOWED_ORIGINS, crypto, devOwnerChallenges, express, fs (+22 more)
 
 ### Community 93 - "src/helpers.js"
 Cohesion: 0.07
-Nodes (29): auth(), canManageInvoice(), canRedeemClaim(), jwt, { JWT_SECRET, KUPUNA_OWNER_EMAIL, OWNER_ENFORCEMENT_ENABLED }, { normalizeRole, isAdmin }, { pool }, requireAdmin() (+21 more)
+Nodes (25): ACCESS_TOKEN_TTL, EMAIL_FROM, GEMINI_API_KEY, GEMINI_FALLBACK_MODELS, OWNER_MFA_CODE_TTL_MS, SMTP_HOST, SMTP_PASSWORD, SMTP_PORT (+17 more)
 
 ### Community 94 - "accounting_models_test.dart"
 Cohesion: 0.40
@@ -741,8 +690,8 @@ Cohesion: 0.07
 Nodes (30): build, _buildGiftCard, _campaignType, CoalitionGiftCatalogScreen, _CoalitionGiftCatalogScreenState, coalitionId, coalitionName, _createGift (+22 more)
 
 ### Community 98 - "admin_dashboard_screen_test.dart"
-Cohesion: 0.25
-Nodes (7): dart:async, ElevatedButton, OutlinedButton, package:coupona_app/screens/admin_dashboard_screen.dart, TabBar, app, main
+Cohesion: 0.50
+Nodes (3): package:coupona_app/screens/admin_dashboard_screen.dart, app, main
 
 ### Community 99 - "Accounting Core Module Implementation Report"
 Cohesion: 0.10
@@ -753,8 +702,8 @@ Cohesion: 0.29
 Nodes (7): _StreamInit, _StreamInit, _StreamInit, _StreamInit, _StreamInit, _StreamInit, Stream
 
 ### Community 104 - "merchant_campaign_screen.dart"
-Cohesion: 0.05
-Nodes (40): _audiencePreview, build, _buildCampaignForm, _buildCampaignHistory, _buildIntro, _campaigns, _campaignType, createState (+32 more)
+Cohesion: 0.07
+Nodes (29): build, _buildCampaignForm, _buildCampaignHistory, _buildIntro, _campaigns, _campaignType, createState, _dateButton (+21 more)
 
 ### Community 105 - "src.bak.1787457923/services-matching.js"
 Cohesion: 0.09
@@ -765,20 +714,20 @@ Cohesion: 0.11
 Nodes (18): 1) Files transferred, 2) Services installed, 3) Configuration created, 4) Problems found, 5) Verification results, 6) Final isolation confirmation, Active Ports Found (Pre-migration), Command Set (For Next Execution Phase) (+10 more)
 
 ### Community 107 - "coalition_dashboard_screen.dart"
-Cohesion: 0.08
-Nodes (25): create_private_coalition_dialog.dart, build, _buildDiscoverTab, _buildGuideCard, _buildInvitationTab, _buildMyCoalitions, _buildPublicCoalitionCard, createState (+17 more)
+Cohesion: 0.07
+Nodes (28): create_private_coalition_dialog.dart, _activatePublicCoalition, build, _buildDiscoverTab, _buildGuideCard, _buildInvitationTab, _buildMyCoalitions, _buildPublicCoalitionCard (+20 more)
 
 ### Community 108 - "invoice_parser_accuracy_20_samples_test.dart"
-Cohesion: 0.15
-Nodes (12): double?, category, _closeDouble, invoiceDate, invoiceNumber, main, name, _sameText (+4 more)
+Cohesion: 0.12
+Nodes (14): double?, package:coupona_app/modules/invoice/services/invoice_text_parser.dart, category, _closeDouble, invoiceDate, invoiceNumber, main, name (+6 more)
 
 ### Community 109 - "PHASE 0 — PROJECT DISCOVERY REPORT"
 Cohesion: 0.11
 Nodes (18): Broken modules / runtime risks, Completed modules (evidence-backed), Current architecture, Database status, Dependencies, Discovery caveat, Estimated completion percentage, Folder structure (functional high-level) (+10 more)
 
 ### Community 110 - "src/services-matching.js"
-Cohesion: 0.09
-Nodes (19): haversineDistanceKm(), normalizeMerchantKey(), parseTargetingCriteria(), issueRaffleTicketsForInvoice(), analyticsPercentChange(), analyticsSafeNumber(), analyticsTopEntries(), applyInvoiceApprovalRewards() (+11 more)
+Cohesion: 0.10
+Nodes (18): haversineDistanceKm(), normalizeMerchantKey(), parseTargetingCriteria(), issueRaffleTicketsForInvoice(), analyticsPercentChange(), analyticsSafeNumber(), analyticsTopEntries(), applyInvoiceApprovalRewards() (+10 more)
 
 ### Community 111 - "PHASE 0 BASELINE REPORT"
 Cohesion: 0.11
@@ -786,15 +735,15 @@ Nodes (17): 1) flutter analyze, 1) التحقق من الملف اليتيم و�
 
 ### Community 112 - "src/services-social.js"
 Cohesion: 0.11
-Nodes (19): getIntSetting(), toIso(), mapRewardRow(), applySubscriptionTransition(), canTransitionSubscription(), ensureCommunityGroupForRole(), ensureCommunityMembership(), { FCM_SERVER_KEY } (+11 more)
+Nodes (18): FCM_SERVER_KEY, toIso(), mapRewardRow(), applySubscriptionTransition(), canTransitionSubscription(), ensureCommunityGroupForRole(), ensureCommunityMembership(), { FCM_SERVER_KEY } (+10 more)
 
 ### Community 118 - "2) Component Inventory (By Domain)"
 Cohesion: 0.12
 Nodes (16): 1) Executive Summary, 2) Component Inventory (By Domain), 3) Missing Components (High Impact), 4) Component-Level Priority Order, 5) Development Readiness Decision, 6) Next Deliverable After This Report, A) Core App Shell, B) Customer Authentication and Profile (+8 more)
 
 ### Community 119 - "admin_report_detail_screen.dart"
-Cohesion: 0.22
-Nodes (9): AdminReportDetailScreen, _AdminReportDetailScreenState, build, createState, initState, report, _status, _updateStatus (+1 more)
+Cohesion: 0.08
+Nodes (21): build, createState, initState, report, _status, _updateStatus, build, _infoTile (+13 more)
 
 ### Community 134 - "FINAL E2E TEST REPORT - Coalition Loyalty System"
 Cohesion: 0.08
@@ -904,9 +853,9 @@ Nodes (8): 1) Surgical Fix Applied, 2) Full ar.json Corruption Scan (post-fix), 
 Cohesion: 0.22
 Nodes (8): 1) Files transferred, 2) Services installed, 3) Configuration created, 4) Problems found, 5) Verification results, 6) Final isolation confirmation, 7) Pending items (for full production cutover), KUPUNA SERVER MIGRATION REPORT
 
-### Community 168 - "brand_product_catalog.dart"
-Cohesion: 0.07
-Nodes (31): FormFieldState, barcodeSelector, BrandProductBarcodeSelector, BrandProductCatalog, _BrandProductCatalogState, BrandProductCreator, BrandProductDeactivator, BrandProductImageSelector (+23 more)
+### Community 168 - "kupuna_loyalty_health_ring.dart"
+Cohesion: 0.25
+Nodes (7): dart:math, build, KupunaLoyaltyHealthRing, paint, progress, scorePercent, shouldRepaint
 
 ### Community 169 - "PHASE 3 SUBSCRIPTIONS REPORT"
 Cohesion: 0.22
@@ -972,9 +921,9 @@ Nodes (6): Scope, Validation, أوامر التشغيل, التحقق المعز
 Cohesion: 0.29
 Nodes (6): Scope, Validation, أوامر التشغيل, التحقق المعزول (Port 3006), الفروقات المتوقعة عن السلوك الحي, نتائج اختبار فعلية
 
-### Community 185 - "merchant_team_screen.dart"
-Cohesion: 0.07
-Nodes (27): branches, build, _cancelInvitation, createState, _editManagerPermissions, _error, initState, invitationCanceller (+19 more)
+### Community 185 - "CustomPainter"
+Cohesion: 0.50
+Nodes (4): CustomPainter, _PointsRingPainter, _DualRingPainter, _LoyaltyRingPainter
 
 ### Community 186 - "src.bak.1787457923/services-social.js"
 Cohesion: 0.11
@@ -1017,8 +966,8 @@ Cohesion: 0.40
 Nodes (5): 7.1 صلاحيات مدير الفرع — نظام قائمة اختيار (Checkbox-Based), 7.2 صلاحيات الكاشير (ثابتة، غير قابلة للتخصيص), 7.3 صلاحيات العلامة التجارية, 7.4 صلاحيات إدارة كوبونا, القسم 7: مصفوفة الصلاحيات (Permissions Matrix)
 
 ### Community 196 - "promotion-campaign-service.js"
-Cohesion: 0.11
-Nodes (25): assert, { getBrandCustomers, resolveSegment }, { launchCampaign, redeemCoupon }, test, getBrandCustomers(), getCoalitionNetworkCustomers(), getFrequentVisitors(), getInactiveCustomers() (+17 more)
+Cohesion: 0.15
+Nodes (18): getCoalitionNetworkCustomers(), getFrequentVisitors(), getInactiveCustomers(), getTopSpenders(), resolveSegment(), createCampaign(), { dispatchCampaignToSegment }, { id } (+10 more)
 
 ### Community 200 - "customer_redeem_coalition_gift_dialog.dart"
 Cohesion: 0.09
@@ -1028,13 +977,9 @@ Nodes (22): _balances, build, _buildGiftOption, _buildSponsorLine, coalitionId, 
 Cohesion: 0.10
 Nodes (10): jwt, { JWT_SECRET }, { pool }, JWT_SECRET, requiredEnv(), CANONICAL_ROLES, { Pool }, { requiredEnv } (+2 more)
 
-### Community 203 - "brand_dashboard_screen_test.dart"
-Cohesion: 0.15
-Nodes (12): AssetLoader, dart:convert, package:coupona_app/screens/brand_dashboard_screen.dart, package:coupona_app/widgets/brand_analytics_charts.dart, Switch, buildApp, buildDashboard, ensureInitialized (+4 more)
-
 ### Community 204 - "customer_campaign_coupons_section.dart"
-Cohesion: 0.09
-Nodes (23): action, build, _buildCouponCard, _buildTicketCard, _countdown, _couponDetails, _coupons, createState (+15 more)
+Cohesion: 0.10
+Nodes (21): action, build, _buildCouponCard, _countdown, _couponDetails, _coupons, createState, CustomerCampaignCouponsSection (+13 more)
 
 ### Community 205 - "bootstrap-owner.js"
 Cohesion: 0.25
@@ -1046,27 +991,23 @@ Nodes (5): bcrypt, crypto, { Pool }, main(), required()
 
 ### Community 208 - "merchant_networks_screen.dart"
 Cohesion: 0.10
-Nodes (19): coalitions/coalition_clearinghouse_screen.dart, coalitions/coalition_dashboard_screen.dart, IconData, build, icon, MerchantNetworksScreen, _NetworkDestination, onTap (+11 more)
+Nodes (18): coalitions/coalition_clearinghouse_screen.dart, coalitions/coalition_dashboard_screen.dart, IconData, build, icon, MerchantNetworksScreen, _NetworkDestination, onTap (+10 more)
 
-### Community 209 - "admin_public_coalition_requests_screen.dart"
-Cohesion: 0.08
-Nodes (26): class, _activate, activateAction, AdminPublicCoalitionActivateAction, AdminPublicCoalitionApproveAction, AdminPublicCoalitionRejectAction, AdminPublicCoalitionRequestsLoader, AdminPublicCoalitionRequestsScreen (+18 more)
+### Community 209 - "package:latlong2/latlong.dart"
+Cohesion: 0.33
+Nodes (5): package:coupona_app/screens/role_activation_request_screen.dart, package:latlong2/latlong.dart, app, main, successSubmitter
 
-### Community 210 - "coalition_clearinghouse_screen.dart"
-Cohesion: 0.12
-Nodes (17): build, _buildDisputes, _buildSummaryCards, _buildUsageGuide, CoalitionClearinghouseScreen, _CoalitionClearinghouseScreenState, createState, _disputes (+9 more)
+### Community 210 - "String?"
+Cohesion: 0.11
+Nodes (18): build, _buildSummaryCards, _buildUsageGuide, CoalitionClearinghouseScreen, _CoalitionClearinghouseScreenState, createState, _error, initState (+10 more)
 
 ### Community 211 - "live_brand_merchant_dual_scenario.js"
 Cohesion: 0.24
 Nodes (15): api(), bcrypt, createProduct(), ensureUser(), getLatestNotification(), login(), main(), { Pool } (+7 more)
 
-### Community 214 - "_AdminDashboardScreenState"
-Cohesion: 0.40
-Nodes (5): AdminDashboardScreen, _AdminDashboardScreenState, CoalitionDashboardScreen, _CoalitionDashboardScreenState, SingleTickerProviderStateMixin
-
-### Community 215 - "customer_coalitions_screen.dart"
-Cohesion: 0.07
-Nodes (25): ../dialogs/customer_redeem_coalition_gift_dialog.dart, action, build, _coalitionsFuture, createState, icon, initState, _loadCoalitions (+17 more)
+### Community 215 - "src/access-control.js"
+Cohesion: 0.14
+Nodes (15): auth(), canManageInvoice(), canRedeemClaim(), jwt, { JWT_SECRET, KUPUNA_OWNER_EMAIL, OWNER_ENFORCEMENT_ENABLED }, { normalizeRole, isAdmin }, { pool }, requireAdmin() (+7 more)
 
 ### Community 217 - "package.json"
 Cohesion: 0.12
@@ -1081,20 +1022,20 @@ Cohesion: 0.28
 Nodes (15): api(), bcrypt, createCoalitionWithMembers(), ensurePointAccount(), ensureUser(), login(), main(), { Pool } (+7 more)
 
 ### Community 221 - "coalition_impact_report_screen.dart"
-Cohesion: 0.14
-Nodes (13): build, _buildContributorSection, _buildCrossCustomersSection, _buildCustomerItem, _buildFulfillerSection, coalitionId, coalitionName, createState (+5 more)
+Cohesion: 0.13
+Nodes (15): build, _buildContributorSection, _buildCrossCustomersSection, _buildCustomerItem, _buildFulfillerSection, coalitionId, CoalitionImpactReportScreen, _CoalitionImpactReportScreenState (+7 more)
 
 ### Community 222 - "FlutterWindow"
 Cohesion: 0.13
 Nodes (13): unique_ptr, DartProject, HWND, LPARAM, LRESULT, UINT, WPARAM, FlutterWindow (+5 more)
 
 ### Community 223 - "brand_network_screens.dart"
-Cohesion: 0.12
-Nodes (18): BrandCoalitionClearinghouseScreen, _BrandCoalitionClearinghouseScreenState, BrandCoalitionsScreen, _BrandCoalitionsScreenState, build, _coalitions, createState, _disputes (+10 more)
+Cohesion: 0.16
+Nodes (13): BrandCoalitionClearinghouseScreen, _BrandCoalitionClearinghouseScreenState, BrandCoalitionsScreen, _BrandCoalitionsScreenState, build, _coalitions, createState, _error (+5 more)
 
 ### Community 224 - "List"
-Cohesion: 0.10
-Nodes (18): build, CoBrandedRewardDialog, rewardTitle, show, sponsorNames, build, GiftSelectionDialog, merchantName (+10 more)
+Cohesion: 0.14
+Nodes (12): build, CoBrandedRewardDialog, rewardTitle, show, sponsorNames, build, GiftSelectionDialog, merchantName (+4 more)
 
 ### Community 225 - "Win32Window"
 Cohesion: 0.20
@@ -1116,10 +1057,6 @@ Nodes (11): build, _buildFlowClarification, _buildUsageGuide, createState, dispo
 Cohesion: 0.17
 Nodes (11): Audit Answer (Question 1), Files Added, Files Modified, Integration, New Routes (`routes/campaigns.js`), New Schema (`schema-campaigns.js`), New Services, Result (+3 more)
 
-### Community 230 - "point-valuation-service.js"
-Cohesion: 0.07
-Nodes (16): assert, register(), registerCoalitionRoutes, test, assert, register, setup(), test (+8 more)
-
 ### Community 231 - "الجزء الثاني: فازات نظام التصميم البصري الكامل (القسم 18 من `docs/KUPUNA_MASTER_SPEC.md`)"
 Cohesion: 0.20
 Nodes (9): الجزء الثاني: فازات نظام التصميم البصري الكامل (القسم 18 من `docs/KUPUNA_MASTER_SPEC.md`), الفازة 19 — البنية التحتية لنظام التصميم (Design Tokens + الخطوط + الثيمات حسب الدور), الفازة 20 — مكتبة المكوّنات المشتركة (Shared Component Library), الفازة 21 — تطبيق نظام التصميم على شاشات تطبيق العميل, الفازة 22 — تطبيق نظام التصميم على لوحة تحكم التاجر, الفازة 23 — تطبيق نظام التصميم على لوحة تحكم العلامة التجارية, الفازة 24 — تطبيق نظام التصميم على لوحة إدارة كوبونا (Admin), الفازة 25 — تدقيق شامل نهائي لنظام التصميم (Global Design QA) (+1 more)
@@ -1132,9 +1069,9 @@ Nodes (10): HWND, LPARAM, LRESULT, UINT, WPARAM, EnableFullDpiSupportIfAvailable
 Cohesion: 0.36
 Nodes (8): api(), bcrypt, { execSync }, login(), main(), { Pool }, signup(), stamp
 
-### Community 234 - "package:flutter/material.dart"
-Cohesion: 0.07
-Nodes (22): AboutScreen, build, FilledButton, build, PrivacyScreen, build, _localizeRole, _localizeStatus (+14 more)
+### Community 234 - "coalition_badge.dart"
+Cohesion: 0.22
+Nodes (8): build, CoalitionBadge, CoalitionBadgeType, determineBadgeType, isInPrivateCoalition, isInPublicNetwork, showDescription, type
 
 ### Community 235 - "src.bak.1787457923/routes/analytics.js"
 Cohesion: 0.25
@@ -1204,17 +1141,17 @@ Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 Cohesion: 0.25
 Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
-### Community 252 - "brand_product_cross_role_test.js"
-Cohesion: 0.12
-Nodes (12): analyticsHandlers(), assert, matching, registerAnalyticsRoutes, test, bcrypt, crypto, fs (+4 more)
+### Community 252 - "src/routes/analytics.js"
+Cohesion: 0.25
+Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
 ### Community 253 - "src/routes/auth.js"
 Cohesion: 0.25
 Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
 ### Community 254 - "src/routes/exchange-rewards.js"
-Cohesion: 0.20
-Nodes (9): bcrypt, crypto, fs, https, jwt, nodemailer, path, {processExpiredRewardClaims} (+1 more)
+Cohesion: 0.25
+Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
 ### Community 255 - "src/routes/invoices.js"
 Cohesion: 0.25
@@ -1229,16 +1166,16 @@ Cohesion: 0.25
 Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
 ### Community 258 - "src/routes/merchant.js"
-Cohesion: 0.12
-Nodes (12): assert, handlerFor(), registerMerchantRoutes, test, bcrypt, crypto, fs, https (+4 more)
+Cohesion: 0.25
+Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
 ### Community 259 - "src/routes/notifications-community.js"
 Cohesion: 0.25
 Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
 ### Community 260 - "src/routes/offers-billboard.js"
-Cohesion: 0.14
-Nodes (11): assert, register(), registerRoutes, test, bcrypt, crypto, fs, https (+3 more)
+Cohesion: 0.25
+Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
 ### Community 261 - "src/routes/offers-lifecycle-stats.js"
 Cohesion: 0.25
@@ -1248,9 +1185,9 @@ Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 Cohesion: 0.25
 Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
-### Community 263 - "merchant_reports_workflow_test.js"
-Cohesion: 0.05
-Nodes (18): assert, registerReportsRoutes, reportRoutes(), test, assert, registerReportsRoutes, test, assert (+10 more)
+### Community 263 - "src/routes/reports.js"
+Cohesion: 0.25
+Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
 ### Community 264 - "src/routes/rewards.js"
 Cohesion: 0.25
@@ -1265,8 +1202,8 @@ Cohesion: 0.25
 Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
 ### Community 267 - "src/routes/wallet-actions.js"
-Cohesion: 0.11
-Nodes (14): bcrypt, crypto, fs, https, jwt, nodemailer, path, { SYSTEM_POINT_VALUE } (+6 more)
+Cohesion: 0.25
+Nodes (7): bcrypt, crypto, fs, https, jwt, nodemailer, path
 
 ### Community 268 - "src/routes/wallet-core.js"
 Cohesion: 0.25
@@ -1296,197 +1233,25 @@ Nodes (5): Backend module map (فهرسة الملفات), البنية التح
 Cohesion: 0.33
 Nodes (5): build, DegradedLocalModeGuard, isLocalOnly, merchantName, show
 
-### Community 276 - "public_coalition_legacy_activation_test.js"
-Cohesion: 0.29
-Nodes (4): assert, handlers(), registerRoutes, test
-
-### Community 277 - "merchant_invoices_screen.dart"
-Cohesion: 0.09
-Nodes (23): _actionLabel, _availableActions, build, _buildContent, _buildInvoiceCard, createState, _error, initState (+15 more)
-
-### Community 284 - "customer_reports_screen.dart"
-Cohesion: 0.10
-Nodes (21): build, _buildContent, createState, CustomerReportResponder, CustomerReportsLoader, CustomerReportsScreen, _CustomerReportsScreenState, _error (+13 more)
-
-### Community 285 - "merchant_reports_screen.dart"
-Cohesion: 0.10
-Nodes (19): build, _buildContent, _buildFilters, _buildUpdates, createState, _error, _filteredReports, initState (+11 more)
-
-### Community 286 - "public_coalition_membership_screen.dart"
-Cohesion: 0.10
-Nodes (19): applicantType, build, _buildRequestState, createState, didUpdateWidget, _error, initState, _load (+11 more)
-
-### Community 287 - "سجل التنفيذ"
-Cohesion: 0.11
-Nodes (19): 2026-09-01 - إغلاق الفازة 1, 2026-09-01 - إغلاق الفازة 2, 2026-09-01 - إغلاق الفازة 3, 2026-09-01 - الفازة 1, 2026-09-01 - الفازة 2, 2026-09-01 - الفازة 3, 2026-09-01 - الفازة 4, 2026-09-01 - تحسين عرض التحليلات (+11 more)
-
-### Community 288 - "reward_creation_dialog.dart"
-Cohesion: 0.11
-Nodes (18): int?, description, drawEnabled, expiresAt, image, imageUrl, kind, name (+10 more)
-
-### Community 289 - "خطة تطوير كوبونا المترابطة بين الأدوار"
-Cohesion: 0.11
-Nodes (18): 2026-09-01 - الفازة 1, 2026-09-01 - عضوية ائتلاف كوبونا العام, 2026-09-02 - إعلانات اللوحة والحملات للعلامة والزبون, 2026-09-02 - إغلاق الفازة 2: الفروع والفريق والصلاحيات, 2026-09-02 - إغلاق الفازة 5: المكافآت والنقاط والاسترداد, 2026-09-02 - استكمال الجودة والبلاغات والتواصل, الفازة 1: الأساس والتنقل والصلاحيات, الفازة 2: عمليات المتجر والفواتير والبلاغات (+10 more)
-
-### Community 290 - "brand_team_screen.dart"
-Cohesion: 0.11
-Nodes (17): BrandTeamInviter, BrandTeamLoader, BrandTeamRevoker, build, createState, _error, initState, _invite (+9 more)
-
-### Community 291 - "customer_invoices_screen.dart"
-Cohesion: 0.12
-Nodes (17): build, _buildContent, createState, CustomerInvoiceDisputeCreator, CustomerInvoicesLoader, CustomerInvoicesScreen, _CustomerInvoicesScreenState, _dispute (+9 more)
-
-### Community 292 - "reward_qr_code_screen.dart"
-Cohesion: 0.12
-Nodes (17): build, _claimRequestId, _createClaim, createState, dispose, _error, _pickupQrCode, pointsCost (+9 more)
-
-### Community 293 - "reward_funding_card.dart"
-Cohesion: 0.12
-Nodes (15): build, createState, _error, _fund, funder, initState, _load, loader (+7 more)
-
-### Community 294 - "String?"
-Cohesion: 0.13
-Nodes (14): build, createState, _error, initState, _invitations, invitationsLoader, _load, _loading (+6 more)
-
-### Community 295 - "foundation_verifier.dart"
-Cohesion: 0.14
-Nodes (13): app_logger.dart, bool get, asLogString, _canLoadLocalizationAsset, _canReadPreferences, FoundationVerificationReport, FoundationVerifier, isStable (+5 more)
-
-### Community 296 - "merchant_team_workflow_test.js"
-Cohesion: 0.18
-Nodes (4): assert, register(), registerRoutes, test
-
-### Community 297 - "public_coalition_membership_test.js"
-Cohesion: 0.18
-Nodes (4): assert, register(), registerRoutes, test
-
-### Community 298 - "reward_funding_test.js"
-Cohesion: 0.20
-Nodes (6): assert, register(), registerRoutes, test, ensureWallet(), summary()
-
-### Community 299 - "my_roles_screen_test.dart"
-Cohesion: 0.17
-Nodes (9): package:coupona_app/screens/admin_public_coalition_requests_screen.dart, package:coupona_app/screens/home_screen.dart, package:coupona_app/screens/my_roles_screen.dart, package:coupona_app/screens/public_coalition_membership_screen.dart, app, main, app, main (+1 more)
-
-### Community 300 - "reward_claim_transaction_test.js"
-Cohesion: 0.22
-Nodes (6): assert, { canRedeemClaim }, claimCreateHandler(), exchangeHandlers(), registerExchangeRewardsRoutes, test
-
-### Community 301 - "brand_products_route_test.js"
-Cohesion: 0.27
-Nodes (6): assert, registerInvoicesRoutes, registerProductRoutes(), registerRewardsRoutes, routeCollector(), test
-
-### Community 302 - "brand_team_workflow_test.js"
-Cohesion: 0.22
-Nodes (4): assert, registerBrandTeamRoutes, routesFor(), test
-
-### Community 303 - "merchant_invoices_route_test.js"
-Cohesion: 0.22
-Nodes (5): assert, {canManageInvoice}, registerHandler(), registerInvoicesRoutes, test
-
-### Community 304 - "merchant_reward_claim_visibility_test.js"
-Cohesion: 0.20
-Nodes (3): assert, registerRewardsRoutes, test
-
-### Community 305 - "users_screen.dart"
-Cohesion: 0.25
-Nodes (8): community_screen.dart, build, createState, fetchUsers, initState, _usersFuture, UsersScreen, _UsersScreenState
-
-### Community 306 - "badge_helper.dart"
-Cohesion: 0.22
-Nodes (8): BadgeHelper, communityKey, getLastCount, offersKey, rewardsKey, setLastCount, package:shared_preferences/shared_preferences.dart, static const String
-
-### Community 307 - "live_reward_phase5_e2e.js"
-Cohesion: 0.32
-Nodes (6): api(), crypto, jwt, main(), { Pool }, token()
-
-### Community 308 - "خطة تطوير لوحة العلامة التجارية المتكاملة"
-Cohesion: 0.25
-Nodes (7): الفازة 8: الصقل والإطلاق والمراقبة, النطاق, الهدف, بوابة الإطلاق, خريطة التدفقات المشتركة, خطة تطوير لوحة العلامة التجارية المتكاملة, قواعد التنفيذ
-
-### Community 309 - "category_offers_screen.dart"
-Cohesion: 0.25
-Nodes (7): build, categoryName, CategoryOffersScreen, startWithFuture, offer_detail_screen.dart, package:coupona_app/widgets/design_system/kupuna_offer_card.dart, package:coupona_app/widgets/stream_load_error.dart
-
-### Community 310 - "reward_claim_service_test.js"
-Cohesion: 0.33
-Nodes (4): assert, {processExpiredRewardClaims}, test, processExpiredRewardClaims()
-
-### Community 311 - "Map"
-Cohesion: 0.29
-Nodes (6): build, _infoTile, store, StoreDetailsScreen, _value, Map
-
-### Community 312 - "../services/company_server_service.dart"
-Cohesion: 0.33
-Nodes (5): build, fetchProfile, ProfileScreen, userId, ../services/company_server_service.dart
-
-### Community 313 - "merchant_dashboard_screen_test.dart"
-Cohesion: 0.40
-Nodes (4): package:coupona_app/screens/merchant_dashboard_screen.dart, buildDashboard, dashboardData, main
-
-### Community 314 - "merchant_invoices_screen_test.dart"
-Cohesion: 0.40
-Nodes (4): package:coupona_app/screens/merchant_invoices_screen.dart, invoice, main, queue
-
-### Community 315 - "الفازة 2: دليل المنتجات المشترك"
-Cohesion: 0.50
-Nodes (4): التدفق, الفازة 2: دليل المنتجات المشترك, النطاق, بوابة الانتقال
-
-### Community 316 - "الفازة 5: المكافآت والنقاط والاسترداد"
-Cohesion: 0.50
-Nodes (4): التدفق, الفازة 5: المكافآت والنقاط والاسترداد, النطاق, بوابة الانتقال
-
-### Community 317 - "الفازة 6: الجودة والبلاغات والتواصل"
-Cohesion: 0.50
-Nodes (4): التدفق, الفازة 6: الجودة والبلاغات والتواصل, النطاق, بوابة الانتقال
-
-### Community 318 - "الفازة 7: الفريق والشبكة والمقاصة"
-Cohesion: 0.50
-Nodes (4): التدفق, الفازة 7: الفريق والشبكة والمقاصة, النطاق, بوابة الانتقال
-
-### Community 319 - "الفازة 3: مركز التحليلات والتوزيع"
-Cohesion: 0.50
-Nodes (4): التدفق, الفازة 3: مركز التحليلات والتوزيع, النطاق, بوابة الانتقال
-
-### Community 320 - "الفازة 4: الحملات والعروض العابرة للأدوار"
-Cohesion: 0.50
-Nodes (4): التدفق, الفازة 4: الحملات والعروض العابرة للأدوار, النطاق, بوابة الانتقال
-
-### Community 321 - "customer_invoices_screen_test.dart"
-Cohesion: 0.50
-Nodes (3): package:coupona_app/screens/customer_invoices_screen.dart, invoice, main
-
-### Community 322 - "merchant_team_screen_test.dart"
-Cohesion: 0.50
-Nodes (3): package:coupona_app/screens/merchant_team_screen.dart, package:coupona_app/screens/team_invitations_screen.dart, main
-
-### Community 323 - "kupuna_cashier_mode_screen_wrapper_test.dart"
-Cohesion: 0.50
-Nodes (3): package:coupona_app/widgets/design_system/kupuna_cashier_mode_screen_wrapper.dart, Scaffold, main
-
-### Community 324 - "الفازة 1: الأساس والموثوقية والتنقل"
-Cohesion: 0.67
-Nodes (3): الفازة 1: الأساس والموثوقية والتنقل, النطاق, بوابة الانتقال
-
 ## Knowledge Gaps
-- **3297 isolated node(s):** `الهدف`, `قواعد التنفيذ`, `خريطة التدفقات المشتركة`, `النطاق`, `بوابة الانتقال` (+3292 more)
+- **2742 isolated node(s):** `الدليل والتعديل`, `تحقق منفذ`, `الدليل والتعديل`, `الدليل والتعديل`, `الدليل` (+2737 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **33 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **28 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `CouponLifecycleStatus` connect `coupon_lifecycle_rules.dart` to `coupon_lifecycle_record.dart`?**
   _High betweenness centrality (0.001) - this node is a cross-community bridge._
-- **Why does `القسم 18: نظام التصميم البصري الكامل (Kupuna Design System & Screen Specification)` connect `القسم 18: نظام التصميم البصري الكامل (Kupuna Design System & Screen Specification)` to `القسم 18-ب: مكتبة المكوّنات (Component Library) — تُستخدم بتكرار عبر كل الشاشات`, `القسم 18-ج: مواصفات كل شاشة — تطبيق العميل (Customer App)`, `KUPUNA_MASTER_SPEC.md`, `القسم 18-د: مواصفات كل شاشة — لوحة تحكم التاجر (Merchant Dashboard)`, `القسم 18-هـ: مواصفات كل شاشة — لوحة تحكم العلامة التجارية (Brand Dashboard)`, `القسم 18-و: مواصفات كل شاشة — لوحة إدارة كوبونا (Platform Admin)`?**
+- **Why does `القسم 4: المحركات (Engine Layer) — بالتفصيل الكامل مع الصيغ والحالات` connect `القسم 4: المحركات (Engine Layer) — بالتفصيل الكامل مع الصيغ والحالات` to `KUPUNA_MASTER_SPEC.md`?**
   _High betweenness centrality (0.001) - this node is a cross-community bridge._
-- **Why does `FlutterWindow` connect `FlutterWindow` to `Win32Window`, `GeneratedPluginRegistrant.swift`?**
-  _High betweenness centrality (0.001) - this node is a cross-community bridge._
-- **What connects `الهدف`, `قواعد التنفيذ`, `خريطة التدفقات المشتركة` to the rest of the system?**
-  _3297 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **What connects `الدليل والتعديل`, `تحقق منفذ`, `الدليل والتعديل` to the rest of the system?**
+  _2742 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `company_server_service.dart` be split into smaller, more focused modules?**
-  _Cohesion score 0.009259259259259259 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.011428571428571429 - nodes in this community are weakly interconnected._
 - **Should `merchant_dashboard_screen.dart` be split into smaller, more focused modules?**
-  _Cohesion score 0.019417475728155338 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.02197802197802198 - nodes in this community are weakly interconnected._
 - **Should `design_tokens.dart` be split into smaller, more focused modules?**
   _Cohesion score 0.030303030303030304 - nodes in this community are weakly interconnected._
+- **Should `invoice_text_parser.dart` be split into smaller, more focused modules?**
+  _Cohesion score 0.0392156862745098 - nodes in this community are weakly interconnected._
