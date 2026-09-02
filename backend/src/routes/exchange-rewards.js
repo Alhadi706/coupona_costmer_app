@@ -5,6 +5,8 @@ const https = require('https');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const {processExpiredRewardClaims} = require('../reward-claim-service');
+const { SYSTEM_POINT_VALUE } = require('../system-policy');
 
 module.exports = function registerExchangeRewardsRoutes(app, deps) {
   const {
@@ -50,24 +52,8 @@ app.post('/api/admin/exchange-rates', auth, requireAdmin, async (req, res) => {
 
   const client = await pool.connect();
   try {
-    let sourcePointValue = Number(p.sourcePointValue || 0);
-    let destinationPointValue = Number(p.destinationPointValue || 0);
-    if (!Number.isFinite(sourcePointValue) || sourcePointValue <= 0) {
-      const sourceRow = sourceType === 'merchant'
-        ? (await client.query('SELECT point_value FROM merchant_profiles WHERE id = $1 LIMIT 1', [sourceId])).rows[0]
-        : (await client.query('SELECT point_value FROM brand_profiles WHERE id = $1 LIMIT 1', [sourceId])).rows[0];
-      sourcePointValue = Number(sourceRow?.point_value || 0);
-    }
-    if (!Number.isFinite(destinationPointValue) || destinationPointValue <= 0) {
-      const destinationRow = destinationType === 'merchant'
-        ? (await client.query('SELECT point_value FROM merchant_profiles WHERE id = $1 LIMIT 1', [destinationId])).rows[0]
-        : (await client.query('SELECT point_value FROM brand_profiles WHERE id = $1 LIMIT 1', [destinationId])).rows[0];
-      destinationPointValue = Number(destinationRow?.point_value || 0);
-    }
-
-    if (!Number.isFinite(sourcePointValue) || sourcePointValue <= 0 || !Number.isFinite(destinationPointValue) || destinationPointValue <= 0) {
-      return res.status(400).json({ error: 'point_values_not_configured' });
-    }
+    const sourcePointValue = SYSTEM_POINT_VALUE;
+    const destinationPointValue = SYSTEM_POINT_VALUE;
 
     const rate = Number((sourcePointValue / destinationPointValue).toFixed(6));
     const rowId = id();
@@ -149,30 +135,8 @@ app.post('/api/points/exchange', auth, async (req, res) => {
     return res.status(400).json({ error: 'invalid_payload' });
   }
 
-  let sourcePointValue = Number(p.sourcePointValue || 0);
-  let destinationPointValue = Number(p.destinationPointValue || 0);
-
-  const configuredRate = (await pool.query(
-    `SELECT source_point_value, destination_point_value, rate
-       FROM exchange_rate_settings
-      WHERE source_type = $1
-        AND source_id = $2
-        AND destination_type = $3
-        AND destination_id = $4
-      LIMIT 1`,
-    [sourceType, sourceId, destinationType, destinationId]
-  )).rows[0];
-
-  if ((!Number.isFinite(sourcePointValue) || sourcePointValue <= 0) && configuredRate) {
-    sourcePointValue = Number(configuredRate.source_point_value || 0);
-  }
-  if ((!Number.isFinite(destinationPointValue) || destinationPointValue <= 0) && configuredRate) {
-    destinationPointValue = Number(configuredRate.destination_point_value || 0);
-  }
-
-  if (!Number.isFinite(sourcePointValue) || sourcePointValue <= 0 || !Number.isFinite(destinationPointValue) || destinationPointValue <= 0) {
-    return res.status(400).json({ error: 'exchange_rate_not_configured' });
-  }
+  const sourcePointValue = SYSTEM_POINT_VALUE;
+  const destinationPointValue = SYSTEM_POINT_VALUE;
 
   const destinationPoints = (sourcePoints * sourcePointValue) / destinationPointValue;
   await pool.query(
@@ -206,9 +170,26 @@ app.post('/api/reward-claims/create', auth, async (req, res) => {
   if (!Number.isInteger(pointsCost) || pointsCost <= 0) return res.status(400).json({ error: 'invalid_points_cost' });
   const rewardKind = String(p.rewardKind || 'physical');
   const rewardId = String(p.rewardId || '').trim() || null;
+  const idempotencyKey = String(p.idempotencyKey || '').trim() || null;
+  let claimRewardKind = rewardKind === 'digital' ? 'digital' : 'physical';
+  let claimSourceType = String(p.sourceType || 'merchant');
+  let claimSourceId = String(p.sourceId || '');
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    if (idempotencyKey) {
+      const existing = (await client.query(
+        `SELECT id, pickup_qr_code, digital_code, status, expires_at
+           FROM reward_claims
+          WHERE owner_id = $1 AND idempotency_key = $2
+          LIMIT 1`,
+        [req.user.userId, idempotencyKey]
+      )).rows[0];
+      if (existing) {
+        await client.query('COMMIT');
+        return res.json({ok: true, id: existing.id, pickupQrCode: existing.pickup_qr_code, digitalCode: existing.digital_code, status: existing.status, expiresAt: toIso(existing.expires_at), idempotentReplay: true});
+      }
+    }
     if (rewardId) {
       const reward = (await client.query(
         `SELECT id, value, kind, source_type, source_id, is_active, quantity_limit, quantity_redeemed, expires_at, draw_enabled
@@ -218,6 +199,9 @@ app.post('/api/reward-claims/create', auth, async (req, res) => {
       if (!reward) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'reward_not_found' }); }
       if (!reward.is_active) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'reward_inactive' }); }
       if (Number(reward.value) !== pointsCost) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'reward_points_mismatch' }); }
+      claimRewardKind = reward.kind === 'digital' ? 'digital' : 'physical';
+      claimSourceType = String(reward.source_type || 'system');
+      claimSourceId = String(reward.source_id || '');
       if (reward.expires_at && new Date(reward.expires_at).getTime() <= Date.now()) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'reward_expired' }); }
       if (reward.draw_enabled) {
         const existingDrawClaim = (await client.query(
@@ -237,47 +221,103 @@ app.post('/api/reward-claims/create', auth, async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'insufficient_points' });
     }
+  let claimSettlementId = null;
+  if (claimRewardKind === 'digital' && ['merchant', 'brand'].includes(claimSourceType) && claimSourceId) {
+    const escrow = (await client.query(
+      `SELECT id, balance FROM escrow_accounts
+        WHERE source_type = $1 AND source_id = $2
+        ORDER BY created_at ASC LIMIT 1 FOR UPDATE`,
+      [claimSourceType, claimSourceId]
+    )).rows[0];
+    if (!escrow) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'insufficient_escrow_balance' });
+    }
+    const escrowDebit = await client.query(
+      'UPDATE escrow_accounts SET balance = balance - $2 WHERE id = $1 AND balance >= $2',
+      [escrow.id, pointsCost]
+    );
+    if (escrowDebit.rowCount !== 1) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'insufficient_escrow_balance' });
+    }
+    claimSettlementId = id();
+    await client.query(
+      `INSERT INTO settlements (id, escrow_account_id, amount, settlement_type, status, is_external_transfer_executed)
+       VALUES ($1,$2,$3,'digital_reward_claim_used','internal_accounting_only',FALSE)`,
+      [claimSettlementId, escrow.id, pointsCost]
+    );
+  }
   const claimId = id();
   const qr = crypto.randomUUID().replace(/-/g, '');
-  const digitalCode = rewardKind === 'digital'
+  const digitalCode = claimRewardKind === 'digital'
     ? `DG-${crypto.randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase()}`
     : null;
-  const expiresAt = rewardKind === 'digital' ? null : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = claimRewardKind === 'digital' ? null : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   await client.query(
     `INSERT INTO reward_claims (
       id, owner_id, reward_id, source_type, source_id, points_cost, reward_kind,
       pickup_qr_code, digital_code, status, redeemed_at, redeemed_by, expires_at
+      , idempotency_key, settlement_id
     ) VALUES (
-      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13
+      $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
     )`,
     [
       claimId,
       req.user.userId,
       rewardId,
-      String(p.sourceType || 'merchant'),
-      String(p.sourceId || ''),
+      claimSourceType,
+      claimSourceId,
       pointsCost,
-      rewardKind,
+      claimRewardKind,
       qr,
       digitalCode,
-      rewardKind === 'digital' ? 'used' : 'pending_pickup',
-      rewardKind === 'digital' ? new Date().toISOString() : null,
-      rewardKind === 'digital' ? req.user.userId : null,
+      claimRewardKind === 'digital' ? 'used' : 'pending_pickup',
+      claimRewardKind === 'digital' ? new Date().toISOString() : null,
+      claimRewardKind === 'digital' ? req.user.userId : null,
       expiresAt,
+      idempotencyKey,
+      claimSettlementId,
     ]
   );
   await client.query('UPDATE point_accounts SET available_points = available_points - $2, updated_at = NOW() WHERE owner_id = $1', [req.user.userId, pointsCost]);
+  await client.query(
+    `INSERT INTO ledger_entries (id, owner_id, type, amount, points, reference)
+     VALUES ($1, $2, 'rewardClaimCreated', 0, $3, $4)`,
+    [id(), req.user.userId, -pointsCost, `reward_claim:${claimId}`]
+  );
   await client.query('COMMIT');
   return res.json({
     ok: true,
     id: claimId,
-    pickupQrCode: rewardKind === 'physical' ? qr : null,
+    reference: `reward_claim:${claimId}`,
+    pickupQrCode: claimRewardKind === 'physical' ? qr : null,
     digitalCode,
-    status: rewardKind === 'digital' ? 'used' : 'pending_pickup',
+    status: claimRewardKind === 'digital' ? 'used' : 'pending_pickup',
+    settlementId: claimSettlementId,
     expiresAt,
   });
   } catch (e) {
     await client.query('ROLLBACK');
+    if (e?.code === '23505' && idempotencyKey) {
+      const existing = (await pool.query(
+        `SELECT id, pickup_qr_code, digital_code, status, expires_at
+           FROM reward_claims WHERE owner_id = $1 AND idempotency_key = $2 LIMIT 1`,
+        [req.user.userId, idempotencyKey]
+      )).rows[0];
+      if (existing) {
+        return res.json({
+          ok: true,
+          id: existing.id,
+          reference: `reward_claim:${existing.id}`,
+          pickupQrCode: existing.pickup_qr_code,
+          digitalCode: existing.digital_code,
+          status: existing.status,
+          expiresAt: toIso(existing.expires_at),
+          idempotentReplay: true,
+        });
+      }
+    }
     return res.status(500).json({ error: 'reward_claim_failed', details: String(e.message || e) });
   } finally {
     client.release();
@@ -296,6 +336,7 @@ app.get('/api/reward-claims/my', auth, async (req, res) => {
   )).rows;
   return res.json(rows.map((row) => ({
     id: row.id,
+    reference: `reward_claim:${row.id}`,
     ownerId: row.owner_id,
     sourceType: row.source_type,
     sourceId: row.source_id,
@@ -339,23 +380,23 @@ app.post('/api/cashier/redeem-claim', auth, async (req, res) => {
     }
 
     let settlementId = null;
-    if (row.reward_kind === 'physical' && row.source_type === 'merchant' && row.source_id) {
+    if (row.reward_kind === 'physical' && ['merchant', 'brand'].includes(row.source_type) && row.source_id) {
       let escrow = (await client.query(
         `SELECT id, balance
            FROM escrow_accounts
-          WHERE source_type = 'merchant'
-            AND source_id = $1
+          WHERE source_type = $1
+            AND source_id = $2
           ORDER BY created_at ASC
           LIMIT 1`,
-        [row.source_id]
+        [row.source_type, row.source_id]
       )).rows[0];
 
       if (!escrow) {
         const escrowId = id();
         await client.query(
           `INSERT INTO escrow_accounts (id, source_type, source_id, balance)
-           VALUES ($1,'merchant',$2,0)`,
-          [escrowId, row.source_id]
+           VALUES ($1,$2,$3,0)`,
+          [escrowId, row.source_type, row.source_id]
         );
         escrow = { id: escrowId, balance: 0 };
       }
@@ -433,7 +474,13 @@ app.post('/api/cashier/redeem-claim', auth, async (req, res) => {
     }
 
     // Recirculate redeemed points to the merchant that fulfilled the reward.
-    const fulfillerMerchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+    let fulfillerMerchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+    if (!fulfillerMerchantId) {
+      fulfillerMerchantId = (await client.query(
+        'SELECT merchant_id FROM cashier_profiles WHERE user_id = $1 AND is_active = TRUE LIMIT 1',
+        [req.user.userId]
+      )).rows[0]?.merchant_id || null;
+    }
     if (fulfillerMerchantId) {
       const points = Number(row.points_cost || 0);
       const wallet = await client.query(`
@@ -466,20 +513,9 @@ app.post('/api/reward-claims/refund-expired/run', auth, requireAdmin, async (_re
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const rows = (await client.query(
-      `SELECT id, owner_id, points_cost
-         FROM reward_claims
-        WHERE status = 'pending_pickup'
-          AND expires_at IS NOT NULL
-          AND expires_at <= NOW()
-        FOR UPDATE`
-    )).rows;
-    for (const row of rows) {
-      await client.query("UPDATE reward_claims SET status = 'refunded_as_points', updated_at = NOW() WHERE id = $1", [row.id]);
-      await client.query('UPDATE point_accounts SET available_points = available_points + $2, updated_at = NOW() WHERE owner_id = $1', [row.owner_id, row.points_cost]);
-    }
+    const refunded = await processExpiredRewardClaims(client, id);
     await client.query('COMMIT');
-    return res.json({ ok: true, refunded: rows.length });
+    return res.json({ ok: true, refunded });
   } catch (e) {
     await client.query('ROLLBACK');
     return res.status(500).json({ error: 'claim_refund_failed', details: String(e.message || e) });

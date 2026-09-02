@@ -16,6 +16,7 @@ class _CoalitionClearinghouseScreenState extends State<CoalitionClearinghouseScr
   String? _error;
   List<Map<String, dynamic>> _summary = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _ledger = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _disputes = const <Map<String, dynamic>>[];
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _CoalitionClearinghouseScreenState extends State<CoalitionClearinghouseScr
       if (!mounted) return;
       setState(() {
         _summary = List<Map<String, dynamic>>.from((results[0] as Map<String, dynamic>)['statements'] ?? const <dynamic>[]);
+        _disputes = List<Map<String, dynamic>>.from((results[0] as Map<String, dynamic>)['disputes'] ?? const <dynamic>[]);
         _ledger = List<Map<String, dynamic>>.from((results[1] as Map<String, dynamic>)['ledger'] ?? const <dynamic>[]);
       });
     } catch (error) {
@@ -90,6 +92,8 @@ class _CoalitionClearinghouseScreenState extends State<CoalitionClearinghouseScr
           _buildSummaryCards(),
           const SizedBox(height: 16),
           _buildUsageGuide(),
+          const SizedBox(height: 16),
+          _buildDisputes(),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -150,6 +154,46 @@ class _CoalitionClearinghouseScreenState extends State<CoalitionClearinghouseScr
         ],
       ),
     );
+  }
+
+  Widget _buildDisputes() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('brand_clearinghouse_disputes'.tr(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+      if (_disputes.isEmpty)
+        Text('brand_clearinghouse_disputes_empty'.tr())
+      else
+        ..._disputes.map((dispute) => Card(child: ListTile(
+          title: Text((dispute['brandName'] ?? 'coalition_label'.tr()).toString()),
+          subtitle: Text('${dispute['reason'] ?? ''}${dispute['responseNote'] == null ? '' : '\n${dispute['responseNote']}'}'),
+          trailing: dispute['status'] == 'open'
+              ? PopupMenuButton<String>(
+                  key: Key('settlement-dispute-${dispute['id']}'),
+                  onSelected: (status) => _respondToDispute(dispute, status),
+                  itemBuilder: (_) => [
+                    PopupMenuItem(value: 'resolved', child: Text('settlement_dispute_resolve'.tr())),
+                    PopupMenuItem(value: 'rejected', child: Text('settlement_dispute_reject'.tr())),
+                  ],
+                )
+              : Chip(label: Text((dispute['status'] ?? '').toString())),
+        ))),
+    ]);
+  }
+
+  Future<void> _respondToDispute(Map<String, dynamic> dispute, String status) async {
+    var note = '';
+    final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      title: Text('settlement_dispute_response'.tr()),
+      content: TextField(onChanged: (value) => note = value, maxLines: 3),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('cancel'.tr())),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text('confirm'.tr())),
+      ],
+    ));
+    if (confirmed != true || note.trim().isEmpty) return;
+    await CompanyServerService.respondToBrandSettlementDispute(
+      disputeId: dispute['id'].toString(), status: status, note: note.trim(),
+    );
+    await _load();
   }
 
   Widget _buildSummaryCards() {

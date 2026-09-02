@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'coalitions/coalition_clearinghouse_screen.dart';
 import 'coalitions/coalition_dashboard_screen.dart';
 import 'merchant_gift_trigger.dart';
+import 'public_coalition_membership_screen.dart';
 
 class MerchantNetworksScreen extends StatelessWidget {
   const MerchantNetworksScreen({super.key});
@@ -40,7 +41,7 @@ class MerchantNetworksScreen extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const CoalitionDashboardScreen(initialTabIndex: 1),
+                        builder: (_) => const PublicCoalitionMembershipScreen(applicantType: 'merchant'),
                       ),
                     ),
                     icon: const Icon(Icons.group_add_outlined),

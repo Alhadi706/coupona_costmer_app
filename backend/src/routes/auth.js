@@ -364,7 +364,7 @@ app.post('/api/uploads/image', auth, uploadRateLimit, async (req, res) => {
     'INSERT INTO uploaded_files (file_name, owner_user_id, mime_type, size_bytes) VALUES ($1, $2, $3, $4)',
     [fileName, req.user.userId, mimeType, buffer.length]
   );
-  const url = `${req.protocol}://${req.get('host')}/api/uploads/${fileName}`;
+  const url = `/api/uploads/${fileName}`;
   return res.json({ ok: true, url });
 });
 

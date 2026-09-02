@@ -44,6 +44,51 @@ module.exports = async function createCoalitionTables(pool) {
       PRIMARY KEY (coalition_id, brand_id)
     );
 
+    CREATE TABLE IF NOT EXISTS brand_settlement_disputes (
+      id TEXT PRIMARY KEY,
+      claim_id TEXT NOT NULL REFERENCES reward_claims(id) ON DELETE CASCADE,
+      brand_id TEXT NOT NULL REFERENCES brand_profiles(id) ON DELETE CASCADE,
+      merchant_id TEXT REFERENCES merchant_profiles(id) ON DELETE SET NULL,
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved','rejected')),
+      response_note TEXT,
+      created_by_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      resolved_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      resolved_at TIMESTAMPTZ
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_brand_settlement_open_dispute
+      ON brand_settlement_disputes(claim_id) WHERE status = 'open';
+
+    CREATE TABLE IF NOT EXISTS public_coalition_membership_requests (
+      id TEXT PRIMARY KEY,
+      applicant_type TEXT NOT NULL CHECK (applicant_type IN ('merchant', 'brand')),
+      applicant_profile_id TEXT NOT NULL,
+      applicant_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending_admin_review'
+        CHECK (status IN ('pending_admin_review', 'approved_pending_payment', 'active', 'rejected', 'cancelled')),
+      admin_message TEXT,
+      payment_url TEXT,
+      payment_reference TEXT,
+      activation_source TEXT CHECK (activation_source IS NULL OR activation_source IN ('manual_admin', 'payment_api')),
+      reviewed_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      reviewed_at TIMESTAMPTZ,
+      activated_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      activated_at TIMESTAMPTZ,
+      rejection_reason TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_public_coalition_requests_applicant
+      ON public_coalition_membership_requests(applicant_type, applicant_profile_id, created_at DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_public_coalition_open_request
+      ON public_coalition_membership_requests(applicant_type, applicant_profile_id)
+      WHERE status IN ('pending_admin_review', 'approved_pending_payment', 'active');
+    CREATE INDEX IF NOT EXISTS idx_public_coalition_requests_status
+      ON public_coalition_membership_requests(status, created_at ASC);
+
     CREATE INDEX IF NOT EXISTS idx_brand_coalition_members_brand
       ON brand_coalition_members(brand_id);
 

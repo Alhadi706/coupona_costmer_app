@@ -8,15 +8,30 @@ import 'admin_dashboard_screen.dart';
 import 'brand_dashboard_screen.dart';
 import 'cashier_dashboard_screen.dart';
 import 'community_screen.dart';
+import 'customer_coalitions_screen.dart';
+import 'customer_invoices_screen.dart';
+import 'customer_reports_screen.dart';
 import 'home_content_screen.dart';
 import 'full_map_screen.dart';
 import 'merchant_dashboard_screen.dart';
 import 'my_rewards_screen.dart';
 import 'my_roles_screen.dart';
-import 'report_screen.dart';
+import 'public_coalition_membership_screen.dart';
 import 'scan_invoice_screen.dart';
 import 'settings_screen.dart';
+import 'merchant_team_screen.dart';
+import 'team_invitations_screen.dart';
 import '../widgets/admin_drawer.dart';
+
+String? publicCoalitionApplicantType(
+  Map<String, dynamic> notification,
+  String activeRole,
+) {
+  final payload = notification['payload'];
+  final payloadType = payload is Map ? payload['applicantType']?.toString() : null;
+  final candidate = (payloadType ?? activeRole).toLowerCase();
+  return const {'merchant', 'brand'}.contains(candidate) ? candidate : null;
+}
 
 class HomeScreen extends StatefulWidget {
   final String phone;
@@ -89,9 +104,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ? 'community'
               : (type.contains('report')
                     ? 'reports'
-                    : (type.contains('invoice') || type.contains('point')
-                          ? 'wallet'
-                          : '')));
+                      : (type.contains('invoice')
+                        ? 'invoices'
+                        : (type.contains('point') ? 'wallet' : ''))));
 
     if (target == 'wallet' || target == 'rewards' || target == 'points') {
       if (!mounted) return;
@@ -101,11 +116,55 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    if (target == 'invoices' || target == 'invoice') {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const CustomerInvoicesScreen()),
+      );
+      return;
+    }
+
+    if (target == 'reports' || target == 'report') {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const CustomerReportsScreen()),
+      );
+      return;
+    }
+
+    if (target == 'public_coalition_membership') {
+      final applicantType = publicCoalitionApplicantType(notification, _activeRole);
+      if (!mounted || applicantType == null) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => PublicCoalitionMembershipScreen(applicantType: applicantType),
+        ),
+      );
+      return;
+    }
+
+    if (target == 'team_invitations') {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const TeamInvitationsScreen()),
+      );
+      return;
+    }
+
+    if (target == 'merchant_team' && _activeRole == 'merchant') {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const MerchantTeamScreen(branches: [])),
+      );
+      return;
+    }
+
     final index = switch (target) {
       'home' || 'discover' => 0,
+      'map' => 1,
       'community' || 'community_group' || 'groups' => 2,
-      'reports' || 'report' => 0,
-      'settings' || 'account' => 3,
+      'wallet' || 'rewards' || 'points' => 3,
+      'settings' || 'account' => 4,
       _ => null,
     };
     if (index == null || !mounted) return;
@@ -256,12 +315,15 @@ class _HomeScreenState extends State<HomeScreen> {
         onOpenRewards: () => Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const MyRewardsScreen()),
         ),
+        onOpenCoalitions: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const CustomerCoalitionsScreen()),
+        ),
         onOpenCommunity: () => _onItemTapped(2),
         onScanReceipt: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ScanInvoiceScreen())),
       ),
       const FullMapScreen(embedded: true),
       const CommunityScreen.embedded(),
-      const ReportScreen(),
+      const MyRewardsScreen.embedded(),
       const SettingsScreen.embedded(),
     ];
 
@@ -298,15 +360,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
-            },
-            tooltip: 'settings_title'.tr(),
-            icon: const Icon(Icons.settings_outlined),
-          ),
-          IconButton(
             onPressed: _openRolesScreen,
             icon: const Icon(Icons.swap_horiz),
             tooltip: 'my_roles_title'.tr(),
@@ -328,7 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: customerTabs[_selectedIndex],
             )
           : _buildRoleSurface(),
-      floatingActionButton: _activeRole == 'customer'
+        floatingActionButton: _activeRole == 'customer' && _selectedIndex == 0
           ? FloatingActionButton(
               onPressed: () {
                 Navigator.of(context).push(
@@ -339,7 +392,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: const Icon(Icons.camera_alt, color: kWhite),
             )
           : null,
-      floatingActionButtonLocation: _activeRole == 'customer'
+        floatingActionButtonLocation: _activeRole == 'customer' && _selectedIndex == 0
           ? FloatingActionButtonLocation.endFloat
           : FloatingActionButtonLocation.endDocked,
       bottomNavigationBar: _activeRole != 'customer'
@@ -389,9 +442,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: _tx('home_bottom_communities', 'Communities'),
                 ),
                 BottomNavigationBarItem(
-                  icon: const Icon(Icons.flag_outlined),
-                  activeIcon: const Icon(Icons.flag),
-                  label: _tx('home_bottom_reports', 'Reports'),
+                  icon: const Icon(Icons.account_balance_wallet_outlined),
+                  activeIcon: const Icon(Icons.account_balance_wallet),
+                  label: _tx('home_bottom_wallet', 'Wallet'),
                 ),
                 BottomNavigationBarItem(
                   icon: const Icon(Icons.person_outline),

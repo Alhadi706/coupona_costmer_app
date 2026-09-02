@@ -201,6 +201,8 @@ async function main() {
   check('Raffle disclosure notification created for eligible customer', raffleCampaign.data.raffleTickets[0].customerId, customers[0]);
 
   const raffleCustomerToken = (await login(`promo.customer.0.${ts}@kupuna.test`, 'Passw0rd!')).token;
+  const myTickets = await api('/customer/campaigns/my-raffle-tickets', 'GET', null, raffleCustomerToken);
+  check('Customer raffle-ticket endpoint returns issued ticket', myTickets.data.tickets.length, 1);
   const scan = await api('/invoices/scan-v2', 'POST', {
     merchantProfileId: merchant.merchantId,
     totalAmount: 150,

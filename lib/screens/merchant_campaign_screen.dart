@@ -4,7 +4,10 @@ import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
 
 class MerchantCampaignScreen extends StatefulWidget {
-  const MerchantCampaignScreen({super.key});
+  final String? partnerMerchantId;
+  final String? partnerMerchantName;
+
+  const MerchantCampaignScreen({super.key, this.partnerMerchantId, this.partnerMerchantName});
 
   @override
   State<MerchantCampaignScreen> createState() => _MerchantCampaignScreenState();
@@ -18,12 +21,19 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
   final _giftController = TextEditingController();
   final _minimumInvoiceController = TextEditingController(text: '100');
   final _inactiveDaysController = TextEditingController(text: '60');
+  final _maxRecipientsController = TextEditingController();
+  final _maxSpendController = TextEditingController();
+  final _estimatedCostController = TextEditingController();
 
   String _campaignType = 'early_access_discount';
   String _segmentFilter = 'top_spenders';
+  String _launchMode = 'active';
   DateTime _startsAt = DateTime.now();
   DateTime _endsAt = DateTime.now().add(const Duration(days: 3));
   bool _submitting = false;
+  bool _previewing = false;
+  Map<String, dynamic>? _audiencePreview;
+  Set<String> _selectedCustomerIds = <String>{};
   bool _loadingCampaigns = true;
   String? _loadError;
   List<Map<String, dynamic>> _campaigns = const [];
@@ -31,6 +41,9 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
   @override
   void initState() {
     super.initState();
+    if ((widget.partnerMerchantName ?? '').isNotEmpty) {
+      _titleController.text = 'حملة دعم ${widget.partnerMerchantName}';
+    }
     _loadCampaigns();
   }
 
@@ -42,6 +55,9 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
     _giftController.dispose();
     _minimumInvoiceController.dispose();
     _inactiveDaysController.dispose();
+    _maxRecipientsController.dispose();
+    _maxSpendController.dispose();
+    _estimatedCostController.dispose();
     super.dispose();
   }
 
@@ -69,6 +85,8 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
         return const {'months': 6, 'minVisits': 3};
       case 'inactive':
         return {'inactiveDays': int.tryParse(_inactiveDaysController.text) ?? 60};
+      case 'selected_customers':
+        return {'selectedCustomerIds': _selectedCustomerIds.toList()};
       default:
         return const {};
     }
@@ -113,6 +131,12 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
 
   Future<void> _launchCampaign() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_segmentFilter == 'selected_customers' && _selectedCustomerIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('اختر عميلاً واحدًا على الأقل لإرسال الهدية المباشرة.')),
+      );
+      return;
+    }
     if (!_endsAt.isAfter(_startsAt)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('يجب أن يكون تاريخ الانتهاء بعد تاريخ البداية.')),
@@ -136,11 +160,16 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
         minInvoiceAmount: _campaignType == 'raffle'
             ? num.tryParse(_minimumInvoiceController.text)
             : null,
+        partnerMerchantId: widget.partnerMerchantId,
+        launchMode: _launchMode,
+        maxRecipients: int.tryParse(_maxRecipientsController.text.trim()),
+        maxCampaignSpend: num.tryParse(_maxSpendController.text.trim()),
+        estimatedCostPerRecipient: num.tryParse(_estimatedCostController.text.trim()),
       );
       if (!mounted) return;
       final audience = result['segmentSize'] ?? 0;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تم إطلاق الحملة وإرسالها إلى $audience من العملاء.')),
+        SnackBar(content: Text(_launchMode == 'active' ? 'تم إطلاق الحملة وإرسالها إلى $audience من العملاء.' : 'تم حفظ الحملة بنجاح.')),
       );
       _titleController.clear();
       _messageController.clear();
@@ -153,6 +182,82 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _previewAudience() async {
+    setState(() => _previewing = true);
+    try {
+      final preview = await CompanyServerService.previewCampaign(
+        segmentFilter: _segmentFilter,
+        segmentParams: _segmentParams,
+        partnerMerchantId: widget.partnerMerchantId,
+        maxRecipients: int.tryParse(_maxRecipientsController.text.trim()),
+        maxCampaignSpend: num.tryParse(_maxSpendController.text.trim()),
+        estimatedCostPerRecipient: num.tryParse(_estimatedCostController.text.trim()),
+      );
+      if (mounted) setState(() => _audiencePreview = preview);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر معاينة الجمهور: $error')));
+    } finally {
+      if (mounted) setState(() => _previewing = false);
+    }
+  }
+
+  Future<void> _selectDirectCustomers() async {
+    try {
+      final customers = await CompanyServerService.getCampaignCustomers(
+        partnerMerchantId: widget.partnerMerchantId,
+      );
+      if (!mounted) return;
+      final selection = Set<String>.from(_selectedCustomerIds);
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('اختيار مستلمين مباشرين'),
+            content: SizedBox(
+              width: 460,
+              child: customers.isEmpty
+                  ? const Text('لا يوجد عملاء سابقون يمكن إرسال هدية لهم.')
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: customers.length,
+                      itemBuilder: (_, index) {
+                        final customer = customers[index];
+                        final customerId = (customer['id'] ?? '').toString();
+                        return CheckboxListTile(
+                          value: selection.contains(customerId),
+                          onChanged: (checked) => setDialogState(() {
+                            if (checked ?? false) {
+                              selection.add(customerId);
+                            } else {
+                              selection.remove(customerId);
+                            }
+                          }),
+                          title: Text((customer['name'] ?? customer['email'] ?? 'عميل').toString()),
+                          subtitle: Text((customer['email'] ?? '').toString()),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+              FilledButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedCustomerIds = selection;
+                  });
+                  Navigator.pop(dialogContext);
+                },
+                child: const Text('تأكيد الاختيار'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر تحميل قائمة العملاء: $error')));
     }
   }
 
@@ -172,6 +277,16 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               _buildIntro(),
+              if ((widget.partnerMerchantName ?? '').isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.storefront_outlined),
+                    title: const Text('حملة دعم مشتركة'),
+                    subtitle: Text('الجمهور من مشتري العلامة لدى ${widget.partnerMerchantName}، والاسترداد متاح في هذا المتجر فقط.'),
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               Form(key: _formKey, child: _buildCampaignForm()),
               const SizedBox(height: 24),
@@ -238,6 +353,21 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
             onSelectionChanged: (selection) => setState(() => _campaignType = selection.first),
           ),
           const SizedBox(height: 16),
+          Text('طريقة الحفظ والإطلاق', style: kBodyTextStyle(weight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'draft', icon: Icon(Icons.edit_note), label: Text('مسودة')),
+                ButtonSegment(value: 'scheduled', icon: Icon(Icons.schedule), label: Text('مجدولة')),
+                ButtonSegment(value: 'active', icon: Icon(Icons.send_outlined), label: Text('إطلاق فوري')),
+              ],
+              selected: {_launchMode},
+              onSelectionChanged: (selection) => setState(() => _launchMode = selection.first),
+            ),
+          ),
+          const SizedBox(height: 16),
           TextFormField(
             controller: _titleController,
             decoration: const InputDecoration(labelText: 'اسم الحملة', border: OutlineInputBorder()),
@@ -253,9 +383,22 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
               DropdownMenuItem(value: 'inactive', child: Text('العملاء المنقطعون')),
               DropdownMenuItem(value: 'coalition_network', child: Text('عملاء شبكة التحالف')),
               DropdownMenuItem(value: 'all', child: Text('جميع عملاء المتجر')),
+              DropdownMenuItem(value: 'selected_customers', child: Text('هدايا مباشرة لأشخاص محددين')),
             ],
             onChanged: (value) => setState(() => _segmentFilter = value ?? 'top_spenders'),
           ),
+          if (_segmentFilter == 'selected_customers') ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _selectDirectCustomers,
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+              label: Text(_selectedCustomerIds.isEmpty
+                  ? 'اختيار العملاء من القائمة'
+                  : 'تم اختيار ${_selectedCustomerIds.length} عميل'),
+            ),
+            const SizedBox(height: 4),
+            Text('الإرسال المباشر متاح فقط للعملاء السابقين لدى المصدر.', style: kBodyTextStyle(size: 12, color: kInk)),
+          ],
           if (_segmentFilter == 'inactive') ...[
             const SizedBox(height: 12),
             TextFormField(
@@ -264,6 +407,49 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
               decoration: const InputDecoration(labelText: 'مدة الانقطاع بالأيام', border: OutlineInputBorder()),
             ),
           ],
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _maxRecipientsController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'سقف المستفيدين (اختياري)',
+              helperText: 'يحد عدد الكوبونات المرسلة للتحكم في تعرض الحملة.',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              if ((value ?? '').trim().isEmpty) return null;
+              final count = int.tryParse(value!);
+              return count == null || count <= 0 ? 'أدخل عددًا صحيحًا أكبر من صفر.' : null;
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _maxSpendController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'الحد الأقصى للإنفاق التقديري (اختياري)',
+              helperText: 'لن يتجاوز الإرسال هذه الميزانية عند استخدام تكلفة تقديرية.',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              if ((value ?? '').trim().isEmpty) return null;
+              return (num.tryParse(value!) ?? 0) > 0 ? null : 'أدخل مبلغًا أكبر من صفر.';
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _estimatedCostController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'التكلفة التقديرية لكل مستفيد',
+              helperText: 'مطلوبة عند تحديد حد إنفاق.',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              if (_maxSpendController.text.trim().isEmpty) return null;
+              return (num.tryParse(value ?? '') ?? 0) > 0 ? null : 'أدخل تكلفة تقديرية أكبر من صفر.';
+            },
+          ),
           const SizedBox(height: 12),
           if (_campaignType == 'early_access_discount')
             TextFormField(
@@ -325,13 +511,40 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _previewing ? null : _previewAudience,
+              icon: _previewing
+                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.groups_outlined),
+              label: const Text('معاينة الجمهور'),
+            ),
+          ),
+          if (_audiencePreview != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: kGold.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(kRadiusCardCompact),
+              ),
+              child: Text(
+                'المؤهلون: ${_audiencePreview!['segmentSize'] ?? 0} • سيصل إليهم: ${_audiencePreview!['dispatchSize'] ?? 0}'
+                '${_audiencePreview!['estimatedSpend'] != null ? ' • إنفاق تقديري: ${_audiencePreview!['estimatedSpend']}' : ''}',
+                style: kBodyTextStyle(weight: FontWeight.w700),
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
             height: 50,
             child: FilledButton.icon(
               onPressed: _submitting ? null : _launchCampaign,
               icon: _submitting
                   ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.send_outlined),
-              label: const Text('إطلاق الحملة والإرسال'),
+              label: Text(_launchMode == 'active' ? 'إطلاق الحملة والإرسال' : 'حفظ الحملة'),
             ),
           ),
         ],
@@ -377,8 +590,32 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
           child: ListTile(
             leading: Icon(icon, color: kTeal),
             title: Text((campaign['title'] ?? 'حملة').toString()),
-            subtitle: Text('${_dateLabel(DateTime.parse(campaign['starts_at'].toString()))} - ${_dateLabel(DateTime.parse(campaign['ends_at'].toString()))}'),
-            trailing: Text((campaign['status'] ?? 'active').toString()),
+            subtitle: Text(
+              '${_dateLabel(DateTime.parse(campaign['starts_at'].toString()))} - ${_dateLabel(DateTime.parse(campaign['ends_at'].toString()))}\n'
+              'صادر: ${campaign['issued_count'] ?? 0} • مستبدل: ${campaign['redeemed_count'] ?? 0} • التحويل: ${campaign['conversionRate'] ?? 0}%',
+            ),
+            isThreeLine: true,
+            trailing: PopupMenuButton<String>(
+              tooltip: 'إجراءات الحملة',
+              onSelected: (action) async {
+                if (action == 'launch') {
+                  await CompanyServerService.launchCampaign((campaign['id'] ?? '').toString());
+                } else if (action == 'pause') {
+                  await CompanyServerService.updateCampaignStatus((campaign['id'] ?? '').toString(), 'paused');
+                }
+                if (mounted) {
+                  setState(() => _loadingCampaigns = true);
+                  await _loadCampaigns();
+                }
+              },
+              itemBuilder: (_) => [
+                if (['draft', 'scheduled'].contains(campaign['status']))
+                  const PopupMenuItem(value: 'launch', child: Text('إطلاق الآن')),
+                if (campaign['status'] == 'active')
+                  const PopupMenuItem(value: 'pause', child: Text('إيقاف الحملة')),
+              ],
+              child: Chip(label: Text((campaign['status'] ?? 'active').toString())),
+            ),
           ),
         );
       }).toList(),

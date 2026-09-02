@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:coupona_app/screens/offers_list_screen.dart';
 import 'package:coupona_app/screens/community_screen.dart';
-import 'package:coupona_app/screens/report_issue_screen.dart';
+import 'package:coupona_app/screens/customer_reports_screen.dart';
 import 'package:coupona_app/screens/wallet_engine_screen.dart';
 import 'package:coupona_app/screens/my_rewards_screen.dart';
 import 'users_screen.dart';
@@ -36,26 +36,6 @@ class SettingsScreen extends StatelessWidget {
         const Divider(height: 32),
         const _DownloadDataSection(),
         const Divider(height: 32),
-        // زر لعرض قائمة العروض
-        ListTile(
-          leading: const Icon(Icons.local_offer, color: kTeal),
-          title: Text('offers_list'.tr()),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const OffersListScreen()),
-            );
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.account_balance_wallet, color: kTeal),
-          title: Text('wallet_ledger'.tr()),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const WalletEngineScreen()),
-            );
-          },
-        ),
-        const Divider(height: 32),
       ],
     );
   }
@@ -68,27 +48,21 @@ class SettingsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Stack(
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Builder(
-                builder: (context) => IconButton(
-                  icon: Icon(Icons.menu),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                  tooltip: 'menu_tooltip'.tr(),
-                ),
-              ),
-            ),
-            Center(
-              child: Text(
-                'settings_title'.tr(),
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+        leading: const BackButton(),
+        title: Text(
+          'settings_title'.tr(),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
+        centerTitle: true,
+        actions: [
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+              tooltip: 'menu_tooltip'.tr(),
+            ),
+          ),
+        ],
         toolbarHeight: 60,
         backgroundColor: Theme.of(context).appBarTheme.backgroundColor,
         elevation: 2,
@@ -514,21 +488,14 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           ListTile(
+            leading: const Icon(Icons.local_offer),
+            title: Text('offers_list'.tr()),
+            onTap: () => _pushScreen(context, const OffersListScreen()),
+          ),
+          ListTile(
             leading: const Icon(Icons.account_balance_wallet),
-            title: Text('home_bottom_wallet'.tr()),
-            onTap: () {
-              if (!_isCustomer) {
-                _pushScreen(context, const WalletEngineScreen());
-                return;
-              }
-              _selectHomeTabOrNavigate(
-                context,
-                tabIndex: 1,
-                fallback: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const WalletEngineScreen()),
-                ),
-              );
-            },
+            title: Text('wallet_ledger'.tr()),
+            onTap: () => _pushScreen(context, const WalletEngineScreen()),
           ),
           ListTile(
             leading: const Icon(Icons.groups),
@@ -551,20 +518,12 @@ class AppDrawer extends StatelessWidget {
             leading: const Icon(Icons.flag),
             title: Text('home_bottom_reports'.tr()),
             onTap: () {
-              if (!_isCustomer) {
-                _pushScreen(context, const ReportIssueScreen());
-                return;
-              }
-              _selectHomeTabOrNavigate(
-                context,
-                tabIndex: 3,
-                fallback: () {},
-              );
+              _pushScreen(context, const CustomerReportsScreen());
             },
           ),
           ListTile(
-            leading: const Icon(Icons.person),
-            title: Text('home_bottom_account'.tr()),
+            leading: const Icon(Icons.settings),
+            title: Text('settings_title'.tr()),
             onTap: () {
               if (!_isCustomer) {
                 _pushScreen(context, const SettingsScreen.embedded());
@@ -573,15 +532,8 @@ class AppDrawer extends StatelessWidget {
               _selectHomeTabOrNavigate(
                 context,
                 tabIndex: 4,
-                fallback: () {},
+                fallback: () => _pushScreen(context, const SettingsScreen()),
               );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: Text('settings_title'.tr()),
-            onTap: () {
-              _pushScreen(context, const SettingsScreen.embedded());
             },
           ),
           const Divider(),

@@ -322,6 +322,37 @@ app.get('/api/offers', auth, async (req, res) => {
   })));
 });
 
+app.get('/api/offers/mine', auth, async (req, res) => {
+  const rows = (await pool.query(
+    `SELECT o.*, otr.target_type, otr.target_value, otr.min_points
+       FROM offers o
+       LEFT JOIN offer_targeting_rules otr ON otr.offer_id = o.id
+      WHERE o.owner_id = $1
+      ORDER BY o.created_at DESC`,
+    [req.user.userId]
+  )).rows;
+  return res.json(rows.map((o) => ({
+    id: o.id,
+    offerType: o.offer_type,
+    category: o.category,
+    discountType: o.discount_type,
+    discountValue: o.discount_value,
+    description: o.description,
+    startDate: toIso(o.start_date),
+    endDate: toIso(o.end_date),
+    imageUrl: o.image_url,
+    lifecycleStatus: o.lifecycle_status,
+    lifecycleReason: o.lifecycle_reason,
+    publishedAt: toIso(o.published_at),
+    impressions: Number(o.impressions || 0),
+    clicks: Number(o.clicks || 0),
+    targetType: o.target_type || 'all',
+    targetValue: o.target_value,
+    minPoints: o.min_points,
+    createdAt: toIso(o.created_at),
+  })));
+});
+
 app.post('/api/offers', auth, async (req, res) => {
   const p = req.body || {};
   const offerId = id();
@@ -362,12 +393,31 @@ app.get('/api/billboard-ads', auth, async (_req, res) => {
     category: row.category,
     description: row.description,
     location: row.location,
-    imageUrl: row.image_url,
+    imageUrl: `/api/billboard-ads/${row.id}/image`,
     startDate: toIso(row.start_date),
     endDate: toIso(row.end_date),
     createdAt: toIso(row.created_at),
     publishedAt: toIso(row.published_at),
   })));
+});
+
+app.get('/api/billboard-ads/:id/image', async (req, res) => {
+  const row = (await pool.query(
+    `SELECT o.image_url, uf.file_name, uf.mime_type
+       FROM offers o
+       JOIN uploaded_files uf
+         ON o.image_url LIKE '%' || '/api/uploads/' || uf.file_name
+      WHERE o.id = $1
+        AND o.lifecycle_status = 'active'
+        AND (o.start_date IS NULL OR o.start_date <= NOW())
+        AND (o.end_date IS NULL OR o.end_date > NOW())
+      LIMIT 1`,
+    [req.params.id]
+  )).rows[0];
+  if (!row || !/^[0-9]+_[a-f0-9]{16}\.(jpg|png|webp|gif)$/.test(row.file_name)) {
+    return res.status(404).json({ error: 'billboard_ad_image_not_found' });
+  }
+  return res.type(row.mime_type).sendFile(path.join(UPLOAD_DIR, row.file_name));
 });
 
 app.post('/api/billboard-ads/:id/impression', auth, async (req, res) => {
@@ -419,13 +469,35 @@ app.post('/api/admin/billboard-ads/:id/approve', auth, requireAdmin, async (req,
   const result = await pool.query(
     `UPDATE offers
         SET lifecycle_status = 'active', lifecycle_updated_at = NOW(),
-            lifecycle_reason = 'approved_by_admin', published_at = NOW()
-      WHERE id = $1 AND image_url IS NOT NULL
-      RETURNING id`,
+            lifecycle_reason = 'approved_by_admin', published_at = NOW(),
+            start_date = CASE
+              WHEN start_date IS NOT NULL AND start_date < NOW() THEN NOW()
+              ELSE start_date
+            END,
+            end_date = CASE
+              WHEN end_date IS NOT NULL AND end_date <= NOW() THEN
+                NOW() + GREATEST(
+                  COALESCE(end_date - start_date, INTERVAL '1 day'),
+                  INTERVAL '1 day'
+                )
+              ELSE end_date
+            END
+      WHERE id = $1
+        AND image_url IS NOT NULL
+        AND (
+          lifecycle_status = 'pending_review'
+          OR (lifecycle_status = 'active' AND end_date IS NOT NULL AND end_date <= NOW())
+        )
+      RETURNING id, start_date, end_date`,
     [req.params.id]
   );
   if (!result.rowCount) return res.status(404).json({ error: 'billboard_ad_not_found' });
-  return res.json({ ok: true, status: 'active' });
+  return res.json({
+    ok: true,
+    status: 'active',
+    startDate: toIso(result.rows[0].start_date),
+    endDate: toIso(result.rows[0].end_date),
+  });
 });
 
 app.post('/api/admin/billboard-ads/:id/reject', auth, requireAdmin, async (req, res) => {
@@ -433,7 +505,7 @@ app.post('/api/admin/billboard-ads/:id/reject', auth, requireAdmin, async (req, 
   const result = await pool.query(
     `UPDATE offers
         SET lifecycle_status = 'rejected', lifecycle_updated_at = NOW(), lifecycle_reason = $2
-      WHERE id = $1 AND image_url IS NOT NULL
+      WHERE id = $1 AND image_url IS NOT NULL AND lifecycle_status = 'pending_review'
       RETURNING id`,
     [req.params.id, reason]
   );

@@ -22,6 +22,9 @@ async function createCampaignTables() {
     )
   `);
   await pool.query('CREATE INDEX IF NOT EXISTS idx_promo_campaigns_source ON promo_campaigns(source_type, source_id)');
+  await pool.query("ALTER TABLE promo_campaigns ALTER COLUMN status SET DEFAULT 'draft'");
+  await pool.query('ALTER TABLE promo_campaigns ADD COLUMN IF NOT EXISTS launched_at TIMESTAMPTZ');
+  await pool.query('ALTER TABLE promo_campaigns ADD COLUMN IF NOT EXISTS paused_at TIMESTAMPTZ');
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS promo_campaign_coupons (

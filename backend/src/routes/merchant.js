@@ -5,6 +5,7 @@ const https = require('https');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const { SYSTEM_POINT_VALUE } = require('../system-policy');
 
 module.exports = function registerMerchantRoutes(app, deps) {
   const {
@@ -59,7 +60,8 @@ app.get('/api/merchant/profile', auth, async (req, res) => {
       businessName: row.business_name,
       commercialRegistration: row.commercial_registration,
       status: row.status,
-      pointValue: row.point_value == null ? null : Number(row.point_value),
+      pointValue: SYSTEM_POINT_VALUE,
+      pointValueManagedBySystem: true,
     });
   } catch (e) {
     return res.status(500).json({ error: 'merchant_profile_fetch_failed', details: String(e.message || e) });
@@ -69,32 +71,7 @@ app.get('/api/merchant/profile', auth, async (req, res) => {
 });
 
 app.patch('/api/merchant/settings/point-value', auth, async (req, res) => {
-  const pointValue = Number((req.body || {}).pointValue);
-  if (!Number.isFinite(pointValue) || pointValue <= 0) {
-    return res.status(400).json({ error: 'invalid_point_value' });
-  }
-
-  const client = await pool.connect();
-  try {
-    const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
-    if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
-    await assertMerchantSubscriptionWritable(client, merchantId);
-
-    await client.query(
-      `UPDATE merchant_profiles
-          SET point_value = $2
-        WHERE id = $1`,
-      [merchantId, pointValue]
-    );
-    return res.json({ ok: true, id: merchantId, pointValue });
-  } catch (e) {
-    if (isMerchantSubscriptionReadOnlyError(e)) {
-      return res.status(403).json({ error: 'merchant_subscription_read_only' });
-    }
-    return res.status(500).json({ error: 'merchant_point_value_update_failed', details: String(e.message || e) });
-  } finally {
-    client.release();
-  }
+  return res.status(409).json({ error: 'point_value_managed_by_system', pointValue: SYSTEM_POINT_VALUE });
 });
 
 app.get('/api/brand/profile', auth, async (req, res) => {
@@ -118,7 +95,8 @@ app.get('/api/brand/profile', auth, async (req, res) => {
       businessName: row.business_name,
       commercialRegistration: row.commercial_registration,
       status: row.status,
-      pointValue: row.point_value == null ? null : Number(row.point_value),
+      pointValue: SYSTEM_POINT_VALUE,
+      pointValueManagedBySystem: true,
     });
   } catch (e) {
     return res.status(500).json({ error: 'brand_profile_fetch_failed', details: String(e.message || e) });
@@ -128,28 +106,7 @@ app.get('/api/brand/profile', auth, async (req, res) => {
 });
 
 app.patch('/api/brand/settings/point-value', auth, async (req, res) => {
-  const pointValue = Number((req.body || {}).pointValue);
-  if (!Number.isFinite(pointValue) || pointValue <= 0) {
-    return res.status(400).json({ error: 'invalid_point_value' });
-  }
-
-  const client = await pool.connect();
-  try {
-    const brandId = await getBrandProfileIdByUser(client, req.user.userId);
-    if (!brandId) return res.status(403).json({ error: 'brand_role_required' });
-
-    await client.query(
-      `UPDATE brand_profiles
-          SET point_value = $2
-        WHERE id = $1`,
-      [brandId, pointValue]
-    );
-    return res.json({ ok: true, id: brandId, pointValue });
-  } catch (e) {
-    return res.status(500).json({ error: 'brand_point_value_update_failed', details: String(e.message || e) });
-  } finally {
-    client.release();
-  }
+  return res.status(409).json({ error: 'point_value_managed_by_system', pointValue: SYSTEM_POINT_VALUE });
 });
 
 app.post('/api/merchant/branches', auth, async (req, res) => {
@@ -223,14 +180,19 @@ app.patch('/api/merchant/branches/:id', auth, async (req, res) => {
     if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
     await assertMerchantSubscriptionWritable(client, merchantId);
     const p = req.body || {};
+    const status = p.status == null ? null : String(p.status).trim().toLowerCase();
+    if (status != null && !['active', 'inactive'].includes(status)) {
+      return res.status(400).json({ error: 'invalid_branch_status' });
+    }
     const result = await client.query(
       `UPDATE branches
           SET name = COALESCE($1, name), address = COALESCE($2, address),
               working_hours = COALESCE($3, working_hours), phone = COALESCE($4, phone),
+              status = COALESCE($7, status),
               updated_at = NOW()
         WHERE id = $5 AND merchant_id = $6
         RETURNING *`,
-      [p.name == null ? null : String(p.name).trim(), p.address == null ? null : String(p.address).trim(), p.workingHours == null ? null : String(p.workingHours).trim(), p.phone == null ? null : String(p.phone).trim(), branchId, merchantId]
+      [p.name == null ? null : String(p.name).trim(), p.address == null ? null : String(p.address).trim(), p.workingHours == null ? null : String(p.workingHours).trim(), p.phone == null ? null : String(p.phone).trim(), branchId, merchantId, status]
     );
     if (!result.rowCount) return res.status(404).json({ error: 'branch_not_found' });
     return res.json({ ok: true, branch: result.rows[0] });

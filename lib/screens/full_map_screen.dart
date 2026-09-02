@@ -170,10 +170,7 @@ class _FullMapScreenState extends State<FullMapScreen> {
       appBar: AppBar(
         backgroundColor: kTeal,
         title: Text('stores_map_title'.tr()),
-        leading: IconButton(
-          icon: Icon(Icons.close),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: const BackButton(),
       ),
       body: body,
       /* legacy map layout removed in favor of the shared embedded map body. */

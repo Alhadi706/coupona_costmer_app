@@ -13,22 +13,62 @@ import '../widgets/analytics_map_panel.dart';
 import '../widgets/design_system/kupuna_loyalty_health_ring.dart';
 import '../widgets/design_system/kupuna_offer_card.dart';
 import '../widgets/design_system/kupuna_status_pill.dart';
+import '../widgets/reward_creation_dialog.dart';
+import '../widgets/reward_funding_card.dart';
 import 'map_picker_screen.dart';
 import 'add_coupon_screen.dart';
 import 'community_screen.dart';
 import 'cashier_dashboard_screen.dart';
 import 'merchant_campaign_screen.dart';
+import 'merchant_team_screen.dart';
 import 'points_conversion_screen.dart';
 import 'reward_qr_code_screen.dart';
 import 'login_screen.dart';
+import 'merchant_invoices_screen.dart';
 import 'merchant_networks_screen.dart';
+import 'merchant_reports_screen.dart';
+
+typedef MerchantDashboardLoader = Future<List<dynamic>> Function({
+  required String range,
+  String? branchId,
+});
+typedef MerchantAnalyticsLoader = Future<Map<String, dynamic>> Function({
+  required String range,
+  String? branchId,
+});
+typedef MerchantPendingPointsLoader = Future<Map<String, dynamic>> Function();
+
+bool hasActiveCashierAssociation(Map<String, dynamic> roles) {
+  final cashierRows = (roles['cashier'] as List?) ?? const <dynamic>[];
+  return cashierRows.any((row) => row is Map && row['isActive'] == true);
+}
 
 class MerchantDashboardScreen extends StatefulWidget {
   final bool embedded;
+  final MerchantDashboardLoader? dashboardLoader;
+  final MerchantAnalyticsLoader? analyticsLoader;
+  final MerchantPendingPointsLoader? pendingPointsLoader;
+  final RewardFundingLoader? rewardFundingLoader;
+  final RewardFunder? rewardFunder;
 
-  const MerchantDashboardScreen({super.key, this.embedded = false});
+  const MerchantDashboardScreen({
+    super.key,
+    this.embedded = false,
+    this.dashboardLoader,
+    this.analyticsLoader,
+    this.pendingPointsLoader,
+    this.rewardFundingLoader,
+    this.rewardFunder,
+  });
 
-  const MerchantDashboardScreen.embedded({super.key}) : embedded = true;
+  const MerchantDashboardScreen.embedded({
+    super.key,
+    this.dashboardLoader,
+    this.analyticsLoader,
+    this.pendingPointsLoader,
+    this.rewardFundingLoader,
+    this.rewardFunder,
+  }) : embedded = true;
 
   @override
   State<MerchantDashboardScreen> createState() => _MerchantDashboardScreenState();
@@ -42,7 +82,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   final TextEditingController _managerUserIdController = TextEditingController();
   final TextEditingController _cashierBranchIdController = TextEditingController();
   final TextEditingController _cashierUserIdController = TextEditingController();
-  final TextEditingController _pointValueController = TextEditingController();
 
   bool _canReviewInvoices = false;
   bool _canCreateOffers = false;
@@ -51,10 +90,8 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   bool _canViewSettlements = false;
   bool _canAddCashiers = false;
   bool _canReplyReports = false;
-  bool _canEditPointValue = false;
 
   bool _loading = true;
-  bool _savingPointValue = false;
   String? _error;
   bool _sessionExpired = false;
   String? _result;
@@ -63,12 +100,12 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   String _analyticsRange = '30d';
   int _merchantTabIndex = 0;
   String _analyticsBranchId = '';
-  double? _currentPointValue;
   bool _loadingAnalytics = false;
   List<Map<String, dynamic>> _branches = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _invoices = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _offers = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _merchantRewards = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _merchantRewardClaims = <Map<String, dynamic>>[];
   String _rewardFilter = 'all';
   Map<String, dynamic> _loyalty = const <String, dynamic>{};
   Map<String, dynamic> _analytics = const <String, dynamic>{};
@@ -90,7 +127,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     _managerUserIdController.dispose();
     _cashierBranchIdController.dispose();
     _cashierUserIdController.dispose();
-    _pointValueController.dispose();
     super.dispose();
   }
 
@@ -101,23 +137,25 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       _sessionExpired = false;
     });
     try {
-      final results = await Future.wait<dynamic>(<Future<dynamic>>[
-        CompanyServerService.getMerchantBranches(),
-        CompanyServerService.getMerchantLoyaltyHealth(),
-        CompanyServerService.getMyInvoices(limit: 20),
-        CompanyServerService.getMerchantProfile(),
-        CompanyServerService.getOffers(),
-        CompanyServerService.getMerchantRewards(),
-        CompanyServerService.getMyRoles(),
-        CompanyServerService.getMerchantAnalytics(
-          range: _analyticsRange,
-          branchId: _analyticsBranchId.isEmpty ? null : _analyticsBranchId,
-        ).catchError((_) => <String, dynamic>{}),
-      ]);
+      final branchId = _analyticsBranchId.isEmpty ? null : _analyticsBranchId;
+      final results = widget.dashboardLoader != null
+          ? await widget.dashboardLoader!(range: _analyticsRange, branchId: branchId)
+          : await Future.wait<dynamic>(<Future<dynamic>>[
+              CompanyServerService.getMerchantBranches(),
+              CompanyServerService.getMerchantLoyaltyHealth(),
+              CompanyServerService.getMyInvoices(limit: 20),
+              CompanyServerService.getMerchantProfile(),
+              CompanyServerService.getOffers(),
+              CompanyServerService.getMerchantRewards(),
+              CompanyServerService.getMyRoles(),
+              CompanyServerService.getMerchantAnalytics(
+                range: _analyticsRange,
+                branchId: branchId,
+              ).catchError((_) => <String, dynamic>{}),
+              CompanyServerService.getMerchantRewardClaims(),
+            ]);
       if (!mounted) return;
       final profile = Map<String, dynamic>.from(results[3] as Map<dynamic, dynamic>);
-      final pointValueRaw = profile['pointValue'];
-      final pointValue = pointValueRaw == null ? null : double.tryParse(pointValueRaw.toString());
       final rawAnalytics = results[7];
       setState(() {
         _branches = List<Map<String, dynamic>>.from(results[0] as List<dynamic>);
@@ -125,11 +163,12 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
         _invoices = List<Map<String, dynamic>>.from(results[2] as List<dynamic>);
         _offers = List<Map<String, dynamic>>.from(results[4] as List<dynamic>);
         _merchantRewards = List<Map<String, dynamic>>.from(results[5] as List<dynamic>);
+        _merchantRewardClaims = results.length > 8
+          ? List<Map<String, dynamic>>.from(results[8] as List<dynamic>)
+          : <Map<String, dynamic>>[];
         _roles = Map<String, dynamic>.from(results[6] as Map<dynamic, dynamic>);
         _merchantProfile = profile;
-        _analytics = rawAnalytics is Map ? Map<String, dynamic>.from(rawAnalytics as Map<dynamic, dynamic>) : const <String, dynamic>{};
-        _currentPointValue = pointValue;
-        _pointValueController.text = pointValue == null ? '' : pointValue.toString();
+        _analytics = rawAnalytics is Map ? Map<String, dynamic>.from(rawAnalytics) : const <String, dynamic>{};
       });
     } catch (e) {
       if (!mounted) return;
@@ -151,9 +190,10 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       _loadingAnalytics = true;
     });
     try {
-      final data = await CompanyServerService.getMerchantAnalytics(
+      final branchId = _analyticsBranchId.isEmpty ? null : _analyticsBranchId;
+      final data = await (widget.analyticsLoader ?? CompanyServerService.getMerchantAnalytics)(
         range: _analyticsRange,
-        branchId: _analyticsBranchId.isEmpty ? null : _analyticsBranchId,
+        branchId: branchId,
       );
       if (!mounted) return;
       setState(() {
@@ -353,43 +393,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     );
   }
 
-  Future<void> _savePointValue() async {
-    final pointValue = double.tryParse(_pointValueController.text.trim());
-    if (pointValue == null || pointValue <= 0) {
-      setState(() {
-        _result = 'merchant_point_value_invalid'.tr();
-      });
-      return;
-    }
-
-    setState(() {
-      _savingPointValue = true;
-      _result = null;
-    });
-
-    try {
-      final data = await CompanyServerService.setMerchantPointValue(pointValue: pointValue);
-      final updated = double.tryParse((data['pointValue'] ?? pointValue).toString()) ?? pointValue;
-      if (!mounted) return;
-      setState(() {
-        _currentPointValue = updated;
-        _pointValueController.text = updated.toString();
-        _result = 'merchant_point_value_saved'.tr(namedArgs: {'value': updated.toString()});
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _result = e.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _savingPointValue = false;
-        });
-      }
-    }
-  }
-
   Future<void> _createBranch() async {
     if (_branchNameController.text.trim().isEmpty) {
       setState(() {
@@ -479,7 +482,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
         canViewSettlements: _canViewSettlements,
         canAddCashiers: _canAddCashiers,
         canReplyReports: _canReplyReports,
-        canEditPointValue: _canEditPointValue,
+        canEditPointValue: false,
       );
       setState(() {
         _result = 'merchant_manager_permissions_saved'.tr();
@@ -584,26 +587,11 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
               ),
             ),
           const SizedBox(height: 12),
-          _mutableSection(
-            ExpansionTile(
-              title: Text('merchant_set_point_value'.tr()),
-              subtitle: Text('merchant_current_value'.tr(namedArgs: {'value': _currentPointValue?.toString() ?? '-'})),
-              childrenPadding: const EdgeInsets.all(12),
-              children: [
-                TextField(
-                  controller: _pointValueController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(
-                    labelText: 'merchant_point_value_label'.tr(),
-                    helperText: 'merchant_point_value_helper'.tr(),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: _savingPointValue ? null : _savePointValue,
-                  child: Text(_savingPointValue ? 'merchant_saving'.tr() : 'merchant_save_point_value'.tr()),
-                ),
-              ],
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.policy_outlined),
+              title: Text('system_point_value_title'.tr()),
+              subtitle: Text('system_point_value_description'.tr(namedArgs: const {'value': '0.1'})),
             ),
           ),
           const SizedBox(height: 8),
@@ -701,7 +689,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
               childrenPadding: const EdgeInsets.all(12),
               children: [
               DropdownButtonFormField<String>(
-                value: () {
+                initialValue: () {
                   final current = _managerBranchIdController.text.trim();
                   if (current.isEmpty) return null;
                   final exists = _branches.any((b) => (b['id'] ?? '').toString() == current);
@@ -767,11 +755,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                 value: _canReplyReports,
                 title: Text('merchant_can_reply_reports'.tr()),
                 onChanged: (value) => setState(() => _canReplyReports = value),
-              ),
-              SwitchListTile(
-                value: _canEditPointValue,
-                title: Text('merchant_can_edit_point_value'.tr()),
-                onChanged: (value) => setState(() => _canEditPointValue = value),
               ),
                 ElevatedButton(onPressed: _addManager, child: Text('merchant_save_manager_permissions'.tr())),
               ],
@@ -970,6 +953,12 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       subtitle: 'merchant_rewards_tab_subtitle'.tr(),
       child: Column(
         children: [
+          RewardFundingCard(
+            sourceType: 'merchant',
+            loader: widget.rewardFundingLoader,
+            funder: widget.rewardFunder,
+          ),
+          const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             children: [
@@ -999,57 +988,58 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                 ),
               );
             }),
+          const SizedBox(height: 16),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              'merchant_reward_claims_title'.tr(),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (_merchantRewardClaims.isEmpty)
+            Card(child: ListTile(title: Text('merchant_reward_claims_empty'.tr())))
+          else
+            ..._merchantRewardClaims.take(10).map((claim) {
+              final claimId = (claim['id'] ?? '').toString();
+              final shortId = claimId.substring(0, claimId.length.clamp(0, 8));
+              return Card(
+                child: ListTile(
+                  key: Key('merchant-reward-claim-$claimId'),
+                  leading: const Icon(Icons.confirmation_number_outlined),
+                  title: Text((claim['rewardName'] ?? 'reward_generic'.tr()).toString()),
+                  subtitle: Text('${claim['status'] ?? '-'} • ${claim['pointsCost'] ?? 0}'),
+                  trailing: Tooltip(
+                    message: (claim['reference'] ?? '').toString(),
+                    child: Text('#$shortId'),
+                  ),
+                ),
+              );
+            }),
         ],
       ),
     );
   }
 
   Future<void> _showCreateRewardSheet() async {
-    final name = TextEditingController();
-    final points = TextEditingController();
-    final description = TextEditingController();
-    final imageUrl = TextEditingController();
-    final quantity = TextEditingController();
-    try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        showDragHandle: true,
-        builder: (sheetContext) => Padding(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(sheetContext).viewInsets.bottom + 20),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('merchant_create_reward'.tr(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                TextField(controller: name, decoration: InputDecoration(labelText: 'reward_name'.tr())),
-                TextField(controller: points, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'reward_points_required'.tr())),
-                TextField(controller: description, decoration: InputDecoration(labelText: 'reward_description_optional'.tr())),
-                TextField(controller: imageUrl, decoration: InputDecoration(labelText: 'reward_image_url_optional'.tr())),
-                TextField(controller: quantity, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'reward_quantity_optional'.tr())),
-                const SizedBox(height: 12),
-                SizedBox(width: double.infinity, child: FilledButton(
-                  onPressed: () async {
-                    final value = int.tryParse(points.text.trim());
-                    final max = int.tryParse(quantity.text.trim());
-                    if (name.text.trim().isEmpty || value == null || value <= 0) return;
-                    await CompanyServerService.createMerchantReward(
-                      rewardName: name.text.trim(), points: value, description: description.text.trim(), imageUrl: imageUrl.text.trim(), quantityLimit: max,
-                    );
-                    if (!sheetContext.mounted) return;
-                    Navigator.of(sheetContext).pop();
-                    await _load();
-                  },
-                  child: Text('save'.tr()),
-                )),
-              ],
-            ),
-          ),
-        ),
-      );
-    } finally {
-      name.dispose(); points.dispose(); description.dispose(); imageUrl.dispose(); quantity.dispose();
-    }
+    await showRewardCreationDialog(
+      context: context,
+      onSave: (data) async {
+        await CompanyServerService.createMerchantReward(
+          rewardName: data.rewardName,
+          points: data.points,
+          description: data.description,
+          imageUrl: data.imageUrl,
+          kind: data.kind,
+          expiresAt: data.expiresAt,
+          quantityLimit: data.quantityLimit,
+          pickupInstructions: data.pickupInstructions,
+          drawEnabled: data.drawEnabled,
+          drawAt: data.expiresAt,
+        );
+        await _load();
+      },
+    );
   }
 
   Widget _buildAdsTab() {
@@ -1215,15 +1205,17 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _buildIndigoSection(
-            title: 'merchant_bind_cashier'.tr(),
-            child: Column(
-              children: [
-                TextField(controller: _cashierBranchIdController, decoration: InputDecoration(labelText: 'merchant_branch_id'.tr())),
-                TextField(controller: _cashierUserIdController, decoration: InputDecoration(labelText: 'merchant_cashier_user_id'.tr())),
-                const SizedBox(height: 8),
-                ElevatedButton(onPressed: _bindCashier, child: Text('merchant_bind_cashier_action'.tr())),
-              ],
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.manage_accounts_outlined, color: kTeal),
+              title: Text('merchant_team_title'.tr()),
+              subtitle: Text('merchant_team_open_hint'.tr()),
+              trailing: const Icon(Icons.chevron_left),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MerchantTeamScreen(branches: _branches),
+                ),
+              ),
             ),
           ),
         ],
@@ -1254,65 +1246,190 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
         ),
       );
     }
+    if (_error != null) {
+      return Center(
+        key: const Key('merchant-dashboard-load-error'),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_outlined, size: 48, color: kGold),
+              const SizedBox(height: 12),
+              Text(
+                _tx('merchant_load_failed', 'Unable to load merchant dashboard data.'),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: Text(_tx('retry', 'Retry')),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final tabs = <Widget>[
-      _buildScannerTab(),
+      _buildOverviewTab(),
       _buildRewardsTab(),
       _buildAdsTab(),
       _buildCommunityTab(),
       _buildStoreTab(),
       const MerchantNetworksScreen(),
     ];
-    return Column(
-      children: [
-        FutureBuilder<Map<String, dynamic>>(
-          future: CompanyServerService.getMerchantPendingPoints(),
-          builder: (context, snapshot) {
-            final data = snapshot.data;
-            final points = int.tryParse('${data?['total_points'] ?? 0}') ?? 0;
-            final customers = int.tryParse('${data?['customer_count'] ?? 0}') ?? 0;
-            if (points <= 0 || snapshot.hasError) return const SizedBox.shrink();
-            return Card(
-              color: Colors.orange.shade50,
-              margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-              child: ListTile(
-                leading: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                title: Text('merchant_pending_points_title'.tr()),
-                subtitle: Text('merchant_pending_points_message'.tr(namedArgs: {
-                  'points': '$points',
-                  'customers': '$customers',
-                })),
-                trailing: IconButton(
-                  icon: const Icon(Icons.account_balance_wallet_outlined),
-                  tooltip: 'merchant_token_wallet_open'.tr(),
-                  onPressed: () => setState(() => _merchantTabIndex = 0),
-                ),
-              ),
-            );
-          },
-        ),
-        Expanded(child: tabs[_merchantTabIndex]),
-        NavigationBar(
-          selectedIndex: _merchantTabIndex,
-          onDestinationSelected: (index) => setState(() => _merchantTabIndex = index),
-          destinations: [
-            NavigationDestination(icon: const Icon(Icons.qr_code_scanner), label: 'merchant_nav_scanner'.tr()),
-            NavigationDestination(icon: const Icon(Icons.card_giftcard_outlined), label: 'merchant_nav_rewards'.tr()),
-            NavigationDestination(icon: const Icon(Icons.campaign_outlined), label: 'merchant_nav_ads'.tr()),
-            NavigationDestination(icon: const Icon(Icons.groups_outlined), label: 'merchant_nav_community'.tr()),
-            NavigationDestination(icon: const Icon(Icons.store_outlined), label: 'merchant_nav_store'.tr()),
-            NavigationDestination(icon: const Icon(Icons.hub_outlined), label: 'merchant_nav_networks'.tr()),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final content = Column(
+          children: [
+            _buildPendingPointsNotice(),
+            Expanded(child: tabs[_merchantTabIndex]),
           ],
-        ),
-      ],
+        );
+        if (constraints.maxWidth >= 840) {
+          return Row(
+            children: [
+              NavigationRail(
+                selectedIndex: _merchantTabIndex,
+                onDestinationSelected: (index) => setState(() => _merchantTabIndex = index),
+                labelType: NavigationRailLabelType.all,
+                destinations: [
+                  NavigationRailDestination(icon: const Icon(Icons.dashboard_outlined), label: Text(_tx('merchant_nav_overview', 'Overview'))),
+                  NavigationRailDestination(icon: const Icon(Icons.card_giftcard_outlined), label: Text(_tx('merchant_nav_rewards', 'Rewards'))),
+                  NavigationRailDestination(icon: const Icon(Icons.campaign_outlined), label: Text(_tx('merchant_nav_ads', 'Ads'))),
+                  NavigationRailDestination(icon: const Icon(Icons.groups_outlined), label: Text(_tx('merchant_nav_community', 'Community'))),
+                  NavigationRailDestination(icon: const Icon(Icons.store_outlined), label: Text(_tx('merchant_nav_store', 'Store'))),
+                  NavigationRailDestination(icon: const Icon(Icons.hub_outlined), label: Text(_tx('merchant_nav_networks', 'Networks'))),
+                ],
+              ),
+              const VerticalDivider(width: 1),
+              Expanded(child: content),
+            ],
+          );
+        }
+        final selectedIndex = switch (_merchantTabIndex) {
+          0 => 0,
+          1 => 1,
+          2 => 2,
+          4 => 3,
+          _ => 4,
+        };
+        return Column(
+          children: [
+            Expanded(child: content),
+            NavigationBar(
+              selectedIndex: selectedIndex,
+              onDestinationSelected: (index) {
+                if (index < 3) {
+                  setState(() => _merchantTabIndex = index);
+                } else if (index == 3) {
+                  setState(() => _merchantTabIndex = 4);
+                } else {
+                  _showMoreDestinations();
+                }
+              },
+              destinations: [
+                NavigationDestination(icon: const Icon(Icons.dashboard_outlined), label: _tx('merchant_nav_overview', 'Overview')),
+                NavigationDestination(icon: const Icon(Icons.card_giftcard_outlined), label: _tx('merchant_nav_rewards', 'Rewards')),
+                NavigationDestination(icon: const Icon(Icons.campaign_outlined), label: _tx('merchant_nav_ads', 'Ads')),
+                NavigationDestination(icon: const Icon(Icons.store_outlined), label: _tx('merchant_nav_store', 'Store')),
+                NavigationDestination(icon: const Icon(Icons.more_horiz), label: _tx('more', 'More')),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildScannerTab() {
+  Widget _buildPendingPointsNotice() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: (widget.pendingPointsLoader ?? CompanyServerService.getMerchantPendingPoints)(),
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+        final points = int.tryParse('${data?['total_points'] ?? 0}') ?? 0;
+        final customers = int.tryParse('${data?['customer_count'] ?? 0}') ?? 0;
+        if (points <= 0 || snapshot.hasError) return const SizedBox.shrink();
+        return Card(
+          color: Colors.orange.shade50,
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: ListTile(
+            leading: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            title: Text('merchant_pending_points_title'.tr()),
+            subtitle: Text('merchant_pending_points_message'.tr(namedArgs: {
+              'points': '$points',
+              'customers': '$customers',
+            })),
+            trailing: IconButton(
+              icon: const Icon(Icons.account_balance_wallet_outlined),
+              tooltip: 'merchant_token_wallet_open'.tr(),
+              onPressed: () => setState(() => _merchantTabIndex = 0),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showMoreDestinations() async {
+    final selectedIndex = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: Text(_tx('merchant_invoices_title', 'Store invoices')),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(this.context).push(
+                  MaterialPageRoute(builder: (_) => const MerchantInvoicesScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.flag_outlined),
+              title: Text(_tx('merchant_reports_title', 'Store reports')),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.of(this.context).push(
+                  MaterialPageRoute(builder: (_) => const MerchantReportsScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.groups_outlined),
+              title: Text(_tx('merchant_nav_community', 'Community')),
+              selected: _merchantTabIndex == 3,
+              onTap: () => Navigator.pop(context, 3),
+            ),
+            ListTile(
+              leading: const Icon(Icons.hub_outlined),
+              title: Text(_tx('merchant_nav_networks', 'Networks')),
+              selected: _merchantTabIndex == 5,
+              onTap: () => Navigator.pop(context, 5),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selectedIndex != null && mounted) {
+      setState(() => _merchantTabIndex = selectedIndex);
+    }
+  }
+
+  Widget _buildOverviewTab() {
     final sales = _mapSection('sales');
-    return Column(
+    final cashierActive = hasActiveCashierAssociation(_roles);
+    return ListView(
+      padding: const EdgeInsets.all(16),
       children: [
+        _buildSubscriptionNotice(),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.only(top: 12),
           child: Row(
             children: [
               Expanded(child: _statCard('merchant_today_redemptions'.tr(), _intValue(sales['redemptions']))),
@@ -1321,7 +1438,56 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
             ],
           ),
         ),
-        Expanded(child: CashierDashboardScreen.embedded()),
+        const SizedBox(height: 12),
+        Card(
+          key: Key(cashierActive ? 'merchant-pos-entry-enabled' : 'merchant-pos-entry-disabled'),
+          child: ListTile(
+            leading: Icon(
+              cashierActive ? Icons.point_of_sale_outlined : Icons.admin_panel_settings_outlined,
+              color: cashierActive ? kTeal : kInk.withValues(alpha: 0.55),
+            ),
+            title: Text(
+              cashierActive ? 'merchant_open_pos'.tr() : 'merchant_pos_unavailable'.tr(),
+            ),
+            subtitle: Text(
+              cashierActive
+                  ? 'merchant_open_pos_hint'.tr()
+                  : 'merchant_pos_unavailable_hint'.tr(),
+            ),
+            trailing: cashierActive ? const Icon(Icons.chevron_left) : null,
+            onTap: cashierActive
+                ? () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const CashierDashboardScreen()),
+                    )
+                : null,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.receipt_long_outlined, color: kGold),
+            title: Text(_tx('merchant_invoices_title', 'Store invoices')),
+            subtitle: Text(_tx('merchant_invoices_open_hint', 'Review processing invoices and customer disputes.')),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MerchantInvoicesScreen()),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.flag_outlined, color: kGold),
+            title: Text(_tx('merchant_reports_title', 'Store reports')),
+            subtitle: Text(_tx('merchant_reports_open_hint', 'Review customer reports and issue compensation when appropriate.')),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MerchantReportsScreen()),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildAnalyticsSuite(),
       ],
     );
   }
@@ -1347,14 +1513,16 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     final address = TextEditingController(text: '${branch['address'] ?? ''}');
     final hours = TextEditingController(text: '${branch['workingHours'] ?? ''}');
     final phone = TextEditingController(text: '${branch['phone'] ?? ''}');
+    var active = (branch['status'] ?? 'active').toString() == 'active';
     try {
       await showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         showDragHandle: true,
-        builder: (sheetContext) => Padding(
-          padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(sheetContext).viewInsets.bottom + 20),
-          child: Column(
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (sheetContext, setSheetState) => Padding(
+            padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(sheetContext).viewInsets.bottom + 20),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('merchant_edit_branch'.tr(), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
@@ -1362,6 +1530,12 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
               TextField(controller: address, decoration: InputDecoration(labelText: 'merchant_address'.tr())),
               TextField(controller: hours, decoration: InputDecoration(labelText: 'merchant_working_hours'.tr())),
               TextField(controller: phone, decoration: InputDecoration(labelText: 'merchant_phone'.tr())),
+              SwitchListTile(
+                value: active,
+                title: Text('merchant_branch_active'.tr()),
+                subtitle: Text(active ? 'merchant_branch_active_hint'.tr() : 'merchant_branch_inactive_hint'.tr()),
+                onChanged: (value) => setSheetState(() => active = value),
+              ),
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -1373,6 +1547,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                       address: address.text.trim(),
                       workingHours: hours.text.trim(),
                       phone: phone.text.trim(),
+                      status: active ? 'active' : 'inactive',
                     );
                     if (sheetContext.mounted) Navigator.of(sheetContext).pop();
                     await _load();
@@ -1381,6 +1556,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                 ),
               ),
             ],
+            ),
           ),
         ),
       );
@@ -1432,24 +1608,39 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                   _reloadAnalytics();
                 },
               ),
-              DropdownButton<String>(
-                value: _analyticsBranchId.isEmpty ? '__all__' : _analyticsBranchId,
-                items: <DropdownMenuItem<String>>[
-                  DropdownMenuItem(value: '__all__', child: Text('merchant_all_branches'.tr())),
-                  ..._branches.map(
-                    (b) => DropdownMenuItem(
-                      value: (b['id'] ?? '').toString(),
-                      child: Text((b['name'] ?? '').toString()),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: _analyticsBranchId.isEmpty ? '__all__' : _analyticsBranchId,
+                  items: <DropdownMenuItem<String>>[
+                    DropdownMenuItem(
+                      value: '__all__',
+                      child: Text(
+                        _tx('merchant_all_branches', 'All branches'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() {
-                    _analyticsBranchId = value == '__all__' ? '' : value;
-                  });
-                  _reloadAnalytics();
-                },
+                    ..._branches.map(
+                      (b) => DropdownMenuItem(
+                        value: (b['id'] ?? '').toString(),
+                        child: Text(
+                          (b['name'] ?? '').toString(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _analyticsBranchId = value == '__all__' ? '' : value;
+                    });
+                    _reloadAnalytics();
+                  },
+                ),
               ),
               OutlinedButton.icon(
                 onPressed: _loadingAnalytics ? null : _exportAnalyticsPdf,

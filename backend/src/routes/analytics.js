@@ -352,6 +352,7 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
               mp.location_address AS merchant_address,
               mp.location_lat,
               mp.location_lng,
+              pr.id AS product_id,
               COALESCE(pr.name, li.item_name, 'Unknown') AS product_name,
               COALESCE(li.quantity, 1) AS quantity,
               COALESCE(li.line_total, 0) AS line_total,
@@ -370,11 +371,33 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
       [brandId, previousStart.toISOString()]
     )).rows;
 
-    const currentRows = rows.filter((row) => new Date(row.created_at) >= currentStart);
-    const previousRows = rows.filter((row) => {
+    const allCurrentRows = rows.filter((row) => new Date(row.created_at) >= currentStart);
+    const allPreviousRows = rows.filter((row) => {
       const createdAt = new Date(row.created_at);
       return createdAt >= previousStart && createdAt < currentStart;
     });
+    const storeIdFilter = String(req.query.storeId || '').trim();
+    const productFilter = String(req.query.product || '').trim();
+    const regionFilter = String(req.query.region || '').trim().toLowerCase();
+    const matchesFilters = (row) => {
+      if (storeIdFilter && String(row.merchant_profile_id || '') !== storeIdFilter) return false;
+      if (productFilter && String(row.product_id || row.product_name || '') !== productFilter) return false;
+      if (regionFilter && !String(row.merchant_address || '').toLowerCase().includes(regionFilter)) return false;
+      return true;
+    };
+    const currentRows = allCurrentRows.filter(matchesFilters);
+    const previousRows = allPreviousRows.filter(matchesFilters);
+    const uniqueOptions = (items, key, labelKey) => Array.from(
+      new Map(items
+        .filter((row) => row[key] != null && String(row[key]).trim())
+        .map((row) => [String(row[key]), {value: String(row[key]), label: String(row[labelKey] || row[key])}]))
+        .values()
+    ).sort((a, b) => a.label.localeCompare(b.label));
+    const regionOptions = Array.from(new Set(allCurrentRows
+      .map((row) => String(row.merchant_address || '').trim())
+      .filter(Boolean)))
+      .sort()
+      .map((value) => ({value, label: value}));
 
     const storeCurrent = {};
     const storePrevious = {};
@@ -385,6 +408,28 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
     const merchantHeatmap = {};
     const dailySales = {};
     const uniqueCustomers = new Set();
+
+    const issuedPoints = Number((await client.query(
+      `SELECT COALESCE(SUM(points_delta), 0) AS total
+         FROM points_ledger_brand
+        WHERE brand_id = $1
+          AND points_delta > 0
+          AND created_at >= $2`,
+      [brandId, currentStart.toISOString()]
+    )).rows[0]?.total || 0);
+    const redemptionRow = (await client.query(
+      `SELECT COUNT(*)::int AS claims_count,
+              COALESCE(SUM(points_cost), 0) AS redeemed_points
+         FROM reward_claims
+        WHERE source_type = 'brand'
+          AND source_id = $1
+          AND created_at >= $2`,
+      [brandId, currentStart.toISOString()]
+    )).rows[0] || {};
+    const redeemedPoints = Number(redemptionRow.redeemed_points || 0);
+    const redemptionRate = issuedPoints > 0
+      ? Number(Math.min(100, (redeemedPoints / issuedPoints) * 100).toFixed(2))
+      : 0;
 
     for (const row of currentRows) {
       const merchantKey = String(row.merchant_profile_id || row.merchant_name || 'unknown');
@@ -493,6 +538,14 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
     return res.json({
       ok: true,
       brandId,
+      appliedFilters: {storeId: storeIdFilter || null, product: productFilter || null, region: regionFilter || null},
+      filterOptions: {
+        stores: uniqueOptions(allCurrentRows, 'merchant_profile_id', 'merchant_name'),
+        products: uniqueOptions(allCurrentRows, 'product_id', 'product_name').length
+          ? uniqueOptions(allCurrentRows, 'product_id', 'product_name')
+          : uniqueOptions(allCurrentRows, 'product_name', 'product_name'),
+        regions: regionOptions,
+      },
       distributionHeatmap: Object.values(merchantHeatmap),
       topSellingStores,
       lowestSellingStores,
@@ -529,12 +582,19 @@ app.get('/api/brand/analytics', auth, async (req, res) => {
           ),
         },
       ],
-      consumerDemographics: {
-        gender: analyticsCountEntries(genderCounts),
-        ageBuckets: analyticsCountEntries(ageCounts),
-      },
+      consumerDemographics: uniqueCustomers.size >= 5
+        ? {
+            gender: analyticsCountEntries(genderCounts),
+            ageBuckets: analyticsCountEntries(ageCounts),
+          }
+        : { gender: [], ageBuckets: [] },
+      demographicsSuppressed: uniqueCustomers.size > 0 && uniqueCustomers.size < 5,
       matchedCustomers: uniqueCustomers.size,
       matchedSales: Number(currentTotal.toFixed(2)),
+      pointsIssued: issuedPoints,
+      rewardClaims: Number(redemptionRow.claims_count || 0),
+      pointsRedeemed: redeemedPoints,
+      redemptionRate,
     });
   } catch (e) {
     return res.status(500).json({ error: 'brand_analytics_failed', details: String(e.message || e) });

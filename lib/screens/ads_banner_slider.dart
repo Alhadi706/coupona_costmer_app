@@ -74,7 +74,7 @@ class _AdsBannerSliderState extends State<AdsBannerSlider> {
           final assetPath = imageUrl;
           final caption = (ad['description'] ?? ad['title'] ?? '').toString();
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            padding: const EdgeInsets.symmetric(vertical: 4),
             child: InkWell(
               onTap: widget.onAdTap == null ? null : () => widget.onAdTap!(ad),
               borderRadius: BorderRadius.circular(16),
@@ -83,11 +83,19 @@ class _AdsBannerSliderState extends State<AdsBannerSlider> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    imageUrl.startsWith('http')
-                        ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fallback(context))
+                    imageUrl.startsWith('http') || imageUrl.startsWith('/')
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _fallback(context),
+                          )
                         : assetPath.isNotEmpty
-                          ? Image.asset(assetPath, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _fallback(context))
-                            : _fallback(context),
+                        ? Image.asset(
+                            assetPath,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _fallback(context),
+                          )
+                        : _fallback(context),
                     if (caption.isNotEmpty)
                       Positioned(
                         left: 16,
@@ -99,12 +107,18 @@ class _AdsBannerSliderState extends State<AdsBannerSlider> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             child: Text(
                               caption,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                           ),
                         ),
@@ -127,4 +141,3 @@ class _AdsBannerSliderState extends State<AdsBannerSlider> {
     );
   }
 }
-

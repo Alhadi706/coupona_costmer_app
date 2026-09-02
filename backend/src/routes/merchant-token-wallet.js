@@ -1,18 +1,6 @@
 module.exports = function registerMerchantTokenWalletRoutes(app, deps) {
   const { pool, auth, getMerchantProfileIdByUser, id, toIso, clearPendingPointsQueue, insertNotification } = deps;
 
-  async function activatePublicCoalition(client, merchantId) {
-    await client.query(`
-      INSERT INTO coalition_members (coalition_id, merchant_id)
-      VALUES ('public-platform-coalition', $1)
-      ON CONFLICT (coalition_id, merchant_id) DO NOTHING
-    `, [merchantId]);
-    await client.query(
-      `UPDATE merchant_profiles SET is_public_coalition_active = TRUE WHERE id = $1`,
-      [merchantId]
-    );
-  }
-
   async function getMerchantWallet(client, merchantId) {
     await client.query(
       `INSERT INTO merchant_token_wallets (merchant_id, balance, currency, is_local_mode, last_updated_at)
@@ -67,61 +55,19 @@ module.exports = function registerMerchantTokenWalletRoutes(app, deps) {
   app.post('/api/merchant/coalitions/join-public', auth, async (req, res) => {
     const merchantId = await getMerchantProfileIdByUser(pool, req.user.userId);
     if (!merchantId) return res.status(403).json({ error: 'merchant_profile_required' });
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const wallet = await getMerchantWallet(client, merchantId);
-      if (Number(wallet.balance || 0) <= 0) {
-        await client.query('ROLLBACK');
-        return res.status(402).json({
-          error: 'public_coalition_top_up_required',
-          balance: Number(wallet.balance || 0),
-          minimumActivationBalance: 1000,
-          minimumActivationAmount: 100,
-          packages: [100, 250, 500],
-        });
-      }
-      await activatePublicCoalition(client, merchantId);
-      await client.query('COMMIT');
-      return res.json({ ok: true, isPublicCoalitionActive: true, balance: Number(wallet.balance || 0) });
-    } catch (e) {
-      await client.query('ROLLBACK');
-      return res.status(500).json({ error: 'public_coalition_activation_failed' });
-    } finally {
-      client.release();
-    }
+    return res.status(409).json({
+      error: 'public_coalition_membership_workflow_required',
+      requestEndpoint: '/api/public-coalition/membership/request',
+    });
   });
 
   app.post('/api/merchant/token-wallet/top-up', auth, async (req, res) => {
     const merchantId = await getMerchantProfileIdByUser(pool, req.user.userId);
     if (!merchantId) return res.status(403).json({ error: 'merchant_profile_required' });
-    const amount = Number((req.body || {}).amount);
-    if (![100, 250, 500].includes(amount)) return res.status(400).json({ error: 'invalid_top_up_package' });
-
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const wallet = await getMerchantWallet(client, merchantId);
-      const newBalance = Number(wallet.balance || 0) + amount * 10;
-      await client.query(
-        `UPDATE merchant_token_wallets SET balance = $2, is_local_mode = FALSE, last_updated_at = NOW() WHERE merchant_id = $1`,
-        [merchantId, newBalance]
-      );
-      await client.query(
-        `INSERT INTO merchant_token_ledger (id, merchant_id, customer_user_id, receipt_id, type, amount, balance_after, created_at)
-         VALUES ($1, $2, NULL, NULL, 'recharge', $3, $4, NOW())`,
-        [id(), merchantId, amount * 10, newBalance]
-      );
-      await clearPendingPointsQueue(client, merchantId, insertNotification);
-      await activatePublicCoalition(client, merchantId);
-      await client.query('COMMIT');
-      return res.json({ ok: true, balance: newBalance, isPublicCoalitionActive: true });
-    } catch (e) {
-      await client.query('ROLLBACK');
-      return res.status(500).json({ error: 'top_up_failed' });
-    } finally {
-      client.release();
-    }
+    return res.status(410).json({
+      error: 'public_coalition_external_payment_required',
+      requestEndpoint: '/api/public-coalition/membership/request',
+    });
   });
 
   app.post('/api/merchant/tokens/recharge', auth, async (req, res) => {

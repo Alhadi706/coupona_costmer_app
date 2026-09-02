@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AppSession {
@@ -34,7 +36,27 @@ class AppSession {
 
   static Future<String?> token() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
+    final token = prefs.getString(_tokenKey);
+    if (token != null && _isExpiredJwt(token)) {
+      await clear();
+      return null;
+    }
+    return token;
+  }
+
+  static bool _isExpiredJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return false;
+      final payload = jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      );
+      final expiresAt = payload is Map ? payload['exp'] : null;
+      if (expiresAt is! num) return false;
+      return DateTime.now().millisecondsSinceEpoch >= expiresAt.toInt() * 1000;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<String?> userId() async {

@@ -90,9 +90,26 @@ async function createExtraTables() {
       name TEXT NOT NULL,
       image_url TEXT,
       barcode TEXT,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query('ALTER TABLE product_registry ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE');
+  await pool.query('ALTER TABLE product_registry ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()');
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS brand_product_audit_logs (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL,
+      brand_id TEXT NOT NULL,
+      actor_user_id TEXT NOT NULL,
+      action TEXT NOT NULL CHECK (action IN ('created', 'updated', 'deactivated')),
+      previous_data JSONB,
+      new_data JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_brand_product_audit_product_created ON brand_product_audit_logs(product_id, created_at DESC)');
   await pool.query(`
     CREATE TABLE IF NOT EXISTS invoice_line_items (
       id TEXT PRIMARY KEY,
@@ -131,6 +148,17 @@ async function createExtraTables() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS report_updates (
+      id TEXT PRIMARY KEY,
+      report_id TEXT NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+      author_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      author_role TEXT NOT NULL,
+      message TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_report_updates_report_created ON report_updates(report_id, created_at ASC)');
   await pool.query(`
     CREATE TABLE IF NOT EXISTS disputes (
       id TEXT PRIMARY KEY,
@@ -370,6 +398,8 @@ async function createExtraTables() {
   await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS draw_winner_user_id TEXT');
   await pool.query('ALTER TABLE rewards ADD COLUMN IF NOT EXISTS draw_completed_at TIMESTAMPTZ');
   await pool.query('ALTER TABLE reward_claims ADD COLUMN IF NOT EXISTS reward_id TEXT');
+  await pool.query('ALTER TABLE reward_claims ADD COLUMN IF NOT EXISTS idempotency_key TEXT');
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS uq_reward_claim_owner_idempotency ON reward_claims(owner_id, idempotency_key) WHERE idempotency_key IS NOT NULL');
   await pool.query('ALTER TABLE offers ADD COLUMN IF NOT EXISTS cta_type TEXT NOT NULL DEFAULT \'store\'');
   await pool.query('ALTER TABLE offers ADD COLUMN IF NOT EXISTS cta_value TEXT');
   await pool.query('ALTER TABLE offers ADD COLUMN IF NOT EXISTS impressions INTEGER NOT NULL DEFAULT 0');
@@ -398,6 +428,8 @@ async function createExtraTables() {
   await pool.query('ALTER TABLE reports ADD COLUMN IF NOT EXISTS location_lat DOUBLE PRECISION');
   await pool.query('ALTER TABLE reports ADD COLUMN IF NOT EXISTS location_lng DOUBLE PRECISION');
   await pool.query('ALTER TABLE reports ADD COLUMN IF NOT EXISTS location_address TEXT');
+  await pool.query("ALTER TABLE reports ADD COLUMN IF NOT EXISTS priority TEXT NOT NULL DEFAULT 'normal'");
+  await pool.query('ALTER TABLE reports ADD COLUMN IF NOT EXISTS assigned_to_user_id TEXT');
   await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION');
   await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION');
   await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS category TEXT');

@@ -3,6 +3,7 @@ import 'package:easy_localization/easy_localization.dart';
 
 import '../../services/company_server_service.dart';
 import '../../theme/design_tokens.dart';
+import '../public_coalition_membership_screen.dart';
 import 'create_private_coalition_dialog.dart';
 
 class CoalitionDashboardScreen extends StatefulWidget {
@@ -48,58 +49,6 @@ class _CoalitionDashboardScreenState extends State<CoalitionDashboardScreen>
     } catch (_) {
       if (mounted) setState(() => _publicLoading = false);
     }
-  }
-
-  Future<void> _activatePublicCoalition() async {
-    try {
-      final result = await CompanyServerService.activatePublicCoalition();
-      if (!mounted) return;
-      setState(() {
-        _publicActive = result['isPublicCoalitionActive'] == true;
-        _walletBalance = int.tryParse('${result['balance'] ?? _walletBalance}') ?? _walletBalance;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('coalition_public_activation_success'.tr())));
-    } catch (error) {
-      if (error.toString().contains('public_coalition_top_up_required')) {
-        _showTopUpDialog();
-      } else {
-        _showError(error.toString());
-      }
-    }
-  }
-
-  void _showTopUpDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('coalition_public_top_up_title'.tr()),
-        content: Text('coalition_public_top_up_message'.tr()),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('coalition_cancel'.tr())),
-          ...[100, 250, 500].map((amount) => FilledButton(
-                onPressed: () async {
-                  Navigator.pop(dialogContext);
-                  try {
-                    final result = await CompanyServerService.topUpPublicCoalitionWallet(amount);
-                    if (!mounted) return;
-                    setState(() {
-                      _walletBalance = int.tryParse('${result['balance'] ?? 0}') ?? 0;
-                      _publicActive = result['isPublicCoalitionActive'] == true;
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('coalition_public_activation_success'.tr())));
-                  } catch (error) {
-                    _showError(error.toString());
-                  }
-                },
-                child: Text('coalition_public_top_up_package'.tr(namedArgs: {'amount': '$amount'})),
-              )),
-        ],
-      ),
-    );
-  }
-
-  void _showError(String message) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -339,9 +288,13 @@ class _CoalitionDashboardScreenState extends State<CoalitionDashboardScreen>
           Text('coalition_public_wallet_balance'.tr(namedArgs: {'points': '$_walletBalance'})),
           const SizedBox(height: 12),
           FilledButton.icon(
-            onPressed: _publicActive ? _showTopUpDialog : _activatePublicCoalition,
-            icon: Icon(_publicActive ? Icons.add_card : Icons.bolt),
-            label: Text(_publicActive ? 'coalition_public_recharge_button'.tr() : 'coalition_public_activate_button'.tr()),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const PublicCoalitionMembershipScreen(applicantType: 'merchant'),
+              ),
+            ),
+            icon: Icon(_publicActive ? Icons.verified_outlined : Icons.assignment_outlined),
+            label: Text(_publicActive ? 'coalition_public_membership_details'.tr() : 'coalition_public_apply_button'.tr()),
           ),
         ]),
       ),

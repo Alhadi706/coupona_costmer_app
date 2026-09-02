@@ -11,6 +11,7 @@ const createExtraTables = require('./src/schema-extra');
 const createCoalitionTables = require('./src/schema-coalition');
 const createCampaignTables = require('./src/schema-campaigns');
 const pendingPointsService = require('./src/pending-points-service');
+const rewardClaimService = require('./src/reward-claim-service');
 
 const deps = {
   pool,
@@ -31,10 +32,13 @@ const { getIntSetting } = accessControl;
   './src/routes/auth',
   './src/routes/roles-subscriptions',
   './src/routes/merchant',
+  './src/routes/merchant-team',
+  './src/routes/brand-team',
   './src/routes/wallet-actions',
   './src/routes/invoices',
   './src/routes/reports',
   './src/routes/exchange-rewards',
+  './src/routes/reward-funding',
   './src/routes/peerads-sourcing-admin',
   './src/routes/notifications-community',
   './src/routes/offers-billboard',
@@ -47,6 +51,7 @@ const { getIntSetting } = accessControl;
   './src/routes/offers-lifecycle-stats',
   './src/routes/merchant-token-wallet',
   './src/routes/brand-token-wallet',
+  './src/routes/public-coalition-membership',
   './src/routes/coalition',
   './src/routes/campaigns',
 ].forEach((modulePath) => require(modulePath)(app, deps));
@@ -76,6 +81,7 @@ if (AI_ONLY_MODE) {
           try {
             await client.query('BEGIN');
             await pendingPointsService.convertExpiredPendingPoints(client, insertNotification);
+            await rewardClaimService.processExpiredRewardClaims(client, helpers.id);
             await client.query('COMMIT');
           } catch (e) {
             await client.query('ROLLBACK');

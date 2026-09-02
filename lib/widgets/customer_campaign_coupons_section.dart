@@ -18,6 +18,7 @@ class _CustomerCampaignCouponsSectionState extends State<CustomerCampaignCoupons
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _coupons = const [];
+  List<Map<String, dynamic>> _tickets = const [];
 
   @override
   void initState() {
@@ -37,10 +38,15 @@ class _CustomerCampaignCouponsSectionState extends State<CustomerCampaignCoupons
   Future<void> _load() async {
     if (mounted) setState(() => _loading = true);
     try {
-      final coupons = await CompanyServerService.getMyCampaignCoupons();
+      final results = await Future.wait<dynamic>([
+        CompanyServerService.getMyCampaignCoupons(),
+        CompanyServerService.getMyRaffleTickets()
+            .catchError((_) => const <Map<String, dynamic>>[]),
+      ]);
       if (!mounted) return;
       setState(() {
-        _coupons = coupons;
+        _coupons = List<Map<String, dynamic>>.from(results[0] as List<dynamic>);
+        _tickets = List<Map<String, dynamic>>.from(results[1] as List<dynamic>);
         _error = null;
       });
     } catch (error) {
@@ -94,15 +100,59 @@ class _CustomerCampaignCouponsSectionState extends State<CustomerCampaignCoupons
             subtitle: _error!,
             action: TextButton(onPressed: _load, child: const Text('إعادة المحاولة')),
           )
-        else if (_coupons.isEmpty)
+        else if (_coupons.isEmpty && _tickets.isEmpty)
           const _MessagePanel(
             icon: Icons.inbox_outlined,
             title: 'لا توجد كوبونات خاصة حالياً',
             subtitle: 'ستظهر هنا العروض التي يرسلها لك المتجر أو العلامة التجارية.',
           )
-        else
+        else ...[
           ..._coupons.map(_buildCouponCard),
+          ..._tickets.map(_buildTicketCard),
+        ],
       ],
+    );
+  }
+
+  Widget _buildTicketCard(Map<String, dynamic> ticket) {
+    final title = (ticket['title'] ?? 'تذكرة سحب').toString();
+    final number = (ticket['ticket_number'] ?? '').toString();
+    final endsAt = _date(ticket['ends_at']);
+    final remaining = endsAt == null
+        ? 'بانتظار موعد السحب'
+        : (endsAt.isAfter(DateTime.now()) ? 'ينتهي ${endsAt.year}-${endsAt.month.toString().padLeft(2, '0')}-${endsAt.day.toString().padLeft(2, '0')}' : 'بانتظار إعلان الفائز');
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7E8),
+        borderRadius: BorderRadius.circular(kRadiusCardCompact),
+        border: Border.all(color: kGold.withValues(alpha: 0.55)),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(backgroundColor: kGold, child: Icon(Icons.confirmation_number_outlined, color: kWhite)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: kBodyTextStyle(weight: FontWeight.w800)),
+                const SizedBox(height: 3),
+                Text('رقم التذكرة: $number', style: kBodyTextStyle(size: 12, color: kInk.withValues(alpha: 0.76))),
+                const SizedBox(height: 5),
+                Text(
+                  'لا حاجة لأي شراء إضافي للمشاركة، السحب مبني على نقاطك المكتسبة من مشترياتك العادية.',
+                  style: kBodyTextStyle(size: 11, weight: FontWeight.w700, color: kInk.withValues(alpha: 0.72)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(remaining, style: kBodyTextStyle(size: 11, weight: FontWeight.w700, color: kGold)),
+        ],
+      ),
     );
   }
 

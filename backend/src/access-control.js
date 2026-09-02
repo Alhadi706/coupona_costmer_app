@@ -71,7 +71,7 @@ function requireAdmin(req, res, next) {
 
 async function canManageInvoice(client, user, invoiceId, targetState = null, getMerchantProfileIdByUser) {
   const row = (await client.query(
-    'SELECT owner_id, merchant_profile_id, state FROM invoice_scans WHERE id = $1 LIMIT 1',
+    'SELECT owner_id, merchant_profile_id, branch_id, state FROM invoice_scans WHERE id = $1 LIMIT 1',
     [invoiceId]
   )).rows[0];
   if (!row) return { allowed: false, status: 404, error: 'invoice_not_found' };
@@ -83,32 +83,62 @@ async function canManageInvoice(client, user, invoiceId, targetState = null, get
     const merchant = await getMerchantProfileIdByUser(client, user.userId);
     if (merchant && merchant === row.merchant_profile_id) return { allowed: true, row };
   }
+  if (row.branch_id) {
+    const manager = (await client.query(
+      `SELECT 1
+         FROM branch_manager_permissions
+        WHERE user_id = $1
+          AND branch_id = $2
+          AND can_review_invoices = TRUE
+        LIMIT 1`,
+      [user.userId, row.branch_id]
+    )).rows[0];
+    if (manager) return { allowed: true, row };
+  }
   return { allowed: false, status: 403, error: 'forbidden' };
 }
 
 async function canRedeemClaim(client, user, claim) {
   if (isAdmin(user)) return true;
-  if (claim.source_type !== 'merchant' || !claim.source_id) return false;
-  const merchantOwner = (await client.query(
-    `SELECT 1
-       FROM merchant_profiles
-      WHERE id = $1
-        AND user_id = $2
-        AND status = 'active'
-      LIMIT 1`,
-    [claim.source_id, user.userId]
+  if (!claim.source_id) return false;
+  const fulfiller = (await client.query(
+    `SELECT id AS merchant_id FROM merchant_profiles WHERE user_id = $1 AND status = 'active'
+     UNION ALL
+     SELECT merchant_id FROM cashier_profiles WHERE user_id = $1 AND is_active = TRUE
+     LIMIT 1`,
+    [user.userId]
   )).rows[0];
-  if (merchantOwner) return true;
-  const row = (await client.query(
+  if (!fulfiller?.merchant_id) return false;
+  if (claim.source_type === 'merchant') return fulfiller.merchant_id === claim.source_id;
+  if (claim.source_type !== 'brand') return false;
+  const sharedCoalition = (await client.query(
     `SELECT 1
-       FROM cashier_profiles
+       FROM brand_coalition_members bcm
+       JOIN coalition_members cm ON cm.coalition_id = bcm.coalition_id
+       JOIN coalitions c ON c.id = bcm.coalition_id AND c.is_active = TRUE
+      WHERE bcm.brand_id = $1 AND cm.merchant_id = $2
+      LIMIT 1`,
+    [claim.source_id, fulfiller.merchant_id]
+  )).rows[0];
+  return Boolean(sharedCoalition);
+}
+
+async function getManageableBrandProductId(client, userId) {
+  const owner = (await client.query(
+    'SELECT id FROM brand_profiles WHERE user_id = $1 LIMIT 1',
+    [userId]
+  )).rows[0];
+  if (owner) return owner.id;
+  const member = (await client.query(
+    `SELECT brand_id
+       FROM brand_team_members
       WHERE user_id = $1
-        AND merchant_id = $2
-        AND is_active = TRUE
+        AND can_manage_products = TRUE
+      ORDER BY created_at
       LIMIT 1`,
-    [user.userId, claim.source_id]
+    [userId]
   )).rows[0];
-  return Boolean(row);
+  return member ? member.brand_id : null;
 }
 
 
@@ -119,4 +149,5 @@ module.exports = {
   getIntSetting,
   canManageInvoice,
   canRedeemClaim,
+  getManageableBrandProductId,
 };

@@ -1,22 +1,33 @@
 // Coalition Engine routes: coalitions CRUD, membership, cross-redemption, clearinghouse
+const crypto = require('crypto');
 const pointValuation = require('../point-valuation-service');
+const { summarizeTierBalances } = require('../tier-balance-service');
 
 module.exports = function registerCoalitionRoutes(app, deps) {
   const { pool, auth, id, toIso, getMerchantProfileIdByUser, getBrandProfileIdByUser, insertNotification } = deps;
 
   app.get('/api/customer/wallet/tiers', auth, async (req, res) => {
-    const { rows } = await pool.query(`
-      SELECT tier, COALESCE(SUM(balance), 0)::int AS balance,
-             COALESCE(SUM(lifetime_earned), 0)::int AS lifetime_earned
-        FROM customer_point_tiers
-       WHERE customer_id = $1
-       GROUP BY tier
-    `, [req.user.userId]);
-    const tiers = { bronze: { balance: 0, lifetimeEarned: 0 }, silver: { balance: 0, lifetimeEarned: 0 }, gold: { balance: 0, lifetimeEarned: 0 } };
-    for (const row of rows) {
-      tiers[row.tier] = { balance: Number(row.balance || 0), lifetimeEarned: Number(row.lifetime_earned || 0) };
-    }
-    res.json({ tiers });
+    const [tierResult, accountResult] = await Promise.all([
+      pool.query(`
+        SELECT tier, COALESCE(SUM(balance), 0)::int AS balance,
+               COALESCE(SUM(lifetime_earned), 0)::int AS lifetime_earned
+          FROM customer_point_tiers
+         WHERE customer_id = $1
+         GROUP BY tier
+      `, [req.user.userId]),
+      pool.query(
+        'SELECT available_points, lifetime_points FROM point_accounts WHERE owner_id = $1',
+        [req.user.userId]
+      ),
+    ]);
+    const availablePoints = Number(accountResult.rows[0]?.available_points || 0);
+    const lifetimePoints = Number(accountResult.rows[0]?.lifetime_points || 0);
+    const { tiers, legacyUnclassified } = summarizeTierBalances(
+      availablePoints,
+      tierResult.rows,
+      lifetimePoints
+    );
+    res.json({ tiers, availablePoints, legacyUnclassified });
   });
 
   app.get('/api/customer/wallet/pending-points', auth, async (req, res) => {
@@ -29,6 +40,160 @@ module.exports = function registerCoalitionRoutes(app, deps) {
        ORDER BY p.created_at ASC
     `, [req.user.userId]);
     res.json({ pending: rows, total_points: rows.reduce((sum, row) => sum + Number(row.points_remaining || 0), 0) });
+  });
+
+  app.get('/api/customer/gifts/catalog', auth, async (req, res) => {
+    const customerId = req.user.userId;
+    const { rows: [pointRow] } = await pool.query(
+      'SELECT available_points FROM point_accounts WHERE owner_id = $1',
+      [customerId]
+    );
+    const availablePoints = Number(pointRow?.available_points || 0);
+
+    const [rewardRows, coalitionGiftRows] = await Promise.all([
+      pool.query(`
+        SELECT id, reward_name AS title, description, value AS points_cost,
+               kind, image_url AS image_url, source_type, source_id,
+               expires_at, created_at
+          FROM rewards
+         WHERE is_active = TRUE
+           AND (quantity_limit IS NULL OR quantity_redeemed < quantity_limit)
+           AND (expires_at IS NULL OR expires_at > NOW())
+         ORDER BY value DESC
+      `),
+      pool.query(`
+        SELECT g.id, g.title, g.description, g.required_points AS points_cost,
+               g.monetary_value, g.image_url, g.expires_at, g.coalition_id,
+               c.name AS coalition_name, 'coalition' AS source_type,
+               g.coalition_id AS source_id
+          FROM coalition_gift_catalog g
+          JOIN coalitions c ON c.id = g.coalition_id
+         WHERE g.is_active = TRUE
+           AND (g.quantity_limit IS NULL OR g.quantity_redeemed < g.quantity_limit)
+           AND (g.expires_at IS NULL OR g.expires_at > NOW())
+         ORDER BY g.required_points ASC
+      `)
+    ]);
+
+    const items = [
+      ...rewardRows.rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        pointsCost: Number(row.points_cost || 0),
+        cashValueLyD: Number((Number(row.points_cost || 0) * 0.1).toFixed(2)),
+        imageUrl: row.image_url,
+        kind: row.kind || 'physical',
+        sourceType: row.source_type || 'merchant',
+        sourceId: row.source_id || row.id,
+        expiresAt: toIso(row.expires_at),
+        origin: 'reward',
+      })),
+      ...coalitionGiftRows.rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        pointsCost: Number(row.points_cost || 0),
+        cashValueLyD: Number((Number(row.monetary_value || 0) || (Number(row.points_cost || 0) * 0.1)).toFixed(2)),
+        imageUrl: row.image_url,
+        kind: 'physical',
+        sourceType: row.source_type || 'coalition',
+        sourceId: row.source_id || row.coalition_id,
+        expiresAt: toIso(row.expires_at),
+        origin: 'coalition',
+        coalitionName: row.coalition_name,
+      })),
+    ].sort((a, b) => a.pointsCost - b.pointsCost);
+
+    const unlocked = items.filter((item) => item.pointsCost <= availablePoints);
+    const locked = items.filter((item) => item.pointsCost > availablePoints);
+
+    res.json({
+      availablePoints,
+      unlocked,
+      locked,
+      items,
+    });
+  });
+
+  app.post('/api/customer/redemptions/dynamic-voucher', auth, async (req, res) => {
+    const body = req.body || {};
+    const rawCashValue = Number(body.cashValueLyD ?? body.cashValue ?? body.amount ?? 0);
+    const rawPoints = Number(body.points ?? 0);
+    const customerId = req.user.userId;
+
+    if (!Number.isFinite(rawCashValue) || rawCashValue <= 0) {
+      return res.status(400).json({ error: 'cash_value_required' });
+    }
+
+    const requiredPoints = rawPoints > 0
+      ? Math.round(rawPoints)
+      : Math.round(rawCashValue * 10);
+
+    if (!Number.isFinite(requiredPoints) || requiredPoints <= 0) {
+      return res.status(400).json({ error: 'invalid_points_required' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        'INSERT INTO point_accounts (owner_id, available_points, lifetime_points, updated_at) VALUES ($1,0,0,NOW()) ON CONFLICT (owner_id) DO NOTHING',
+        [customerId]
+      );
+
+      const pointAccount = (await client.query(
+        'SELECT available_points FROM point_accounts WHERE owner_id = $1 FOR UPDATE',
+        [customerId]
+      )).rows[0];
+
+      if (!pointAccount || Number(pointAccount.available_points || 0) < requiredPoints) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'insufficient_points' });
+      }
+
+      const tierRows = await client.query(
+        `SELECT tier, balance
+           FROM customer_point_tiers
+          WHERE customer_id = $1
+          ORDER BY CASE tier WHEN 'gold' THEN 3 WHEN 'silver' THEN 2 ELSE 1 END DESC, balance DESC
+          LIMIT 1`,
+        [customerId]
+      );
+      const selectedTier = tierRows.rows[0]?.tier || 'bronze';
+
+      const qrCode = crypto.randomUUID().replace(/-/g, '').slice(0, 24).toUpperCase();
+      const redemptionId = id();
+
+      await client.query(
+        'UPDATE point_accounts SET available_points = available_points - $1, updated_at = NOW() WHERE owner_id = $2',
+        [requiredPoints, customerId]
+      );
+      await client.query(
+        'INSERT INTO ledger_entries (id, owner_id, type, amount, points, reference, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())',
+        [id(), customerId, 'pointsRedeemed', 0, requiredPoints, `dynamic_voucher:${redemptionId}`]
+      );
+
+      await client.query('COMMIT');
+      return res.status(201).json({
+        ok: true,
+        redemptionId,
+        voucher: {
+          id: redemptionId,
+          qrCode,
+          pointsUsed: requiredPoints,
+          cashValueLyD: Number(rawCashValue.toFixed(2)),
+          status: 'ready_for_cashier',
+          tier: selectedTier,
+          message: 'جاهز للاستخدام لدى الكاشير',
+        },
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      return res.status(500).json({ error: 'dynamic_voucher_failed', details: String(error.message || error) });
+    } finally {
+      client.release();
+    }
   });
 
   app.get('/api/merchant/wallet/pending-points', auth, async (req, res) => {
@@ -63,18 +228,10 @@ module.exports = function registerCoalitionRoutes(app, deps) {
   app.post('/api/brand/coalitions/:id/join', auth, async (req, res) => {
     const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
     if (!brandId) return res.status(403).json({ error: 'brand_profile_required' });
-
-    const { rows: [coalition] } = await pool.query(
-      `SELECT id FROM coalitions WHERE id = $1 AND is_active = TRUE AND type != 'private'`,
-      [req.params.id]
-    );
-    if (!coalition) return res.status(404).json({ error: 'public_coalition_not_found' });
-
-    await pool.query(`
-      INSERT INTO brand_coalition_members (coalition_id, brand_id)
-      VALUES ($1, $2) ON CONFLICT (coalition_id, brand_id) DO NOTHING
-    `, [req.params.id, brandId]);
-    res.status(201).json({ ok: true, coalition_id: req.params.id });
+    return res.status(409).json({
+      error: 'public_coalition_membership_workflow_required',
+      requestEndpoint: '/api/public-coalition/membership/request',
+    });
   });
 
   app.get('/api/brand/coalitions/clearinghouse', auth, async (req, res) => {
@@ -82,14 +239,102 @@ module.exports = function registerCoalitionRoutes(app, deps) {
     if (!brandId) return res.status(403).json({ error: 'brand_profile_required' });
 
     const { rows } = await pool.query(`
-      SELECT bcm.coalition_id, c.name AS coalition_name, bcm.joined_at,
-             0::bigint AS total_points, 'brand_participation' AS statement_type
-        FROM brand_coalition_members bcm
-        JOIN coalitions c ON c.id = bcm.coalition_id
-       WHERE bcm.brand_id = $1
-       ORDER BY bcm.joined_at DESC
+      SELECT rc.id AS claim_id, rc.points_cost, rc.status, rc.settlement_id,
+             rc.created_at, rc.redeemed_at,
+             COALESCE(cp.merchant_id, owner_mp.id) AS merchant_id,
+             COALESCE(cp_mp.business_name, owner_mp.business_name, 'Unknown merchant') AS merchant_name
+        FROM reward_claims rc
+        LEFT JOIN cashier_profiles cp ON cp.user_id = rc.redeemed_by AND cp.is_active = TRUE
+        LEFT JOIN merchant_profiles cp_mp ON cp_mp.id = cp.merchant_id
+        LEFT JOIN merchant_profiles owner_mp ON owner_mp.user_id = rc.redeemed_by
+       WHERE rc.source_type = 'brand' AND rc.source_id = $1
+       ORDER BY rc.created_at DESC
+       LIMIT 200
     `, [brandId]);
-    res.json({ statements: rows, ledger: [] });
+    const disputes = (await pool.query(
+      `SELECT d.id, d.claim_id, d.merchant_id, mp.business_name AS merchant_name,
+              d.reason, d.status, d.response_note, d.created_at, d.resolved_at
+         FROM brand_settlement_disputes d
+         LEFT JOIN merchant_profiles mp ON mp.id = d.merchant_id
+        WHERE d.brand_id = $1 ORDER BY d.created_at DESC`,
+      [brandId]
+    )).rows;
+    const summary = new Map();
+    for (const row of rows) {
+      const key = row.merchant_id || 'pending';
+      const item = summary.get(key) || {merchant_id: row.merchant_id, merchant_name: row.merchant_name, total_points: 0, redeemed_claims: 0, pending_claims: 0, statement_type: 'brand_reward_settlement'};
+      if (row.status === 'redeemed') {
+        item.total_points += Number(row.points_cost || 0);
+        item.redeemed_claims += 1;
+      } else if (row.status === 'pending_pickup') {
+        item.pending_claims += 1;
+      }
+      summary.set(key, item);
+    }
+    res.json({
+      statements: Array.from(summary.values()),
+      ledger: rows.map((row) => ({
+        claimId: row.claim_id,
+        merchantId: row.merchant_id,
+        merchantName: row.merchant_name,
+        points: Number(row.points_cost || 0),
+        status: row.status,
+        settlementId: row.settlement_id,
+        createdAt: toIso(row.created_at),
+        redeemedAt: toIso(row.redeemed_at),
+      })),
+      disputes: disputes.map((row) => ({id: row.id, claimId: row.claim_id, merchantId: row.merchant_id, merchantName: row.merchant_name, reason: row.reason, status: row.status, responseNote: row.response_note, createdAt: toIso(row.created_at), resolvedAt: toIso(row.resolved_at)})),
+    });
+  });
+
+  app.post('/api/brand/coalitions/clearinghouse/disputes', auth, async (req, res) => {
+    const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
+    if (!brandId) return res.status(403).json({error: 'brand_profile_required'});
+    const claimId = String(req.body?.claimId || '').trim();
+    const reason = String(req.body?.reason || '').trim();
+    if (!claimId || !reason) return res.status(400).json({error: 'claim_and_reason_required'});
+    const claim = (await pool.query(
+      `SELECT rc.id, COALESCE(cp.merchant_id, owner_mp.id) AS merchant_id
+         FROM reward_claims rc
+         LEFT JOIN cashier_profiles cp ON cp.user_id = rc.redeemed_by
+         LEFT JOIN merchant_profiles owner_mp ON owner_mp.user_id = rc.redeemed_by
+        WHERE rc.id = $1 AND rc.source_type = 'brand' AND rc.source_id = $2
+          AND rc.status = 'redeemed' AND rc.settlement_id IS NOT NULL`,
+      [claimId, brandId]
+    )).rows[0];
+    if (!claim) return res.status(404).json({error: 'settled_claim_not_found'});
+    try {
+      const dispute = (await pool.query(
+        `INSERT INTO brand_settlement_disputes (id, claim_id, brand_id, merchant_id, reason, created_by_user_id)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+        [id(), claimId, brandId, claim.merchant_id || null, reason, req.user.userId]
+      )).rows[0];
+      if (claim.merchant_id) {
+        const merchantOwner = (await pool.query('SELECT user_id FROM merchant_profiles WHERE id = $1', [claim.merchant_id])).rows[0]?.user_id;
+        if (merchantOwner) await insertNotification(pool, merchantOwner, 'brand_settlement_dispute', 'Settlement dispute opened', reason, {disputeId: dispute.id, claimId, targetScreen: 'settlements'});
+      }
+      return res.status(201).json({ok: true, id: dispute.id, status: dispute.status});
+    } catch (error) {
+      if (error.code === '23505') return res.status(409).json({error: 'open_dispute_already_exists'});
+      return res.status(500).json({error: 'settlement_dispute_failed', details: String(error.message || error)});
+    }
+  });
+
+  app.post('/api/merchant/coalitions/clearinghouse/disputes/:id/respond', auth, async (req, res) => {
+    const merchantId = await getMerchantProfileIdByUser(pool, req.user.userId);
+    if (!merchantId) return res.status(403).json({error: 'merchant_profile_required'});
+    const status = String(req.body?.status || '');
+    const note = String(req.body?.note || '').trim();
+    if (!['resolved', 'rejected'].includes(status) || !note) return res.status(400).json({error: 'invalid_dispute_response'});
+    const dispute = (await pool.query(
+      `UPDATE brand_settlement_disputes SET status=$3, response_note=$4, resolved_by_user_id=$5, resolved_at=NOW()
+        WHERE id=$1 AND merchant_id=$2 AND status='open' RETURNING id, brand_id, claim_id`,
+      [req.params.id, merchantId, status, note, req.user.userId]
+    )).rows[0];
+    if (!dispute) return res.status(404).json({error: 'open_dispute_not_found'});
+    const brandOwner = (await pool.query('SELECT user_id FROM brand_profiles WHERE id = $1', [dispute.brand_id])).rows[0]?.user_id;
+    if (brandOwner) await insertNotification(pool, brandOwner, 'brand_settlement_dispute_resolved', 'Settlement dispute updated', note, {disputeId: dispute.id, claimId: dispute.claim_id, targetScreen: 'brand_clearinghouse'});
+    return res.json({ok: true, id: dispute.id, status});
   });
 
   // ── Direct gifting trigger settings ───────────────────────────────────────────
@@ -339,6 +584,12 @@ module.exports = function registerCoalitionRoutes(app, deps) {
       `SELECT * FROM coalitions WHERE id = $1 AND is_active = TRUE`, [req.params.id]
     );
     if (!coalition) return res.status(404).json({ error: 'not_found' });
+    if (coalition.type !== 'private') {
+      return res.status(409).json({
+        error: 'public_coalition_membership_workflow_required',
+        requestEndpoint: '/api/public-coalition/membership/request',
+      });
+    }
     if (coalition.type === 'private') {
       // Private coalitions require an invitation
       const { rows: [inv] } = await pool.query(
@@ -507,7 +758,20 @@ module.exports = function registerCoalitionRoutes(app, deps) {
        ORDER BY cc.period DESC, cc.total_points DESC
     `, [merchantId]);
 
-    res.json({ statements: rows });
+    const disputes = (await pool.query(
+      `SELECT d.id, d.claim_id, d.brand_id, bp.business_name AS brand_name,
+              d.reason, d.status, d.response_note, d.created_at, d.resolved_at
+         FROM brand_settlement_disputes d
+         LEFT JOIN brand_profiles bp ON bp.id = d.brand_id
+        WHERE d.merchant_id = $1 ORDER BY d.created_at DESC`,
+      [merchantId]
+    )).rows;
+
+    res.json({ statements: rows, disputes: disputes.map((row) => ({
+      id: row.id, claimId: row.claim_id, brandId: row.brand_id,
+      brandName: row.brand_name, reason: row.reason, status: row.status,
+      responseNote: row.response_note, createdAt: toIso(row.created_at), resolvedAt: toIso(row.resolved_at),
+    })) });
   });
 
   // ── Mark clearinghouse period as settled ──────────────────────────────────────
@@ -526,6 +790,7 @@ module.exports = function registerCoalitionRoutes(app, deps) {
          AND period = $4 AND settled = FALSE
     `, [coalition_id, merchantId, to_merchant_id, period]);
 
+    if (rowCount === 0) return res.status(409).json({ error: 'clearinghouse_already_settled_or_not_found' });
     res.json({ ok: true, updated: rowCount, execution: 'internal_accounting_only', externalTransferExecuted: false });
   });
 
@@ -663,6 +928,21 @@ module.exports = function registerCoalitionRoutes(app, deps) {
     `, [req.params.id]);
 
     res.json({ gifts: rows });
+  });
+
+  app.get('/api/customer/coalitions/mine', auth, async (req, res) => {
+    const userId = req.user.userId;
+    const { rows } = await pool.query(`
+      SELECT c.id, c.name, c.type,
+             COALESCE(SUM(b.points_balance), 0)::int AS total_points,
+             COUNT(DISTINCT b.merchant_id)::int AS merchant_count
+        FROM customer_merchant_point_balances b
+        JOIN coalitions c ON c.id = b.coalition_id
+       WHERE b.customer_id = $1 AND b.points_balance > 0 AND c.is_active = TRUE
+       GROUP BY c.id, c.name, c.type
+       ORDER BY total_points DESC, c.name ASC
+    `, [userId]);
+    res.json({ coalitions: rows });
   });
 
   // ── Get customer's point balances across coalition merchants ──────────────────

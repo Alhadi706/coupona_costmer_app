@@ -23,7 +23,7 @@ module.exports = function registerRewardsRoutes(app, deps) {
     detectImageMime, toIso, normalizeMerchantKey, canonicalMerchantName, normalizeForFingerprint,
     buildInvoiceFingerprint, parseFlexibleDate, haversineDistanceKm, calculateAgeYears,
     parseTargetingCriteria, extractJsonObject, normalizeAiInvoiceFields, analyzeInvoiceWithGemini,
-    auth, requireAdmin, ensureCustomerProfile, getIntSetting, canManageInvoice, canRedeemClaim,
+    auth, requireAdmin, ensureCustomerProfile, getIntSetting, canManageInvoice, canRedeemClaim, getManageableBrandProductId,
     runSubscriptionTransitions, hasBlockRelation, isPrivateChatParticipant, getPeerUserId,
     sendFcmToTokens, getActivePushTokens, insertNotification, ensureCommunityGroupForRole,
     ensureCommunityMembership, joinCustomerToMerchantCommunity, joinCustomerToBrandCommunities,
@@ -56,6 +56,34 @@ app.get('/api/merchant/rewards', auth, async (req, res) => {
   return res.json(rows.map((row) => ({ ...mapRewardRow(row), isActive: row.is_active, quantityLimit: row.quantity_limit, quantityRedeemed: row.quantity_redeemed })));
 });
 
+app.get('/api/merchant/reward-claims', auth, async (req, res) => {
+  const merchantId = await getMerchantProfileIdByUser(pool, req.user.userId);
+  if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+  const rows = (await pool.query(
+    `SELECT rc.id, rc.reward_id, r.reward_name, rc.points_cost, rc.reward_kind,
+            rc.status, rc.redeemed_at, rc.redeemed_by, rc.settlement_id, rc.created_at
+       FROM reward_claims rc
+       LEFT JOIN rewards r ON r.id = rc.reward_id
+      WHERE rc.source_type = 'merchant' AND rc.source_id = $1
+      ORDER BY rc.created_at DESC
+      LIMIT 50`,
+    [merchantId]
+  )).rows;
+  return res.json(rows.map((row) => ({
+    id: row.id,
+    reference: `reward_claim:${row.id}`,
+    rewardId: row.reward_id,
+    rewardName: row.reward_name,
+    pointsCost: Number(row.points_cost || 0),
+    rewardKind: row.reward_kind,
+    status: row.status,
+    redeemedAt: toIso(row.redeemed_at),
+    redeemedBy: row.redeemed_by,
+    settlementId: row.settlement_id,
+    createdAt: toIso(row.created_at),
+  })));
+});
+
 app.get('/api/brand/rewards', auth, async (req, res) => {
   const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
   if (!brandId) return res.status(403).json({ error: 'brand_role_required' });
@@ -66,14 +94,42 @@ app.get('/api/brand/rewards', auth, async (req, res) => {
   return res.json(rows.map((row) => ({ ...mapRewardRow(row), isActive: row.is_active, quantityLimit: row.quantity_limit, quantityRedeemed: row.quantity_redeemed, pickupInstructions: row.pickup_instructions, drawEnabled: row.draw_enabled, drawAt: toIso(row.draw_at) })));
 });
 
-app.get('/api/brand/products', auth, async (req, res) => {
+app.get('/api/brand/reward-claims', auth, async (req, res) => {
   const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
   if (!brandId) return res.status(403).json({ error: 'brand_role_required' });
   const rows = (await pool.query(
-    `SELECT id, name, image_url, barcode, created_at
+    `SELECT rc.id, rc.reward_id, r.reward_name, rc.points_cost, rc.reward_kind,
+            rc.status, rc.redeemed_at, rc.redeemed_by, rc.settlement_id, rc.created_at
+       FROM reward_claims rc
+       LEFT JOIN rewards r ON r.id = rc.reward_id
+      WHERE rc.source_type = 'brand' AND rc.source_id = $1
+      ORDER BY rc.created_at DESC
+      LIMIT 50`,
+    [brandId]
+  )).rows;
+  return res.json(rows.map((row) => ({
+    id: row.id,
+    reference: `reward_claim:${row.id}`,
+    rewardId: row.reward_id,
+    rewardName: row.reward_name,
+    pointsCost: Number(row.points_cost || 0),
+    rewardKind: row.reward_kind,
+    status: row.status,
+    redeemedAt: toIso(row.redeemed_at),
+    redeemedBy: row.redeemed_by,
+    settlementId: row.settlement_id,
+    createdAt: toIso(row.created_at),
+  })));
+});
+
+app.get('/api/brand/products', auth, async (req, res) => {
+  const brandId = await getManageableBrandProductId(pool, req.user.userId);
+  if (!brandId) return res.status(403).json({ error: 'brand_product_permission_required' });
+  const rows = (await pool.query(
+    `SELECT id, name, image_url, barcode, is_active, updated_at, created_at
        FROM product_registry
       WHERE brand_id = $1
-      ORDER BY created_at DESC`,
+      ORDER BY is_active DESC, updated_at DESC, created_at DESC`,
     [brandId]
   )).rows;
   return res.json(rows.map((row) => ({
@@ -81,8 +137,122 @@ app.get('/api/brand/products', auth, async (req, res) => {
     name: row.name,
     imageUrl: row.image_url,
     barcode: row.barcode,
+    isActive: row.is_active,
+    updatedAt: toIso(row.updated_at),
     createdAt: toIso(row.created_at),
   })));
+});
+
+app.patch('/api/brand/products/:id', auth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const brandId = await getManageableBrandProductId(client, req.user.userId);
+    if (!brandId) return res.status(403).json({ error: 'brand_product_permission_required' });
+    const p = req.body || {};
+    const name = String(p.name || '').trim();
+    const barcode = String(p.barcode || '').trim() || null;
+    if (!name) return res.status(400).json({ error: 'product_name_required' });
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [brandId]);
+    const previous = (await client.query(
+      `SELECT id, name, image_url, barcode, is_active
+         FROM product_registry
+        WHERE id = $1 AND brand_id = $2
+        FOR UPDATE`,
+      [req.params.id, brandId]
+    )).rows[0];
+    if (!previous) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'product_not_found' });
+    }
+    if (barcode) {
+      const duplicate = (await client.query(
+        `SELECT id FROM product_registry
+          WHERE brand_id = $1 AND id <> $2 AND LOWER(TRIM(barcode)) = LOWER($3)
+          LIMIT 1`,
+        [brandId, req.params.id, barcode]
+      )).rows[0];
+      if (duplicate) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'product_barcode_exists', productId: duplicate.id });
+      }
+    }
+    const updated = (await client.query(
+      `UPDATE product_registry
+          SET name = $3, image_url = $4, barcode = $5, updated_at = NOW()
+        WHERE id = $1 AND brand_id = $2
+        RETURNING id, name, image_url, barcode, is_active, updated_at`,
+      [req.params.id, brandId, name, String(p.imageUrl || '').trim() || null, barcode]
+    )).rows[0];
+    if (!updated) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'product_not_found' });
+    }
+    await client.query(
+      `INSERT INTO brand_product_audit_logs (id, product_id, brand_id, actor_user_id, action, previous_data, new_data)
+       VALUES ($1,$2,$3,$4,'updated',$5::jsonb,$6::jsonb)`,
+      [
+        id(),
+        updated.id,
+        brandId,
+        req.user.userId,
+        JSON.stringify({name: previous.name, imageUrl: previous.image_url, barcode: previous.barcode, isActive: previous.is_active}),
+        JSON.stringify({name: updated.name, imageUrl: updated.image_url, barcode: updated.barcode, isActive: updated.is_active}),
+      ]
+    );
+    await client.query('COMMIT');
+    return res.json({ ok: true, product: { id: updated.id, name: updated.name, imageUrl: updated.image_url, barcode: updated.barcode, isActive: updated.is_active, updatedAt: toIso(updated.updated_at) } });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_rollbackError) {}
+    return res.status(500).json({ error: 'product_update_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
+});
+
+app.delete('/api/brand/products/:id', auth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const brandId = await getManageableBrandProductId(client, req.user.userId);
+    if (!brandId) return res.status(403).json({ error: 'brand_product_permission_required' });
+    await client.query('BEGIN');
+    const previous = (await client.query(
+      `SELECT id, name, image_url, barcode, is_active
+         FROM product_registry
+        WHERE id = $1 AND brand_id = $2 AND is_active = TRUE
+        FOR UPDATE`,
+      [req.params.id, brandId]
+    )).rows[0];
+    if (!previous) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'active_product_not_found' });
+    }
+    await client.query(
+      `UPDATE product_registry
+          SET is_active = FALSE, updated_at = NOW()
+        WHERE id = $1 AND brand_id = $2`,
+      [req.params.id, brandId]
+    );
+    await client.query(
+      `INSERT INTO brand_product_audit_logs (id, product_id, brand_id, actor_user_id, action, previous_data, new_data)
+       VALUES ($1,$2,$3,$4,'deactivated',$5::jsonb,$6::jsonb)`,
+      [
+        id(),
+        previous.id,
+        brandId,
+        req.user.userId,
+        JSON.stringify({name: previous.name, imageUrl: previous.image_url, barcode: previous.barcode, isActive: true}),
+        JSON.stringify({name: previous.name, imageUrl: previous.image_url, barcode: previous.barcode, isActive: false}),
+      ]
+    );
+    await client.query('COMMIT');
+    return res.json({ ok: true, id: previous.id, isActive: false });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_rollbackError) {}
+    return res.status(500).json({ error: 'product_deactivate_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
 });
 
 app.post('/api/brand/rewards', auth, async (req, res) => {
@@ -107,6 +277,31 @@ app.post('/api/brand/rewards', auth, async (req, res) => {
     [id(), name, safeDescription, value, p.kind === 'physical' ? 'physical' : 'digital', brandId, String(p.imageUrl || '').trim() || null, p.expiresAt || null, quantityLimit, String(p.pickupInstructions || '').trim() || null, drawEnabled, p.drawAt || p.expiresAt || null]
   );
   return res.json({ ok: true, id: result.rows[0].id, status: 'active' });
+});
+
+app.patch('/api/brand/rewards/:id', auth, async (req, res) => {
+  const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
+  if (!brandId) return res.status(403).json({ error: 'brand_role_required' });
+  const p = req.body || {};
+  const quantityLimit = p.quantityLimit == null || String(p.quantityLimit).trim() === '' ? null : Number(p.quantityLimit);
+  if (quantityLimit != null && (!Number.isInteger(quantityLimit) || quantityLimit <= 0)) {
+    return res.status(400).json({ error: 'invalid_quantity_limit' });
+  }
+  const result = await pool.query(
+    `UPDATE rewards
+        SET is_active = COALESCE($1, is_active),
+            quantity_limit = COALESCE($2, quantity_limit),
+            expires_at = COALESCE($3, expires_at),
+            description = COALESCE($4, description)
+      WHERE id = $5
+        AND source_type = 'brand'
+        AND source_id = $6
+        AND ($2::int IS NULL OR $2::int >= quantity_redeemed)
+      RETURNING id, is_active, quantity_limit, quantity_redeemed`,
+    [p.isActive == null ? null : Boolean(p.isActive), quantityLimit, p.expiresAt || null, p.description == null ? null : String(p.description).trim(), req.params.id, brandId]
+  );
+  if (!result.rowCount) return res.status(404).json({ error: 'reward_not_found_or_quantity_below_redeemed' });
+  return res.json({ ok: true, reward: result.rows[0] });
 });
 
 app.post('/api/brand/rewards/:id/draw', auth, async (req, res) => {
@@ -156,9 +351,9 @@ app.post('/api/merchant/rewards', auth, async (req, res) => {
   if (!name || !Number.isInteger(value) || value <= 0) return res.status(400).json({ error: 'invalid_reward' });
   if (quantityLimit != null && (!Number.isInteger(quantityLimit) || quantityLimit <= 0)) return res.status(400).json({ error: 'invalid_quantity_limit' });
   const result = await pool.query(
-    `INSERT INTO rewards (id, reward_name, description, value, kind, source_type, source_id, image_url, expires_at, is_active, quantity_limit)
-     VALUES ($1,$2,$3,$4,$5,'merchant',$6,$7,$8,TRUE,$9) RETURNING id`,
-    [id(), name, String(p.description || '').trim() || null, value, p.kind === 'digital' ? 'digital' : 'physical', merchantId, String(p.imageUrl || '').trim() || null, p.expiresAt || null, quantityLimit]
+    `INSERT INTO rewards (id, reward_name, description, value, kind, source_type, source_id, image_url, expires_at, is_active, quantity_limit, pickup_instructions, draw_enabled, draw_at)
+     VALUES ($1,$2,$3,$4,$5,'merchant',$6,$7,$8,TRUE,$9,$10,$11,$12) RETURNING id`,
+    [id(), name, String(p.description || '').trim() || null, value, p.kind === 'digital' ? 'digital' : 'physical', merchantId, String(p.imageUrl || '').trim() || null, p.expiresAt || null, quantityLimit, String(p.pickupInstructions || '').trim() || null, Boolean(p.drawEnabled), p.drawAt || null]
   );
   return res.json({ ok: true, id: result.rows[0].id, status: 'active' });
 });

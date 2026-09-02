@@ -5,6 +5,7 @@ import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
 import 'role_activation_request_screen.dart';
 import 'role_requests_status_screen.dart';
+import 'team_invitations_screen.dart';
 
 class MyRolesScreen extends StatefulWidget {
   final String currentRole;
@@ -23,6 +24,18 @@ class MyRolesScreen extends StatefulWidget {
 class _MyRolesScreenState extends State<MyRolesScreen> {
   late Future<Map<String, dynamic>> _rolesFuture;
 
+  Future<Map<String, dynamic>> _loadRoles() {
+    return (widget.rolesLoader ?? CompanyServerService.getMyRoles)().timeout(
+      const Duration(seconds: 10),
+    );
+  }
+
+  void _retryLoadRoles() {
+    setState(() {
+      _rolesFuture = _loadRoles();
+    });
+  }
+
   String _tx(String key, String fallback) {
     final value = key.tr();
     return value == key ? fallback : value;
@@ -31,7 +44,7 @@ class _MyRolesScreenState extends State<MyRolesScreen> {
   @override
   void initState() {
     super.initState();
-    _rolesFuture = (widget.rolesLoader ?? CompanyServerService.getMyRoles)();
+    _rolesFuture = _loadRoles();
   }
 
   String _statusText(bool active) {
@@ -184,6 +197,34 @@ class _MyRolesScreenState extends State<MyRolesScreen> {
       body: FutureBuilder<Map<String, dynamic>>(
         future: _rolesFuture,
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: Theme.of(context).colorScheme.error,
+                      size: 40,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _tx('my_roles_load_failed', 'Unable to load roles. Please sign in again or retry.'),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _retryLoadRoles,
+                      icon: const Icon(Icons.refresh),
+                      label: Text(_tx('retry', 'Retry')),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -252,6 +293,13 @@ class _MyRolesScreenState extends State<MyRolesScreen> {
               ),
               const SizedBox(height: 8),
               _buildCashierAssociationCard(cashierRows, cashierActive),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TeamInvitationsScreen()),
+                ),
+                icon: const Icon(Icons.mark_email_unread_outlined),
+                label: Text(_tx('team_invitations_title', 'Team invitations')),
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {
@@ -261,9 +309,7 @@ class _MyRolesScreenState extends State<MyRolesScreen> {
                     ),
                   );
                   if (changed == true && mounted) {
-                    setState(() {
-                      _rolesFuture = (widget.rolesLoader ?? CompanyServerService.getMyRoles)();
-                    });
+                    _retryLoadRoles();
                   }
                 },
                 child: Text(_tx('activate_merchant_role', 'Activate merchant role')),
@@ -277,9 +323,7 @@ class _MyRolesScreenState extends State<MyRolesScreen> {
                     ),
                   );
                   if (changed == true && mounted) {
-                    setState(() {
-                      _rolesFuture = (widget.rolesLoader ?? CompanyServerService.getMyRoles)();
-                    });
+                    _retryLoadRoles();
                   }
                 },
                 child: Text(_tx('activate_brand_role', 'Activate brand role')),

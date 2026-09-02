@@ -1,0 +1,25 @@
+[
+  {
+    "name": "desktop",
+    "title": "Coupona App",
+    "bodyWidth": 1440,
+    "viewportWidth": 1440,
+    "canvases": [],
+    "semanticsText": "",
+    "errors": [
+      "request: http://127.0.0.1:3002/main.dart.js net::ERR_ABORTED"
+    ]
+  },
+  {
+    "name": "mobile",
+    "title": "Coupona App",
+    "bodyWidth": 390,
+    "viewportWidth": 390,
+    "canvases": [],
+    "semanticsText": "",
+    "errors": [
+      "request: http://127.0.0.1:3002/canvaskit/chromium/canvaskit.wasm net::ERR_ABORTED",
+      "request: http://127.0.0.1:3002/main.dart.js net::ERR_ABORTED"
+    ]
+  }
+]

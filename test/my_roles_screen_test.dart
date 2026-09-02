@@ -34,6 +34,24 @@ void main() {
     expect(find.text('role_status_active'), findsWidgets);
   });
 
+  testWidgets('My Roles shows a retry action when loading fails', (tester) async {
+    await tester.pumpWidget(
+      app(
+        MyRolesScreen(
+          currentRole: 'customer',
+          rolesLoader: () => Future<Map<String, dynamic>>.error('unauthorized'),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byIcon(Icons.error_outline), findsOneWidget);
+    expect(find.byIcon(Icons.refresh), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
   testWidgets('Customer and merchant mode surfaces are not rendered together', (tester) async {
     await tester.pumpWidget(
       app(

@@ -5,6 +5,7 @@ const https = require('https');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const { SYSTEM_POINT_VALUE } = require('../system-policy');
 
 module.exports = function registerWalletActionsRoutes(app, deps) {
   const {
@@ -49,8 +50,7 @@ app.post('/api/wallet/cashback-v2', auth, async (req, res) => {
       return res.status(400).json({ error: 'invalid_payload' });
     }
 
-    const merchant = (await client.query('SELECT point_value FROM merchant_profiles WHERE id = $1 LIMIT 1', [merchantId])).rows[0];
-    const pointValue = Number(merchant?.point_value || 0);
+    const pointValue = SYSTEM_POINT_VALUE;
 
     await client.query(
       `INSERT INTO customer_merchant_fraction_balance (customer_id, merchant_id, fraction_balance)
@@ -229,8 +229,8 @@ app.post('/api/cashier/grant-points', auth, async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const merchant = (await client.query('SELECT business_name, point_value FROM merchant_profiles WHERE id = $1 LIMIT 1', [merchantId])).rows[0];
-    const pointValue = Number(merchant?.point_value || 0);
+    const merchant = (await client.query('SELECT business_name FROM merchant_profiles WHERE id = $1 LIMIT 1', [merchantId])).rows[0];
+    const pointValue = SYSTEM_POINT_VALUE;
 
     // Fraud control parity with the OCR invoice path: same daily-limit rule applies
     // to POS/cashier-granted purchases, since both paths feed the same Points Engine.

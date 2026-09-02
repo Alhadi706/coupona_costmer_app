@@ -3,6 +3,7 @@ const { id, toIso, parseTargetingCriteria, normalizeMerchantKey } = require('./h
 const { ensureCommunityGroupForRole, ensureCommunityMembership, joinCustomerToMerchantCommunity,
   joinCustomerToBrandCommunities, insertNotification } = require('./services-social');
 const { issueRaffleTicketsForInvoice } = require('./promotion-campaign-service');
+const { SYSTEM_POINT_VALUE } = require('./system-policy');
 
 async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantProfileId) {
   const summary = {
@@ -33,11 +34,7 @@ async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantP
     )).rows[0];
 
     if (!alreadyMerchantAwarded) {
-      const merchant = (await client.query(
-        'SELECT point_value FROM merchant_profiles WHERE id = $1 LIMIT 1',
-        [merchantProfileId]
-      )).rows[0];
-      const pointValue = Number(merchant?.point_value || 0);
+      const pointValue = SYSTEM_POINT_VALUE;
       if (Number.isFinite(pointValue) && pointValue > 0) {
         await client.query(
           `INSERT INTO customer_merchant_fraction_balance (customer_id, merchant_id, fraction_balance)
@@ -164,12 +161,7 @@ async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantP
     )).rows[0];
     if (alreadyBrandAwarded) continue;
 
-    const brand = (await client.query(
-      'SELECT point_value FROM brand_profiles WHERE id = $1 LIMIT 1',
-      [brandId]
-    )).rows[0];
-    const pointValue = Number(brand?.point_value || 0);
-    if (!Number.isFinite(pointValue) || pointValue <= 0) continue;
+    const pointValue = SYSTEM_POINT_VALUE;
 
     await client.query(
       `INSERT INTO customer_brand_fraction_balance (customer_id, brand_id, fraction_balance)
@@ -468,7 +460,8 @@ async function autoMatchLineItemToBrand(client, itemName) {
   const rows = (await client.query(
     `SELECT pr.id AS product_id, pr.brand_id, pr.name
        FROM product_registry pr
-       JOIN brand_profiles bp ON bp.id = pr.brand_id AND bp.status = 'active'`
+       JOIN brand_profiles bp ON bp.id = pr.brand_id AND bp.status = 'active'
+      WHERE pr.is_active = TRUE`
   )).rows;
   let best = null;
   for (const row of rows) {

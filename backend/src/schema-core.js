@@ -1,4 +1,5 @@
 const { pool } = require('./db');
+const { SYSTEM_POINT_VALUE } = require('./system-policy');
 
 async function createCoreTables() {
   await pool.query(`
@@ -49,7 +50,7 @@ async function createCoreTables() {
       location_lat DOUBLE PRECISION,
       location_lng DOUBLE PRECISION,
       location_address TEXT,
-      point_value NUMERIC,
+      point_value NUMERIC NOT NULL DEFAULT 0.1,
       status TEXT NOT NULL DEFAULT 'pending_activation',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -63,7 +64,7 @@ async function createCoreTables() {
       location_lat DOUBLE PRECISION,
       location_lng DOUBLE PRECISION,
       location_address TEXT,
-      point_value NUMERIC,
+      point_value NUMERIC NOT NULL DEFAULT 0.1,
       status TEXT NOT NULL DEFAULT 'pending_activation',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -314,6 +315,10 @@ async function createCoreTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+  await pool.query('ALTER TABLE merchant_profiles ALTER COLUMN point_value SET DEFAULT 0.1');
+  await pool.query('ALTER TABLE brand_profiles ALTER COLUMN point_value SET DEFAULT 0.1');
+  await pool.query('UPDATE merchant_profiles SET point_value = $1 WHERE point_value IS DISTINCT FROM $1', [SYSTEM_POINT_VALUE]);
+  await pool.query('UPDATE brand_profiles SET point_value = $1 WHERE point_value IS DISTINCT FROM $1', [SYSTEM_POINT_VALUE]);
 
   await pool.query('ALTER TABLE invoice_scans ADD COLUMN IF NOT EXISTS order_number TEXT');
   await pool.query('ALTER TABLE invoice_scans ADD COLUMN IF NOT EXISTS invoice_fingerprint TEXT');
@@ -407,6 +412,27 @@ async function createCoreTables() {
     )
   `);
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS merchant_team_invitations (
+      id TEXT PRIMARY KEY,
+      merchant_id TEXT NOT NULL,
+      branch_id TEXT NOT NULL,
+      invited_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      invited_by_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role_type TEXT NOT NULL CHECK (role_type IN ('manager', 'cashier')),
+      permissions JSONB NOT NULL DEFAULT '{}'::jsonb,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'cancelled')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      responded_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_merchant_team_pending_invitation
+      ON merchant_team_invitations(branch_id, invited_user_id, role_type)
+      WHERE status = 'pending'
+  `);
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_merchant_team_invited_user ON merchant_team_invitations(invited_user_id, status)');
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS brand_team_members (
       brand_id TEXT NOT NULL,
       user_id TEXT NOT NULL,
@@ -416,6 +442,21 @@ async function createCoreTables() {
       PRIMARY KEY(brand_id, user_id)
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS brand_team_invitations (
+      id TEXT PRIMARY KEY,
+      brand_id TEXT NOT NULL REFERENCES brand_profiles(id) ON DELETE CASCADE,
+      invited_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      invited_by_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      permissions JSONB NOT NULL DEFAULT '{}'::jsonb,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted','rejected','cancelled')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      responded_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS uq_brand_team_pending_invitation ON brand_team_invitations(brand_id, invited_user_id) WHERE status = 'pending'");
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_brand_team_invited_user ON brand_team_invitations(invited_user_id, status)');
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS customer_merchant_fraction_balance (

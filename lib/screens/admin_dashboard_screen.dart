@@ -6,11 +6,15 @@ import '../services/company_server_service.dart';
 import '../theme/app_themes.dart';
 import '../theme/design_tokens.dart';
 import 'admin_report_detail_screen.dart';
+import 'admin_public_coalition_requests_screen.dart';
 
-typedef AdminRoleRequestsLoader = Future<List<Map<String, dynamic>>> Function(String status);
-typedef AdminPeerAdsLoader = Future<List<Map<String, dynamic>>> Function(String status);
+typedef AdminRoleRequestsLoader =
+    Future<List<Map<String, dynamic>>> Function(String status);
+typedef AdminPeerAdsLoader =
+    Future<List<Map<String, dynamic>>> Function(String status);
 typedef AdminSummaryLoader = Future<Map<String, dynamic>> Function();
-typedef AdminRoleRequestAction = Future<Map<String, dynamic>> Function(String requestId);
+typedef AdminRoleRequestAction =
+    Future<Map<String, dynamic>> Function(String requestId);
 typedef AdminPeerAdAction = Future<Map<String, dynamic>> Function(String adId);
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -50,68 +54,125 @@ class AdminDashboardScreen extends StatefulWidget {
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
 }
 
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+class _AdminDashboardScreenState extends State<AdminDashboardScreen>
+    with SingleTickerProviderStateMixin {
   late Future<List<Map<String, dynamic>>> _roleRequestsFuture;
   late Future<List<Map<String, dynamic>>> _peerAdsFuture;
   late Future<List<Map<String, dynamic>>> _billboardAdsFuture;
   late Future<Map<String, dynamic>> _summaryFuture;
   late Future<Map<String, dynamic>> _operationsFuture;
+  late final TabController _tabController;
+  final Set<String> _pendingActions = <String>{};
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 6, vsync: this);
     _refreshAll();
   }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _openTab(int index) => _tabController.animateTo(index);
 
   void _refreshAll() {
     _roleRequestsFuture = widget.roleRequestsLoader != null
         ? widget.roleRequestsLoader!('pending_admin_review')
-        : CompanyServerService.getAdminRoleRequests(status: 'pending_admin_review');
+        : CompanyServerService.getAdminRoleRequests(
+            status: 'pending_admin_review',
+          );
     _peerAdsFuture = widget.peerAdsLoader != null
         ? widget.peerAdsLoader!('pending_admin_review')
         : CompanyServerService.getAdminPeerAds(status: 'pending_admin_review');
-      _billboardAdsFuture = CompanyServerService.getAdminBillboardAds();
-    _summaryFuture = (widget.summaryLoader ?? CompanyServerService.getAdminDashboardSummary)();
+    _billboardAdsFuture = CompanyServerService.getAdminBillboardAds();
+    _summaryFuture =
+        (widget.summaryLoader ??
+        CompanyServerService.getAdminDashboardSummary)();
     _operationsFuture = CompanyServerService.getAdminOperationsQueue();
   }
 
-  Future<void> _approveRoleRequest(String requestId) async {
-    await (widget.approveRoleRequest ?? CompanyServerService.approveAdminRoleRequest)(requestId);
-    if (!mounted) return;
-    setState(_refreshAll);
+  Future<void> _runAction(String key, Future<void> Function() action) async {
+    if (_pendingActions.contains(key)) return;
+    setState(() => _pendingActions.add(key));
+    try {
+      await action();
+      if (!mounted) return;
+      setState(_refreshAll);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _tx(
+              'admin_action_failed',
+              'Could not complete this action. Please try again.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _pendingActions.remove(key));
+    }
   }
 
   Future<void> _rejectRoleRequest(String requestId) async {
-    await (widget.rejectRoleRequest ?? CompanyServerService.rejectAdminRoleRequest)(requestId);
-    if (!mounted) return;
-    setState(_refreshAll);
+    await _runAction('role:$requestId', () async {
+      await (widget.rejectRoleRequest ??
+          CompanyServerService.rejectAdminRoleRequest)(requestId);
+    });
+  }
+
+  Future<void> _approveRoleRequest(String requestId) async {
+    await _runAction('role:$requestId', () async {
+      await (widget.approveRoleRequest ??
+          CompanyServerService.approveAdminRoleRequest)(requestId);
+    });
   }
 
   Future<void> _approvePeerAd(String adId) async {
-    await (widget.approvePeerAd ?? CompanyServerService.approveAdminPeerAd)(adId);
-    if (!mounted) return;
-    setState(_refreshAll);
+    await _runAction('peer-ad:$adId', () async {
+      await (widget.approvePeerAd ?? CompanyServerService.approveAdminPeerAd)(
+        adId,
+      );
+    });
   }
 
   Future<void> _rejectPeerAd(String adId) async {
-    await (widget.rejectPeerAd ?? CompanyServerService.rejectAdminPeerAd)(adId);
-    if (!mounted) return;
-    setState(_refreshAll);
+    await _runAction('peer-ad:$adId', () async {
+      await (widget.rejectPeerAd ?? CompanyServerService.rejectAdminPeerAd)(
+        adId,
+      );
+    });
   }
 
   Future<void> _approveBillboardAd(String adId) async {
-    await CompanyServerService.approveAdminBillboardAd(adId);
-    if (!mounted) return;
-    setState(_refreshAll);
+    await _runAction('billboard:$adId', () async {
+      await CompanyServerService.approveAdminBillboardAd(adId);
+    });
   }
 
   Future<void> _rejectBillboardAd(String adId) async {
-    await CompanyServerService.rejectAdminBillboardAd(adId);
-    if (!mounted) return;
-    setState(_refreshAll);
+    await _runAction('billboard:$adId', () async {
+      await CompanyServerService.rejectAdminBillboardAd(adId);
+    });
   }
 
-  Future<void> _transitionReport(String reportId, String to, {bool rewardGranted = false}) async {
+  Widget _actionLabel(String key, String label) => _pendingActions.contains(key)
+      ? const SizedBox.square(
+          dimension: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )
+      : Text(label);
+
+  Future<void> _transitionReport(
+    String reportId,
+    String to, {
+    bool rewardGranted = false,
+  }) async {
     try {
       await CompanyServerService.transitionAdminReport(
         reportId,
@@ -123,7 +184,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not update the report. Please refresh and try again.')),
+        const SnackBar(
+          content: Text(
+            'Could not update the report. Please refresh and try again.',
+          ),
+        ),
       );
     }
   }
@@ -154,10 +219,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 10),
             child,
           ],
@@ -168,18 +230,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildLoadError(AsyncSnapshot<dynamic> snapshot) {
     final message = snapshot.error.toString();
-    final sessionExpired = message.contains('401') || message.toLowerCase().contains('invalid token');
+    final sessionExpired =
+        message.contains('401') ||
+        message.toLowerCase().contains('invalid token');
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(sessionExpired ? Icons.lock_clock_outlined : Icons.cloud_off_outlined, color: Colors.orange, size: 40),
+            Icon(
+              sessionExpired
+                  ? Icons.lock_clock_outlined
+                  : Icons.cloud_off_outlined,
+              color: Colors.orange,
+              size: 40,
+            ),
             const SizedBox(height: 10),
             Text(
               sessionExpired
-                  ? _tx('admin_session_expired', 'Admin session expired. Please sign in again.')
+                  ? _tx(
+                      'admin_session_expired',
+                      'Admin session expired. Please sign in again.',
+                    )
                   : _tx('admin_load_failed', 'Could not load this section.'),
               textAlign: TextAlign.center,
             ),
@@ -205,7 +278,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
         final rows = snapshot.data!;
         if (rows.isEmpty) {
-          return Text(_tx('admin_no_pending_role_requests', 'No pending role requests.'));
+          return Text(
+            _tx('admin_no_pending_role_requests', 'No pending role requests.'),
+          );
         }
 
         return ListView.builder(
@@ -220,39 +295,69 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             final lat = row['locationLat'];
             final lng = row['locationLng'];
             final locationAddress = (row['locationAddress'] ?? '').toString();
-            final locationLabel =
-                (lat != null && lng != null) ? '${lat.toString()}, ${lng.toString()}' : '-';
+            final locationLabel = (lat != null && lng != null)
+                ? '${lat.toString()}, ${lng.toString()}'
+                : '-';
             final localizedRole = _roleLabel(roleType);
+            final actionKey = 'role:$requestId';
+            final actionPending = _pendingActions.contains(actionKey);
 
             return _sectionCard(
               title: '$businessName ($localizedRole)',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('admin_phone_value'.tr(namedArgs: {'value': phone}) == 'admin_phone_value'
-                      ? 'Phone: $phone'
-                      : 'admin_phone_value'.tr(namedArgs: {'value': phone})),
-                  Text('admin_plan_value'.tr(namedArgs: {'value': planType}) == 'admin_plan_value'
-                      ? 'Plan: $planType'
-                      : 'admin_plan_value'.tr(namedArgs: {'value': planType})),
-                  Text('admin_location_value'.tr(namedArgs: {'value': locationLabel}) == 'admin_location_value'
-                      ? 'Location: $locationLabel'
-                      : 'admin_location_value'.tr(namedArgs: {'value': locationLabel})),
+                  Text(
+                    'admin_phone_value'.tr(namedArgs: {'value': phone}) ==
+                            'admin_phone_value'
+                        ? 'Phone: $phone'
+                        : 'admin_phone_value'.tr(namedArgs: {'value': phone}),
+                  ),
+                  Text(
+                    'admin_plan_value'.tr(namedArgs: {'value': planType}) ==
+                            'admin_plan_value'
+                        ? 'Plan: $planType'
+                        : 'admin_plan_value'.tr(namedArgs: {'value': planType}),
+                  ),
+                  Text(
+                    'admin_location_value'.tr(
+                              namedArgs: {'value': locationLabel},
+                            ) ==
+                            'admin_location_value'
+                        ? 'Location: $locationLabel'
+                        : 'admin_location_value'.tr(
+                            namedArgs: {'value': locationLabel},
+                          ),
+                  ),
                   if (locationAddress.isNotEmpty)
-                    Text('admin_address_value'.tr(namedArgs: {'value': locationAddress}) == 'admin_address_value'
-                        ? 'Address: $locationAddress'
-                        : 'admin_address_value'.tr(namedArgs: {'value': locationAddress})),
+                    Text(
+                      'admin_address_value'.tr(
+                                namedArgs: {'value': locationAddress},
+                              ) ==
+                              'admin_address_value'
+                          ? 'Address: $locationAddress'
+                          : 'admin_address_value'.tr(
+                              namedArgs: {'value': locationAddress},
+                            ),
+                    ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       ElevatedButton(
-                        onPressed: requestId.isEmpty ? null : () => _approveRoleRequest(requestId),
-                        child: Text(_tx('approve', 'Approve')),
+                        onPressed: requestId.isEmpty || actionPending
+                            ? null
+                            : () => _approveRoleRequest(requestId),
+                        child: _actionLabel(
+                          actionKey,
+                          _tx('approve', 'Approve'),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       OutlinedButton(
-                        onPressed: requestId.isEmpty ? null : () => _rejectRoleRequest(requestId),
-                        child: Text(_tx('reject', 'Reject')),
+                        onPressed: requestId.isEmpty || actionPending
+                            ? null
+                            : () => _rejectRoleRequest(requestId),
+                        child: _actionLabel(actionKey, _tx('reject', 'Reject')),
                       ),
                     ],
                   ),
@@ -286,26 +391,48 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             final content = (row['content'] ?? '-').toString();
             final targetType = (row['targetType'] ?? '-').toString();
             final targetValue = (row['targetValue'] ?? '-').toString();
+            final actionKey = 'peer-ad:$adId';
+            final actionPending = _pendingActions.contains(actionKey);
 
             return _sectionCard(
               title: content,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('admin_target_value'.tr(namedArgs: {'type': targetType, 'value': targetValue}) == 'admin_target_value'
-                      ? 'Target: $targetType / $targetValue'
-                      : 'admin_target_value'.tr(namedArgs: {'type': targetType, 'value': targetValue})),
+                  Text(
+                    'admin_target_value'.tr(
+                              namedArgs: {
+                                'type': targetType,
+                                'value': targetValue,
+                              },
+                            ) ==
+                            'admin_target_value'
+                        ? 'Target: $targetType / $targetValue'
+                        : 'admin_target_value'.tr(
+                            namedArgs: {
+                              'type': targetType,
+                              'value': targetValue,
+                            },
+                          ),
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       ElevatedButton(
-                        onPressed: adId.isEmpty ? null : () => _approvePeerAd(adId),
-                        child: Text(_tx('approve', 'Approve')),
+                        onPressed: adId.isEmpty || actionPending
+                            ? null
+                            : () => _approvePeerAd(adId),
+                        child: _actionLabel(
+                          actionKey,
+                          _tx('approve', 'Approve'),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       OutlinedButton(
-                        onPressed: adId.isEmpty ? null : () => _rejectPeerAd(adId),
-                        child: Text(_tx('reject', 'Reject')),
+                        onPressed: adId.isEmpty || actionPending
+                            ? null
+                            : () => _rejectPeerAd(adId),
+                        child: _actionLabel(actionKey, _tx('reject', 'Reject')),
                       ),
                     ],
                   ),
@@ -323,35 +450,83 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       future: _billboardAdsFuture,
       builder: (context, snapshot) {
         if (snapshot.hasError) return _buildLoadError(snapshot);
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        final rows = snapshot.data!.where((row) => row['lifecycleStatus'] == 'pending_review').toList();
-        if (rows.isEmpty) return Text(_tx('billboard_no_pending', 'No ads waiting for review.'));
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final rows = snapshot.data!
+            .where((row) => row['lifecycleStatus'] == 'pending_review')
+            .toList();
+        if (rows.isEmpty) {
+          return Text(
+            _tx('billboard_no_pending', 'No ads waiting for review.'),
+          );
+        }
         return ListView.builder(
           itemCount: rows.length,
           itemBuilder: (context, index) {
             final row = rows[index];
             final adId = (row['id'] ?? '').toString();
             final imageUrl = (row['imageUrl'] ?? '').toString();
+            final actionKey = 'billboard:$adId';
+            final actionPending = _pendingActions.contains(actionKey);
             return _sectionCard(
               title: (row['description'] ?? '-').toString(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (imageUrl.isNotEmpty)
-                    Image.network(imageUrl, height: 120, width: double.infinity, fit: BoxFit.cover),
+                    Image.network(
+                      imageUrl,
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, progress) =>
+                          progress == null
+                          ? child
+                          : const SizedBox(
+                              height: 120,
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 120,
+                        width: double.infinity,
+                        color: Colors.grey.shade100,
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.broken_image_outlined),
+                            const SizedBox(height: 4),
+                            Text(
+                              _tx(
+                                'billboard_image_unavailable',
+                                'Image unavailable',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 8),
                   Text((row['category'] ?? '').toString()),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       ElevatedButton(
-                        onPressed: adId.isEmpty ? null : () => _approveBillboardAd(adId),
-                        child: Text(_tx('approve', 'Approve')),
+                        onPressed: adId.isEmpty || actionPending
+                            ? null
+                            : () => _approveBillboardAd(adId),
+                        child: _actionLabel(
+                          actionKey,
+                          _tx('approve', 'Approve'),
+                        ),
                       ),
                       const SizedBox(width: 8),
                       OutlinedButton(
-                        onPressed: adId.isEmpty ? null : () => _rejectBillboardAd(adId),
-                        child: Text(_tx('reject', 'Reject')),
+                        onPressed: adId.isEmpty || actionPending
+                            ? null
+                            : () => _rejectBillboardAd(adId),
+                        child: _actionLabel(actionKey, _tx('reject', 'Reject')),
                       ),
                     ],
                   ),
@@ -386,139 +561,281 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             .toList();
         final activitySpots = activity.asMap().entries.map((entry) {
           final value = entry.value;
-          final approvedInvoices = double.tryParse('${value['approvedInvoices'] ?? 0}') ?? 0;
+          final approvedInvoices =
+              double.tryParse('${value['approvedInvoices'] ?? 0}') ?? 0;
           final reportCount = double.tryParse('${value['reports'] ?? 0}') ?? 0;
           final newUsers = double.tryParse('${value['newUsers'] ?? 0}') ?? 0;
-          return FlSpot(entry.key.toDouble(), approvedInvoices + reportCount + newUsers);
+          return FlSpot(
+            entry.key.toDouble(),
+            approvedInvoices + reportCount + newUsers,
+          );
         }).toList();
 
         final salesSpots = activity.asMap().entries.map((entry) {
           final value = entry.value;
-          final dailySales = double.tryParse('${value['dailySales'] ?? 0}') ?? 0;
+          final dailySales =
+              double.tryParse('${value['dailySales'] ?? 0}') ?? 0;
           return FlSpot(entry.key.toDouble(), dailySales);
         }).toList();
 
-        final usersPct = (users > 0 ? (users / (users + merchants + brands)) * 100 : 0).toDouble();
-        final merchantsPct = (merchants > 0 ? (merchants / (users + merchants + brands)) * 100 : 0).toDouble();
-        final brandsPct = (brands > 0 ? (brands / (users + merchants + brands)) * 100 : 0).toDouble();
+        final usersPct =
+            (users > 0 ? (users / (users + merchants + brands)) * 100 : 0)
+                .toDouble();
+        final merchantsPct =
+            (merchants > 0
+                    ? (merchants / (users + merchants + brands)) * 100
+                    : 0)
+                .toDouble();
+        final brandsPct =
+            (brands > 0 ? (brands / (users + merchants + brands)) * 100 : 0)
+                .toDouble();
 
         final metricCards = [
-          _buildMetricCard(_tx('admin_active_merchants', 'Active merchants'), activeMerchants, const Color(0xFF4F6BFF)),
-          _buildMetricCard(_tx('admin_total_sales', 'Total sales'), totalSales, const Color(0xFF00B894)),
-          _buildMetricCard(_tx('admin_users', 'Users'), users, const Color(0xFF7C4DFF)),
-          _buildMetricCard(_tx('admin_reports', 'Reports'), reports, const Color(0xFFFFA726)),
-          _buildMetricCard(_tx('admin_fraud_flags', 'Fraud flags'), fraudFlags, const Color(0xFFEF5350)),
-          _buildMetricCard(_tx('admin_groups', 'Groups'), groups, const Color(0xFF26A69A)),
+          _buildMetricCard(
+            _tx('admin_active_merchants', 'Active merchants'),
+            activeMerchants,
+            const Color(0xFF4F6BFF),
+          ),
+          _buildMetricCard(
+            _tx('admin_total_sales', 'Total sales'),
+            totalSales,
+            const Color(0xFF00B894),
+          ),
+          _buildMetricCard(
+            _tx('admin_users', 'Users'),
+            users,
+            const Color(0xFF7C4DFF),
+          ),
+          _buildMetricCard(
+            _tx('admin_reports', 'Reports'),
+            reports,
+            const Color(0xFFFFA726),
+          ),
+          _buildMetricCard(
+            _tx('admin_fraud_flags', 'Fraud flags'),
+            fraudFlags,
+            const Color(0xFFEF5350),
+          ),
+          _buildMetricCard(
+            _tx('admin_groups', 'Groups'),
+            groups,
+            const Color(0xFF26A69A),
+          ),
         ];
 
-        final roleRequestsCountFuture = _roleRequestsFuture.then((rows) => rows.length);
+        final roleRequestsCountFuture = _roleRequestsFuture.then(
+          (rows) => rows.length,
+        );
         final peerAdsCountFuture = _peerAdsFuture.then((rows) => rows.length);
 
         return ListView(
           padding: const EdgeInsets.all(12),
           children: [
             Text(
-              _tx('admin_operations_control_center', 'Operations control center'),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              _tx(
+                'admin_operations_control_center',
+                'Operations control center',
+              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: metricCards,
-            ),
+            Wrap(spacing: 12, runSpacing: 12, children: metricCards),
             const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: _sectionCard(
-                    title: _tx('admin_platform_activity', 'Platform activity & Revenue (30 days)'),
-                    child: SizedBox(
-                      height: 200,
-                      child: LineChart(
-                        LineChartData(
-                          gridData: FlGridData(show: false),
-                          titlesData: FlTitlesData(
-                            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                reservedSize: 22,
-                                getTitlesWidget: (value, meta) => Text('${value.toInt() + 1}', style: const TextStyle(fontSize: 10)),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final narrow = constraints.maxWidth < 720;
+                Widget responsivePanel(Widget child, int flex) =>
+                    narrow ? child : Expanded(flex: flex, child: child);
+                return Flex(
+                  direction: narrow ? Axis.vertical : Axis.horizontal,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    responsivePanel(
+                      _sectionCard(
+                        title: _tx(
+                          'admin_platform_activity',
+                          'Platform activity & Revenue (30 days)',
+                        ),
+                        child: SizedBox(
+                          height: 200,
+                          child: LineChart(
+                            LineChartData(
+                              gridData: FlGridData(show: false),
+                              titlesData: FlTitlesData(
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                rightTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                topTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 22,
+                                    getTitlesWidget: (value, meta) => Text(
+                                      '${value.toInt() + 1}',
+                                      style: const TextStyle(fontSize: 10),
+                                    ),
+                                  ),
+                                ),
                               ),
+                              borderData: FlBorderData(show: false),
+                              lineBarsData: [
+                                LineChartBarData(
+                                  isCurved: true,
+                                  color: const Color(0xFF00B894),
+                                  barWidth: 3,
+                                  isStrokeCapRound: true,
+                                  dotData: FlDotData(show: false),
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    color: const Color(
+                                      0xFF00B894,
+                                    ).withValues(alpha: 0.1),
+                                  ),
+                                  spots: activitySpots.isEmpty
+                                      ? const [FlSpot(0, 0), FlSpot(6, 0)]
+                                      : activitySpots,
+                                ),
+                                LineChartBarData(
+                                  isCurved: true,
+                                  color: const Color(0xFF4F6BFF),
+                                  barWidth: 3,
+                                  isStrokeCapRound: true,
+                                  dotData: FlDotData(show: false),
+                                  belowBarData: BarAreaData(show: false),
+                                  spots: salesSpots.isEmpty
+                                      ? const [FlSpot(0, 0), FlSpot(6, 0)]
+                                      : salesSpots,
+                                ),
+                              ],
                             ),
                           ),
-                          borderData: FlBorderData(show: false),
-                          lineBarsData: [
-                            LineChartBarData(
-                              isCurved: true,
-                              color: const Color(0xFF00B894),
-                              barWidth: 3,
-                              isStrokeCapRound: true,
-                              dotData: FlDotData(show: false),
-                              belowBarData: BarAreaData(show: true, color: const Color(0xFF00B894).withValues(alpha: 0.1)),
-                              spots: activitySpots.isEmpty ? const [FlSpot(0, 0), FlSpot(6, 0)] : activitySpots,
-                            ),
-                            LineChartBarData(
-                              isCurved: true,
-                              color: const Color(0xFF4F6BFF),
-                              barWidth: 3,
-                              isStrokeCapRound: true,
-                              dotData: FlDotData(show: false),
-                              belowBarData: BarAreaData(show: false),
-                              spots: salesSpots.isEmpty ? const [FlSpot(0, 0), FlSpot(6, 0)] : salesSpots,
-                            ),
-                          ],
                         ),
                       ),
+                      3,
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: _sectionCard(
-                    title: _tx('admin_user_distribution', 'User Distribution'),
-                    child: SizedBox(
-                      height: 200,
-                      child: (users + merchants + brands == 0) 
-                          ? const Center(child: Text('No data'))
-                          : PieChart(
-                              PieChartData(
-                                sectionsSpace: 2,
-                                centerSpaceRadius: 40,
-                                sections: [
-                                  PieChartSectionData(color: const Color(0xFF7C4DFF), value: usersPct, title: '${usersPct.toStringAsFixed(0)}%', radius: 25, titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                                  PieChartSectionData(color: const Color(0xFF4F6BFF), value: merchantsPct, title: '${merchantsPct.toStringAsFixed(0)}%', radius: 25, titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                                  PieChartSectionData(color: const Color(0xFF00B894), value: brandsPct, title: '${brandsPct.toStringAsFixed(0)}%', radius: 25, titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                                ],
-                              ),
-                            ),
+                    SizedBox(width: narrow ? 0 : 12, height: narrow ? 12 : 0),
+                    responsivePanel(
+                      _sectionCard(
+                        title: _tx(
+                          'admin_user_distribution',
+                          'User Distribution',
+                        ),
+                        child: SizedBox(
+                          height: 200,
+                          child: (users + merchants + brands == 0)
+                              ? const Center(child: Text('No data'))
+                              : PieChart(
+                                  PieChartData(
+                                    sectionsSpace: 2,
+                                    centerSpaceRadius: 40,
+                                    sections: [
+                                      PieChartSectionData(
+                                        color: const Color(0xFF7C4DFF),
+                                        value: usersPct,
+                                        title:
+                                            '${usersPct.toStringAsFixed(0)}%',
+                                        radius: 25,
+                                        titleStyle: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      PieChartSectionData(
+                                        color: const Color(0xFF4F6BFF),
+                                        value: merchantsPct,
+                                        title:
+                                            '${merchantsPct.toStringAsFixed(0)}%',
+                                        radius: 25,
+                                        titleStyle: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      PieChartSectionData(
+                                        color: const Color(0xFF00B894),
+                                        value: brandsPct,
+                                        title:
+                                            '${brandsPct.toStringAsFixed(0)}%',
+                                        radius: 25,
+                                        titleStyle: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                      ),
+                      2,
                     ),
-                  ),
-                ),
-              ],
+                  ],
+                );
+              },
             ),
             _sectionCard(
               title: _tx('admin_operational_pulse', 'Operational pulse'),
               child: Column(
                 children: [
-                  _buildOpsRow(_tx('admin_customer_reports', 'Customer reports'), _tx('admin_reports_received', '{count} reports received').replaceAll('{count}', '$reports'), _tx('admin_open_queue', 'Open queue'), const Color(0xFFFFA726)),
-                  _buildOpsRow(_tx('admin_risk_review', 'Risk review'), _tx('admin_risk_flags_detected', '{count} risk flags detected').replaceAll('{count}', '$fraudFlags'), _tx('admin_review_needed', 'Review needed'), const Color(0xFFEF5350)),
-                  _buildOpsRow(_tx('admin_merchant_activity', 'Merchant activity'), _tx('admin_active_merchants_30_days', '{count} active in the last 30 days').replaceAll('{count}', '$activeMerchants'), _tx('admin_live', 'Live'), const Color(0xFF00B894)),
+                  _buildOpsRow(
+                    _tx('admin_customer_reports', 'Customer reports'),
+                    _tx(
+                      'admin_reports_received',
+                      '{count} reports received',
+                    ).replaceAll('{count}', '$reports'),
+                    _tx('admin_open_queue', 'Open queue'),
+                    const Color(0xFFFFA726),
+                    onTap: () => _openTab(1),
+                  ),
+                  _buildOpsRow(
+                    _tx('admin_risk_review', 'Risk review'),
+                    _tx(
+                      'admin_risk_flags_detected',
+                      '{count} risk flags detected',
+                    ).replaceAll('{count}', '$fraudFlags'),
+                    _tx('admin_review_needed', 'Review needed'),
+                    const Color(0xFFEF5350),
+                    onTap: () => _openTab(1),
+                  ),
+                  _buildOpsRow(
+                    _tx('admin_merchant_activity', 'Merchant activity'),
+                    _tx(
+                      'admin_active_merchants_30_days',
+                      '{count} active in the last 30 days',
+                    ).replaceAll('{count}', '$activeMerchants'),
+                    _tx('admin_live', 'Live'),
+                    const Color(0xFF00B894),
+                  ),
                 ],
               ),
             ),
             _sectionCard(
-              title: _tx('admin_monitoring_and_actions', 'Monitoring & actions'),
+              title: _tx(
+                'admin_monitoring_and_actions',
+                'Monitoring & actions',
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_tx('admin_business_footprint', 'Business footprint: {m} merchants | {b} brands | {u} users').replaceAll('{m}', '$merchants').replaceAll('{b}', '$brands').replaceAll('{u}', '$users')),
+                  Text(
+                    _tx(
+                          'admin_business_footprint',
+                          'Business footprint: {m} merchants | {b} brands | {u} users',
+                        )
+                        .replaceAll('{m}', '$merchants')
+                        .replaceAll('{b}', '$brands')
+                        .replaceAll('{u}', '$users'),
+                  ),
                   const SizedBox(height: 10),
                   FutureBuilder<int>(
                     future: roleRequestsCountFuture,
@@ -532,10 +849,48 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              _actionChip(_tx('admin_review_role_requests', 'Review role requests'), _tx('admin_pending_count', '{count} pending').replaceAll('{count}', '$roleCount'), const Color(0xFF4F6BFF)),
-                              _actionChip(_tx('admin_approve_ads', 'Approve ads'), _tx('admin_pending_count', '{count} pending').replaceAll('{count}', '$adCount'), const Color(0xFF00B894)),
-                              _actionChip(_tx('admin_escalate_reports', 'Escalate reports'), _tx('admin_reports_count', '{count} reports').replaceAll('{count}', '$reports'), const Color(0xFFFFA726)),
-                              _actionChip(_tx('admin_fraud_monitor', 'Fraud monitor'), _tx('admin_flags_count', '{count} flags').replaceAll('{count}', '$fraudFlags'), const Color(0xFFEF5350)),
+                              _actionChip(
+                                _tx(
+                                  'admin_review_role_requests',
+                                  'Review role requests',
+                                ),
+                                _tx(
+                                  'admin_pending_count',
+                                  '{count} pending',
+                                ).replaceAll('{count}', '$roleCount'),
+                                const Color(0xFF4F6BFF),
+                                onTap: () => _openTab(2),
+                              ),
+                              _actionChip(
+                                _tx('admin_approve_ads', 'Approve ads'),
+                                _tx(
+                                  'admin_pending_count',
+                                  '{count} pending',
+                                ).replaceAll('{count}', '$adCount'),
+                                const Color(0xFF00B894),
+                                onTap: () => _openTab(3),
+                              ),
+                              _actionChip(
+                                _tx(
+                                  'admin_escalate_reports',
+                                  'Escalate reports',
+                                ),
+                                _tx(
+                                  'admin_reports_count',
+                                  '{count} reports',
+                                ).replaceAll('{count}', '$reports'),
+                                const Color(0xFFFFA726),
+                                onTap: () => _openTab(1),
+                              ),
+                              _actionChip(
+                                _tx('admin_fraud_monitor', 'Fraud monitor'),
+                                _tx(
+                                  'admin_flags_count',
+                                  '{count} flags',
+                                ).replaceAll('{count}', '$fraudFlags'),
+                                const Color(0xFFEF5350),
+                                onTap: () => _openTab(1),
+                              ),
                             ],
                           );
                         },
@@ -578,22 +933,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             Text(
               _tx('admin_operations_queue', 'Operations queue'),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
-            Text(_tx('admin_operations_queue_desc', 'Review customer reports, risk signals, and approvals from one place.')),
+            Text(
+              _tx(
+                'admin_operations_queue_desc',
+                'Review customer reports, risk signals, and approvals from one place.',
+              ),
+            ),
             _sectionCard(
-              title: _tx('admin_customer_reports_count', 'Customer reports ({count})').replaceAll('{count}', '${reports.length}'),
+              title: _tx(
+                'admin_customer_reports_count',
+                'Customer reports ({count})',
+              ).replaceAll('{count}', '${reports.length}'),
               child: reports.isEmpty
-                  ? Text(_tx('admin_no_reports_need_review', 'No reports currently need review.'))
+                  ? Text(
+                      _tx(
+                        'admin_no_reports_need_review',
+                        'No reports currently need review.',
+                      ),
+                    )
                   : Column(
                       children: reports.map(_buildReportQueueItem).toList(),
                     ),
             ),
             _sectionCard(
-              title: _tx('admin_risk_signals_count', 'Risk signals ({count})').replaceAll('{count}', '${fraudFlags.length}'),
+              title: _tx(
+                'admin_risk_signals_count',
+                'Risk signals ({count})',
+              ).replaceAll('{count}', '${fraudFlags.length}'),
               child: fraudFlags.isEmpty
-                  ? Text(_tx('admin_no_fraud_flags_found', 'No fraud flags were found.'))
+                  ? Text(
+                      _tx(
+                        'admin_no_fraud_flags_found',
+                        'No fraud flags were found.',
+                      ),
+                    )
                   : Column(
                       children: fraudFlags.map((flag) {
                         final details = flag['details'];
@@ -610,8 +988,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               title: _tx('admin_pending_approvals', 'Pending approvals'),
               child: Column(
                 children: [
-                  _buildOpsRow(_tx('admin_op_role_requests', 'Role requests'), _tx('admin_awaiting_verification', '{count} awaiting verification').replaceAll('{count}', '${roleRequests.length}'), _tx('admin_open_tab', 'Open tab'), const Color(0xFF4F6BFF)),
-                  _buildOpsRow(_tx('admin_op_peer_ads', 'Peer ads'), _tx('admin_awaiting_review', '{count} awaiting review').replaceAll('{count}', '${peerAds.length}'), _tx('admin_open_tab', 'Open tab'), const Color(0xFF00B894)),
+                  _buildOpsRow(
+                    _tx('admin_op_role_requests', 'Role requests'),
+                    _tx(
+                      'admin_awaiting_verification',
+                      '{count} awaiting verification',
+                    ).replaceAll('{count}', '${roleRequests.length}'),
+                    _tx('admin_open_tab', 'Open tab'),
+                    const Color(0xFF4F6BFF),
+                    onTap: () => _openTab(2),
+                  ),
+                  _buildOpsRow(
+                    _tx('admin_op_peer_ads', 'Peer ads'),
+                    _tx(
+                      'admin_awaiting_review',
+                      '{count} awaiting review',
+                    ).replaceAll('{count}', '${peerAds.length}'),
+                    _tx('admin_open_tab', 'Open tab'),
+                    const Color(0xFF00B894),
+                    onTap: () => _openTab(3),
+                  ),
                 ],
               ),
             ),
@@ -623,16 +1019,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildReportQueueItem(Map<String, dynamic> report) {
     final status = '${report['status'] ?? _tx('admin_status_new', 'new')}';
-    final target = '${report['targetName'] ?? _tx('admin_unknown_target', 'Unknown target')}';
-    final detail = '${report['description'] ?? _tx('admin_no_description', 'No description')}';
-    
+    final target =
+        '${report['targetName'] ?? _tx('admin_unknown_target', 'Unknown target')}';
+    final detail =
+        '${report['description'] ?? _tx('admin_no_description', 'No description')}';
+
     return InkWell(
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => AdminReportDetailScreen(
               report: report,
-              onTransition: (reportId, to, {rewardGranted = false}) => _transitionReport(reportId, to, rewardGranted: rewardGranted),
+              onTransition: (reportId, to, {rewardGranted = false}) =>
+                  _transitionReport(reportId, to, rewardGranted: rewardGranted),
             ),
           ),
         );
@@ -641,7 +1040,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFFFA726).withValues(alpha: 0.4)),
+          border: Border.all(
+            color: const Color(0xFFFFA726).withValues(alpha: 0.4),
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -650,14 +1051,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(child: Text(target, style: const TextStyle(fontWeight: FontWeight.w800))),
-                Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey.shade400),
+                Expanded(
+                  child: Text(
+                    target,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Colors.grey.shade400,
+                ),
               ],
             ),
             const SizedBox(height: 4),
             Text(detail, maxLines: 2, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 5),
-            Text('${report['reportType'] ?? _tx('admin_lbl_report', 'report')} | $status | ${report['reporterLabel'] ?? _tx('admin_unknown_reporter', 'Unknown reporter')}'),
+            Text(
+              '${report['reportType'] ?? _tx('admin_lbl_report', 'report')} | $status | ${report['reporterLabel'] ?? _tx('admin_unknown_reporter', 'Unknown reporter')}',
+            ),
           ],
         ),
       ),
@@ -684,7 +1096,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const SizedBox(height: 6),
             Text(
               '$value',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: color),
+              style: TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
             ),
           ],
         ),
@@ -692,8 +1108,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildOpsRow(String title, String detail, String status, Color accent) {
-    return Container(
+  Widget _buildOpsRow(
+    String title,
+    String detail,
+    String status,
+    Color accent, {
+    VoidCallback? onTap,
+  }) {
+    final content = Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -705,14 +1127,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Container(
             width: 10,
             height: 10,
-            decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(999)),
+            decoration: BoxDecoration(
+              color: accent,
+              borderRadius: BorderRadius.circular(999),
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 2),
                 Text(detail, style: TextStyle(color: Colors.grey.shade700)),
               ],
@@ -724,15 +1152,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               color: accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(999),
             ),
-            child: Text(status, style: TextStyle(fontSize: 11, color: accent, fontWeight: FontWeight.w700)),
+            child: Text(
+              status,
+              style: TextStyle(
+                fontSize: 11,
+                color: accent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
     );
+    if (onTap == null) return content;
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: content,
+      ),
+    );
   }
 
-  Widget _actionChip(String label, String meta, Color color) {
-    return Container(
+  Widget _actionChip(
+    String label,
+    String meta,
+    Color color, {
+    VoidCallback? onTap,
+  }) {
+    final content = Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
@@ -747,36 +1196,49 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
     );
+    if (onTap == null) return content;
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: content,
+      ),
+    );
   }
 
   Widget _buildBody() {
-    return DefaultTabController(
-      length: 5,
-      child: Column(
-        children: [
-          TabBar(
-            isScrollable: true,
-            tabs: [
-              Tab(text: _tx('admin_tab_analytics', 'Overview')),
-              Tab(text: _tx('admin_tab_operations', 'Operations')),
-              Tab(text: _tx('admin_tab_role_requests', 'Role Requests')),
-              Tab(text: _tx('admin_tab_peer_ads', 'Peer Ads')),
-              Tab(text: _tx('billboard_review_title', 'Home Billboard Ads')),
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          tabs: [
+            Tab(text: _tx('admin_tab_analytics', 'Overview')),
+            Tab(text: _tx('admin_tab_operations', 'Operations')),
+            Tab(text: _tx('admin_tab_role_requests', 'Role Requests')),
+            Tab(text: _tx('admin_tab_peer_ads', 'Peer Ads')),
+            Tab(text: _tx('billboard_review_title', 'Home Billboard Ads')),
+            Tab(text: _tx('public_coalition_admin_tab', 'Public Coalition')),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildSummary(),
+              _buildOperationsQueue(),
+              _buildRoleRequests(),
+              _buildPeerAds(),
+              _buildBillboardAds(),
+              const AdminPublicCoalitionRequestsScreen(embedded: true),
             ],
           ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildSummary(),
-                _buildOperationsQueue(),
-                _buildRoleRequests(),
-                _buildPeerAds(),
-                _buildBillboardAds(),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

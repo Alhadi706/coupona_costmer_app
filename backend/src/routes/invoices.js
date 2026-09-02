@@ -23,7 +23,7 @@ module.exports = function registerInvoicesRoutes(app, deps) {
     detectImageMime, toIso, normalizeMerchantKey, canonicalMerchantName, normalizeForFingerprint,
     buildInvoiceFingerprint, parseFlexibleDate, haversineDistanceKm, calculateAgeYears,
     parseTargetingCriteria, extractJsonObject, normalizeAiInvoiceFields, analyzeInvoiceWithGemini,
-    auth, requireAdmin, ensureCustomerProfile, getIntSetting, canManageInvoice, canRedeemClaim,
+    auth, requireAdmin, ensureCustomerProfile, getIntSetting, canManageInvoice, canRedeemClaim, getManageableBrandProductId,
     runSubscriptionTransitions, hasBlockRelation, isPrivateChatParticipant, getPeerUserId,
     sendFcmToTokens, getActivePushTokens, insertNotification, ensureCommunityGroupForRole,
     ensureCommunityMembership, joinCustomerToMerchantCommunity, joinCustomerToBrandCommunities,
@@ -124,16 +124,40 @@ app.post('/api/admin/data-retention/run', auth, requireAdmin, async (_req, res) 
 app.post('/api/brand/products', auth, async (req, res) => {
   const client = await pool.connect();
   try {
-    const brandId = await getBrandProfileIdByUser(client, req.user.userId);
-    if (!brandId) return res.status(403).json({ error: 'brand_role_required' });
+    const brandId = await getManageableBrandProductId(client, req.user.userId);
+    if (!brandId) return res.status(403).json({ error: 'brand_product_permission_required' });
     const p = req.body || {};
+    const name = String(p.name || '').trim();
+    const barcode = String(p.barcode || '').trim() || null;
+    if (!name) return res.status(400).json({ error: 'product_name_required' });
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [brandId]);
+    if (barcode) {
+      const duplicate = (await client.query(
+        `SELECT id FROM product_registry
+          WHERE brand_id = $1 AND LOWER(TRIM(barcode)) = LOWER($2)
+          LIMIT 1`,
+        [brandId, barcode]
+      )).rows[0];
+      if (duplicate) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'product_barcode_exists', productId: duplicate.id });
+      }
+    }
     const productId = id();
     await client.query(
       'INSERT INTO product_registry (id, brand_id, name, image_url, barcode) VALUES ($1,$2,$3,$4,$5)',
-      [productId, brandId, String(p.name || '').trim(), p.imageUrl || null, p.barcode || null]
+      [productId, brandId, name, String(p.imageUrl || '').trim() || null, barcode]
     );
-    return res.json({ ok: true, id: productId });
+    await client.query(
+      `INSERT INTO brand_product_audit_logs (id, product_id, brand_id, actor_user_id, action, new_data)
+       VALUES ($1,$2,$3,$4,'created',$5::jsonb)`,
+      [id(), productId, brandId, req.user.userId, JSON.stringify({name, imageUrl: String(p.imageUrl || '').trim() || null, barcode, isActive: true})]
+    );
+    await client.query('COMMIT');
+    return res.status(201).json({ ok: true, id: productId });
   } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_rollbackError) {}
     return res.status(500).json({ error: 'product_create_failed', details: String(e.message || e) });
   } finally {
     client.release();
@@ -201,6 +225,98 @@ app.post('/api/invoices/:id/brand-matches', auth, async (req, res) => {
   }
 });
 
+app.get('/api/merchant/invoices', auth, async (req, res) => {
+  const requestedState = String(req.query.state || 'all').trim().toLowerCase();
+  const allowedStates = new Set(['all', 'uploaded', 'processing', 'manual_review', 'approved', 'rejected', 'disputed']);
+  if (!allowedStates.has(requestedState)) {
+    return res.status(400).json({ error: 'invalid_invoice_state' });
+  }
+  const requestedLimit = Number(req.query.limit || 100);
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(200, Math.trunc(requestedLimit)))
+    : 100;
+  const client = await pool.connect();
+  try {
+    const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+    let reviewerRole = 'merchant_owner';
+    let scopeSql = 's.merchant_profile_id = $1';
+    let scopeParams = [merchantId];
+
+    if (!merchantId) {
+      reviewerRole = 'manager';
+      const branchRows = (await client.query(
+        `SELECT bmp.branch_id
+           FROM branch_manager_permissions bmp
+          WHERE bmp.user_id = $1
+            AND bmp.can_review_invoices = TRUE`,
+        [req.user.userId]
+      )).rows;
+      const branchIds = branchRows.map((row) => row.branch_id);
+      if (!branchIds.length) {
+        return res.status(403).json({ error: 'merchant_invoice_review_permission_required' });
+      }
+      scopeSql = 's.branch_id = ANY($1::text[])';
+      scopeParams = [branchIds];
+    }
+
+    const stateClause = requestedState === 'all' ? '' : `AND s.state = $2`;
+    const params = requestedState === 'all'
+      ? [...scopeParams, limit]
+      : [...scopeParams, requestedState, limit];
+    const limitParam = requestedState === 'all' ? '$2' : '$3';
+    const rows = (await client.query(
+      `SELECT s.id,
+              s.owner_id,
+              COALESCE(u.full_name, u.email) AS owner_label,
+              s.merchant_profile_id,
+              s.branch_id,
+              b.name AS branch_name,
+              s.merchant_name,
+              s.invoice_number,
+              s.invoice_date,
+              s.total_amount,
+              s.currency,
+              s.state,
+              s.review_note,
+              s.reward_applied,
+              s.created_at
+         FROM invoice_scans s
+         LEFT JOIN users u ON u.id = s.owner_id
+         LEFT JOIN branches b ON b.id = s.branch_id
+        WHERE ${scopeSql}
+          ${stateClause}
+        ORDER BY s.created_at DESC
+        LIMIT ${limitParam}`,
+      params
+    )).rows;
+
+    return res.json({
+      reviewerRole,
+      invoices: rows.map((row) => ({
+        id: row.id,
+        ownerId: row.owner_id,
+        ownerLabel: row.owner_label,
+        merchantId: row.merchant_profile_id,
+        branchId: row.branch_id,
+        branchName: row.branch_name,
+        merchantName: row.merchant_name,
+        invoiceNumber: row.invoice_number,
+        invoiceDate: row.invoice_date,
+        totalAmount: row.total_amount == null ? null : Number(row.total_amount),
+        currency: row.currency,
+        state: row.state,
+        reviewNote: row.review_note,
+        rewardApplied: Boolean(row.reward_applied),
+        createdAt: toIso(row.created_at),
+      })),
+    });
+  } catch (e) {
+    return res.status(500).json({ error: 'merchant_invoices_fetch_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
+});
+
 app.post('/api/invoices/:id/state-transition', auth, async (req, res) => {
   const invoiceId = req.params.id;
   const to = String((req.body || {}).to || '').trim();
@@ -261,7 +377,7 @@ app.post('/api/invoices/:id/state-transition', auth, async (req, res) => {
           'invoice_approved',
           'Invoice approved',
           'Your invoice has been approved.',
-          { invoiceId }
+          { invoiceId, targetScreen: 'invoices' }
         );
       }
       if (to === 'rejected') {
@@ -271,7 +387,7 @@ app.post('/api/invoices/:id/state-transition', auth, async (req, res) => {
           'invoice_rejected',
           'Invoice rejected',
           'Your invoice has been rejected. You can dispute it if needed.',
-          { invoiceId, note: note || null }
+          { invoiceId, note: note || null, targetScreen: 'invoices' }
         );
       }
     }
@@ -444,7 +560,7 @@ app.post('/api/merchant/invoices/disputes/:id/resolve', auth, async (req, res) =
         'invoice_approved',
         'Invoice approved after dispute',
         'Your dispute was accepted and the invoice has been approved.',
-        { invoiceId: row.invoice_scan_id, disputeId: row.id }
+        { invoiceId: row.invoice_scan_id, disputeId: row.id, targetScreen: 'invoices' }
       );
     } else {
       await insertNotification(
@@ -453,7 +569,7 @@ app.post('/api/merchant/invoices/disputes/:id/resolve', auth, async (req, res) =
         'invoice_dispute_denied',
         'Invoice dispute denied',
         'Your dispute was reviewed and denied.',
-        { invoiceId: row.invoice_scan_id, disputeId: row.id }
+        { invoiceId: row.invoice_scan_id, disputeId: row.id, targetScreen: 'invoices' }
       );
     }
 

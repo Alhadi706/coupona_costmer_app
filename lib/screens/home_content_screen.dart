@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/customer_campaign_coupons_section.dart';
 import '../widgets/design_system/kupuna_offer_card.dart';
 import '../widgets/design_system/kupuna_top_tabs.dart';
 import '../widgets/stream_load_error.dart';
@@ -18,6 +19,7 @@ class HomeContentScreen extends StatefulWidget {
   final VoidCallback onOpenPeerAdsTab;
   final VoidCallback? onOpenMap;
   final VoidCallback? onOpenRewards;
+  final VoidCallback? onOpenCoalitions;
   final VoidCallback? onOpenCommunity;
   final VoidCallback? onScanReceipt;
   final Future<List<Map<String, dynamic>>> Function()? billboardAdsLoader;
@@ -28,6 +30,7 @@ class HomeContentScreen extends StatefulWidget {
     required this.onOpenPeerAdsTab,
     this.onOpenMap,
     this.onOpenRewards,
+    this.onOpenCoalitions,
     this.onOpenCommunity,
     this.onScanReceipt,
     this.billboardAdsLoader,
@@ -50,6 +53,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   late Future<List<Map<String, dynamic>>> _storesFuture;
   late Future<List<Map<String, dynamic>>> _billboardAdsFuture;
   late Future<Map<String, dynamic>> _pointsFuture;
+  late Future<Map<String, dynamic>> _tiersFuture;
+  late Future<Map<String, dynamic>> _pendingFuture;
+  late Future<Map<String, dynamic>> _sourcesFuture;
   late Future<List<Map<String, dynamic>>> _rewardsFuture;
 
   static const List<String> _bannerKeys = <String>[
@@ -61,16 +67,28 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   @override
   void initState() {
     super.initState();
-    _storesFuture = CompanyServerService.getStores().timeout(
-      const Duration(seconds: 10),
-      onTimeout: () => const <Map<String, dynamic>>[],
+    _storesFuture = CompanyServerService.getStores().catchError(
+      (_) => const <Map<String, dynamic>>[],
     );
-    _billboardAdsFuture = (widget.billboardAdsLoader?.call() ?? CompanyServerService.getBillboardAds()).timeout(
-      const Duration(seconds: 8),
-      onTimeout: () => const <Map<String, dynamic>>[],
+    _billboardAdsFuture =
+        (widget.billboardAdsLoader?.call() ??
+                CompanyServerService.getBillboardAds())
+            .catchError((_) => const <Map<String, dynamic>>[]);
+    _pointsFuture = CompanyServerService.getPointAccount().catchError(
+      (_) => <String, dynamic>{},
     );
-    _pointsFuture = CompanyServerService.getPointAccount().catchError((_) => <String, dynamic>{});
-    _rewardsFuture = CompanyServerService.getRewards().catchError((_) => <Map<String, dynamic>>[]);
+    _tiersFuture = CompanyServerService.getCustomerPointTiers().catchError(
+      (_) => <String, dynamic>{},
+    );
+    _pendingFuture = CompanyServerService.getCustomerPendingPoints().catchError(
+      (_) => <String, dynamic>{},
+    );
+    _sourcesFuture = CompanyServerService.getWalletPointSources().catchError(
+      (_) => <String, dynamic>{},
+    );
+    _rewardsFuture = CompanyServerService.getRewards().catchError(
+      (_) => const <Map<String, dynamic>>[],
+    );
     _resolveCustomerLocation();
   }
 
@@ -83,8 +101,12 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   Future<void> _resolveCustomerLocation() async {
     try {
       final stored = await CompanyServerService.getMyCustomerLocation();
-      final storedLat = stored['latitude'] == null ? null : _toDouble(stored['latitude']);
-      final storedLng = stored['longitude'] == null ? null : _toDouble(stored['longitude']);
+      final storedLat = stored['latitude'] == null
+          ? null
+          : _toDouble(stored['latitude']);
+      final storedLng = stored['longitude'] == null
+          ? null
+          : _toDouble(stored['longitude']);
       if (storedLat != null && storedLng != null && mounted) {
         setState(() {
           _customerLat = storedLat;
@@ -99,7 +121,8 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         return;
       }
 
@@ -135,25 +158,44 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
         ),
       ),
       child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildBanner(),
-              const SizedBox(height: 12),
-              _buildWelcomeSummary(),
-              const SizedBox(height: 12),
-              _buildCurrentMission(),
-              const SizedBox(height: 12),
-              _buildNearbyPreview(),
-              const SizedBox(height: 12),
-              _buildSearchBar(),
-              const SizedBox(height: 12),
-              _buildTopTabs(),
-              const SizedBox(height: 12),
-              _buildTabBody(),
-            ],
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildBanner(),
+                  const SizedBox(height: 12),
+                  _buildWelcomeSummary(),
+                  const SizedBox(height: 12),
+                  const CustomerCampaignCouponsSection(),
+                  const SizedBox(height: 16),
+                  Text(
+                    'home_explore_title'.tr(),
+                    style: kDisplayTextStyle(size: 20, weight: FontWeight.w800),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'home_explore_subtitle'.tr(),
+                    style: kBodyTextStyle(
+                      size: 13,
+                      color: kInk.withValues(alpha: 0.68),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildSearchBar(),
+                  const SizedBox(height: 12),
+                  _buildTopTabs(),
+                  const SizedBox(height: 12),
+                  _buildTabBody(),
+                  const SizedBox(height: 12),
+                  _buildBrandPointsBreakdown(),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -162,7 +204,12 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
 
   Widget _buildWelcomeSummary() {
     return FutureBuilder<dynamic>(
-      future: Future.wait<dynamic>([_pointsFuture, _rewardsFuture]),
+      future: Future.wait<dynamic>([
+        _pointsFuture,
+        _rewardsFuture,
+        _tiersFuture,
+        _pendingFuture,
+      ]),
       builder: (context, snapshot) {
         final points = snapshot.hasData && snapshot.data![0] is Map
             ? Map<String, dynamic>.from(snapshot.data![0] as Map)
@@ -170,17 +217,41 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
         final rewards = snapshot.hasData && snapshot.data![1] is List
             ? List<Map<String, dynamic>>.from(snapshot.data![1] as List)
             : <Map<String, dynamic>>[];
+        final tiersPayload = snapshot.hasData && snapshot.data![2] is Map
+            ? Map<String, dynamic>.from(snapshot.data![2] as Map)
+            : <String, dynamic>{};
+        final pendingPayload = snapshot.hasData && snapshot.data![3] is Map
+            ? Map<String, dynamic>.from(snapshot.data![3] as Map)
+            : <String, dynamic>{};
+        final tiers = tiersPayload['tiers'] is Map
+            ? Map<String, dynamic>.from(tiersPayload['tiers'] as Map)
+            : <String, dynamic>{};
+        final bronze = _tierBalance(tiers, 'bronze');
+        final silver = _tierBalance(tiers, 'silver');
+        final gold = _tierBalance(tiers, 'gold');
+        final pending = _toInt(
+          pendingPayload['total_points'] ?? pendingPayload['totalPoints'],
+        );
         final balance = _toInt(points['availablePoints']);
-        final next = rewards.where((reward) => _toInt(reward['value']) > balance).fold<Map<String, dynamic>?>(null, (current, reward) {
-          if (current == null || _toInt(reward['value']) < _toInt(current['value'])) return reward;
-          return current;
-        });
+        final next = rewards
+            .where((reward) => _toInt(reward['value']) > balance)
+            .fold<Map<String, dynamic>?>(null, (current, reward) {
+              if (current == null ||
+                  _toInt(reward['value']) < _toInt(current['value'])) {
+                return reward;
+              }
+              return current;
+            });
         final target = _toInt(next?['value']);
         final remaining = target > balance ? target - balance : 0;
         final expiresAt = DateTime.tryParse('${next?['expiresAt'] ?? ''}');
         final expiryMessage = expiresAt == null
             ? ''
-            : 'home_reward_expires_suffix'.tr(namedArgs: {'date': expiresAt.toLocal().toString().split(' ').first});
+            : 'home_reward_expires_suffix'.tr(
+                namedArgs: {
+                  'date': expiresAt.toLocal().toString().split(' ').first,
+                },
+              );
         return Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -191,30 +262,103 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(children: [
-                Expanded(child: Text('home_reward_journey_title'.tr(), style: const TextStyle(color: kWhite, fontSize: 18, fontWeight: FontWeight.w800))),
-                Text('points_value'.tr(namedArgs: {'points': '$balance'}), style: const TextStyle(color: kGold, fontSize: 16, fontWeight: FontWeight.w800)),
-              ]),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'رحلتك متعددة المستويات',
+                      style: const TextStyle(
+                        color: kWhite,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'الإجمالي $balance نقطة',
+                    style: const TextStyle(
+                      color: kGold,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 6),
+              _buildTierCounters(
+                bronze: bronze,
+                silver: silver,
+                gold: gold,
+                pending: pending,
+              ),
+              if (pending > 0) ...[
+                const SizedBox(height: 6),
+                Text(
+                  'home_pending_points'.tr(namedArgs: {'value': '$pending'}),
+                  style: kBodyTextStyle(
+                    size: 12,
+                    weight: FontWeight.w600,
+                    color: kWhite.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 10),
               Text(
                 next == null
                     ? 'home_reward_journey_all_unlocked'.tr()
-                    : 'home_reward_journey_remaining'.tr(namedArgs: {
-                          'remaining': '$remaining',
-                          'reward': (next['reward_name'] ?? 'home_mission_next_reward_fallback'.tr()).toString(),
-                        }) +
-                        expiryMessage,
+                    : 'home_reward_journey_remaining'.tr(
+                            namedArgs: {
+                              'remaining': '$remaining',
+                              'reward':
+                                  (next['reward_name'] ??
+                                          'home_mission_next_reward_fallback'
+                                              .tr())
+                                      .toString(),
+                            },
+                          ) +
+                          expiryMessage,
                 style: TextStyle(color: kWhite.withValues(alpha: 0.9)),
               ),
               const SizedBox(height: 10),
-              ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: target <= 0 ? 1 : (balance / target).clamp(0.0, 1.0), minHeight: 8, color: kGold, backgroundColor: kWhite.withValues(alpha: 0.2))),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: target <= 0 ? 1 : (balance / target).clamp(0.0, 1.0),
+                  minHeight: 8,
+                  color: kGold,
+                  backgroundColor: kWhite.withValues(alpha: 0.2),
+                ),
+              ),
               const SizedBox(height: 12),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                _quickAction(Icons.camera_alt_outlined, 'home_quick_scan'.tr(), widget.onScanReceipt),
-                _quickAction(Icons.emoji_events_outlined, 'home_quick_rewards'.tr(), widget.onOpenRewards),
-                _quickAction(Icons.map_outlined, 'home_quick_map'.tr(), widget.onOpenMap),
-                _quickAction(Icons.groups_outlined, 'home_quick_community'.tr(), widget.onOpenCommunity),
-              ]),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: widget.onOpenRewards,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: kWhite,
+                        foregroundColor: kTealDark,
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      icon: const Icon(Icons.card_giftcard_outlined),
+                      label: Text('home_view_rewards'.tr()),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onOpenCoalitions,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: kWhite,
+                        side: BorderSide(color: kWhite.withValues(alpha: 0.7)),
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      icon: const Icon(Icons.hub_outlined),
+                      label: Text('home_coalition_network'.tr()),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         );
@@ -222,71 +366,128 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     );
   }
 
-  Widget _quickAction(IconData icon, String label, VoidCallback? onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(color: kWhite.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [const SizedBox(width: 2), Icon(icon, color: kWhite, size: 18), const SizedBox(width: 6), Text(label, style: const TextStyle(color: kWhite, fontWeight: FontWeight.w700))]),
+  int _tierBalance(Map<String, dynamic> tiers, String key) {
+    final value = tiers[key];
+    if (value is Map) return _toInt(value['balance']);
+    return _toInt(value);
+  }
+
+  Widget _buildTierCounters({
+    required int bronze,
+    required int silver,
+    required int gold,
+    required int pending,
+  }) {
+    final tiles = <Widget>[
+      _tierTile(
+        'البرونزية',
+        bronze,
+        const Color(0xFFC9792B),
+        Icons.workspace_premium_outlined,
+      ),
+      _tierTile(
+        'الفضية',
+        silver,
+        const Color(0xFF9CA3AF),
+        Icons.workspace_premium_outlined,
+      ),
+      _tierTile('الذهبية', gold, kGold, Icons.workspace_premium),
+    ];
+    return Row(
+      children: List<Widget>.generate(
+        tiles.length,
+        (index) => Expanded(
+          child: Padding(
+            padding: EdgeInsetsDirectional.only(
+              end: index == tiles.length - 1 ? 0 : 6,
+            ),
+            child: tiles[index],
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildCurrentMission() {
-    return FutureBuilder<dynamic>(
-      future: Future.wait<dynamic>([_pointsFuture, _rewardsFuture]),
-      builder: (context, snapshot) {
-        final points = snapshot.hasData && snapshot.data![0] is Map ? Map<String, dynamic>.from(snapshot.data![0] as Map) : <String, dynamic>{};
-        final rewards = snapshot.hasData && snapshot.data![1] is List ? List<Map<String, dynamic>>.from(snapshot.data![1] as List) : <Map<String, dynamic>>[];
-        final balance = _toInt(points['availablePoints']);
-        final next = rewards.where((reward) => _toInt(reward['value']) > balance).fold<Map<String, dynamic>?>(null, (current, reward) => current == null || _toInt(reward['value']) < _toInt(current['value']) ? reward : current);
-        final remaining = next == null ? 0 : _toInt(next['value']) - balance;
-        return Card(
-          color: const Color(0xFFFFF7E8),
-          child: ListTile(
-            leading: const CircleAvatar(backgroundColor: Color(0xFFFFE0A3), child: Icon(Icons.flag_outlined, color: Color(0xFF9A6500))),
-            title: Text('home_mission_title'.tr(), style: const TextStyle(fontWeight: FontWeight.w800)),
-            subtitle: Text(
-              next == null
-                  ? 'home_mission_default'.tr()
-                  : 'home_mission_progress'.tr(namedArgs: {
-                      'reward': (next['reward_name'] ?? 'home_mission_next_reward_fallback'.tr()).toString(),
-                      'remaining': '$remaining',
-                    }),
+  Widget _tierTile(String label, int points, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      decoration: BoxDecoration(
+        color: kWhite.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: kWhite,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
             ),
-            trailing: const Icon(Icons.arrow_back_ios_new, size: 16),
-            onTap: widget.onOpenRewards,
           ),
-        );
-      },
+          Text(
+            '$points',
+            style: TextStyle(
+              color: color,
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildNearbyPreview() {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _storesFuture,
+  Widget _buildBrandPointsBreakdown() {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _sourcesFuture,
       builder: (context, snapshot) {
-        final stores = (snapshot.data ?? const <Map<String, dynamic>>[]).take(3).toList(growable: false);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [Expanded(child: Text('nearby_stores'.tr(), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800))), TextButton.icon(onPressed: widget.onOpenMap, icon: const Icon(Icons.map_outlined, size: 17), label: Text('map'.tr()))]),
-            if (stores.isEmpty) Text('nearby_stores_loading'.tr()) else
-              SizedBox(
-                height: 96,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: stores.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final store = stores[index];
-                    return SizedBox(width: 220, child: Card(child: ListTile(dense: true, leading: const Icon(Icons.storefront_outlined, color: kTeal), title: Text((store['name'] ?? '-').toString(), maxLines: 1, overflow: TextOverflow.ellipsis), subtitle: Text((store['category'] ?? 'store'.tr()).toString()), onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => StoreDetailsScreen(store: store))))));
-                  },
+        final payload = snapshot.data ?? const <String, dynamic>{};
+        final brands = payload['brandSources'] is List
+            ? List<Map<String, dynamic>>.from(payload['brandSources'] as List)
+            : <Map<String, dynamic>>[];
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+            height: 64,
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (brands.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return _SectionCard(
+          title: 'نقاط العلامات التجارية',
+          subtitle: 'تفكيك مصدر النقاط من البراندات المشتركة.',
+          child: Column(
+            children: brands.map((brand) {
+              final active = _toInt(brand['activePoints']);
+              final lifetime = _toInt(brand['lifetimePoints']);
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const CircleAvatar(
+                  backgroundColor: kMint,
+                  child: Icon(Icons.verified_outlined, color: kTeal),
                 ),
-              ),
-          ],
+                title: Text(
+                  (brand['sourceName'] ?? 'Brand').toString(),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text('إجمالي مكتسب: $lifetime نقطة'),
+                trailing: Text(
+                  '$active نقطة',
+                  style: const TextStyle(
+                    color: kTeal,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
         );
       },
     );
@@ -305,11 +506,15 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
         if (ads.isNotEmpty) {
           return AdsBannerSlider(
             ads: ads,
-            height: 170,
+            height: 164,
             onAdTap: _handleBillboardTap,
             onAdImpression: (ad) {
               final id = (ad['id'] ?? '').toString();
-              if (id.isNotEmpty) CompanyServerService.trackBillboardImpression(id).catchError((_) {});
+              if (id.isNotEmpty) {
+                CompanyServerService.trackBillboardImpression(
+                  id,
+                ).catchError((_) {});
+              }
             },
           );
         }
@@ -320,7 +525,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           return _buildDefaultBanner();
         }
         return Container(
-          height: 170,
+          height: 164,
           width: double.infinity,
           alignment: Alignment.center,
           decoration: BoxDecoration(
@@ -352,12 +557,20 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
         children: [
           Text(
             'home_banner_title'.tr(),
-            style: kDisplayTextStyle(size: 20, weight: FontWeight.w700, color: kWhite),
+            style: kDisplayTextStyle(
+              size: 20,
+              weight: FontWeight.w700,
+              color: kWhite,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             bannerText,
-            style: kBodyTextStyle(size: 13, color: kWhite.withValues(alpha: 0.92), height: 1.35),
+            style: kBodyTextStyle(
+              size: 13,
+              color: kWhite.withValues(alpha: 0.92),
+              height: 1.35,
+            ),
           ),
           const SizedBox(height: 10),
           Row(
@@ -377,7 +590,10 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
               const SizedBox(width: 8),
               Text(
                 '${_bannerIndex + 1}/${_bannerKeys.length}',
-                style: kBodyTextStyle(size: 12, color: kWhite.withValues(alpha: 0.86)),
+                style: kBodyTextStyle(
+                  size: 12,
+                  color: kWhite.withValues(alpha: 0.86),
+                ),
               ),
             ],
           ),
@@ -403,25 +619,47 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                 if (imageUrl.startsWith('http'))
                   ClipRRect(
                     borderRadius: BorderRadius.circular(14),
-                    child: Image.network(imageUrl, width: double.infinity, height: 180, fit: BoxFit.cover),
+                    child: Image.network(
+                      imageUrl,
+                      width: double.infinity,
+                      height: 180,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 if (!imageUrl.startsWith('http') && assetPath.isNotEmpty)
                   ClipRRect(
                     borderRadius: BorderRadius.circular(14),
-                    child: Image.asset(assetPath, width: double.infinity, height: 180, fit: BoxFit.cover),
+                    child: Image.asset(
+                      assetPath,
+                      width: double.infinity,
+                      height: 180,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 const SizedBox(height: 14),
                 Text(
-                  (ad['description'] ?? ad['title'] ?? 'home_billboard_ad_default_title'.tr()).toString(),
+                  (ad['description'] ??
+                          ad['title'] ??
+                          'home_billboard_ad_default_title'.tr())
+                      .toString(),
                   style: kDisplayTextStyle(size: 20, weight: FontWeight.w700),
                 ),
                 if ((ad['category'] ?? '').toString().isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text((ad['category']).toString(), style: kBodyTextStyle(color: kTeal, weight: FontWeight.w600)),
+                  Text(
+                    (ad['category']).toString(),
+                    style: kBodyTextStyle(
+                      color: kTeal,
+                      weight: FontWeight.w600,
+                    ),
+                  ),
                 ],
                 if ((ad['location'] ?? '').toString().isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  Text((ad['location']).toString(), style: kBodyTextStyle(color: kInk.withValues(alpha: 0.7))),
+                  Text(
+                    (ad['location']).toString(),
+                    style: kBodyTextStyle(color: kInk.withValues(alpha: 0.7)),
+                  ),
                 ],
               ],
             ),
@@ -534,25 +772,42 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
 
           final keyword = _searchController.text.trim().toLowerCase();
           final sourceRows = List<Map<String, dynamic>>.from(snapshot.data!);
-          final categories = sourceRows
-              .map((e) => (e['category'] ?? '').toString().trim())
-              .where((v) => v.isNotEmpty)
-              .toSet()
-              .toList()
-            ..sort();
+          final categories =
+              sourceRows
+                  .map((e) => (e['category'] ?? '').toString().trim())
+                  .where((v) => v.isNotEmpty)
+                  .toSet()
+                  .toList()
+                ..sort();
 
-          final filteredRows = sourceRows.where((store) {
-            final name = (store['name'] ?? '').toString().toLowerCase();
-            final category = (store['category'] ?? '').toString();
-            final matchesKeyword = keyword.isEmpty || name.contains(keyword);
-            final matchesCategory = _selectedDiscoverCategory.isEmpty || category == _selectedDiscoverCategory;
-            return matchesKeyword && matchesCategory;
-          }).toList(growable: false)
-            ..sort((a, b) {
-              final distanceA = _distanceKm(_customerLat, _customerLng, _toDouble(a['lat']), _toDouble(a['lng']));
-              final distanceB = _distanceKm(_customerLat, _customerLng, _toDouble(b['lat']), _toDouble(b['lng']));
-              return distanceA.compareTo(distanceB);
-            });
+          final filteredRows =
+              sourceRows
+                  .where((store) {
+                    final name = (store['name'] ?? '').toString().toLowerCase();
+                    final category = (store['category'] ?? '').toString();
+                    final matchesKeyword =
+                        keyword.isEmpty || name.contains(keyword);
+                    final matchesCategory =
+                        _selectedDiscoverCategory.isEmpty ||
+                        category == _selectedDiscoverCategory;
+                    return matchesKeyword && matchesCategory;
+                  })
+                  .toList(growable: false)
+                ..sort((a, b) {
+                  final distanceA = _distanceKm(
+                    _customerLat,
+                    _customerLng,
+                    _toDouble(a['lat']),
+                    _toDouble(a['lng']),
+                  );
+                  final distanceB = _distanceKm(
+                    _customerLat,
+                    _customerLng,
+                    _toDouble(b['lat']),
+                    _toDouble(b['lng']),
+                  );
+                  return distanceA.compareTo(distanceB);
+                });
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -576,7 +831,8 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                       selected: _selectedDiscoverCategory == cat,
                       onSelected: (_) {
                         setState(() {
-                          _selectedDiscoverCategory = _selectedDiscoverCategory == cat ? '' : cat;
+                          _selectedDiscoverCategory =
+                              _selectedDiscoverCategory == cat ? '' : cat;
                         });
                       },
                     ),
@@ -586,8 +842,16 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
               const SizedBox(height: 10),
               SegmentedButton<bool>(
                 segments: <ButtonSegment<bool>>[
-                  ButtonSegment<bool>(value: false, icon: const Icon(Icons.view_list), label: Text('home_discover_list'.tr())),
-                  ButtonSegment<bool>(value: true, icon: const Icon(Icons.map_outlined), label: Text('home_discover_map'.tr())),
+                  ButtonSegment<bool>(
+                    value: false,
+                    icon: const Icon(Icons.view_list),
+                    label: Text('home_discover_list'.tr()),
+                  ),
+                  ButtonSegment<bool>(
+                    value: true,
+                    icon: const Icon(Icons.map_outlined),
+                    label: Text('home_discover_map'.tr()),
+                  ),
                 ],
                 selected: <bool>{_discoverMapMode},
                 onSelectionChanged: (value) {
@@ -617,18 +881,15 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     final center = stores.isNotEmpty
         ? LatLng(_toDouble(stores.first['lat']), _toDouble(stores.first['lng']))
         : (_customerLat == null || _customerLng == null)
-            ? _tripoliDefaultCenter
-            : LatLng(_customerLat!, _customerLng!);
+        ? _tripoliDefaultCenter
+        : LatLng(_customerLat!, _customerLng!);
 
     return SizedBox(
       height: 260,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: FlutterMap(
-          options: MapOptions(
-            initialCenter: center,
-            initialZoom: 12,
-          ),
+          options: MapOptions(initialCenter: center, initialZoom: 12),
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -641,10 +902,17 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                     (store) => Marker(
                       width: 42,
                       height: 42,
-                      point: LatLng(_toDouble(store['lat']), _toDouble(store['lng'])),
+                      point: LatLng(
+                        _toDouble(store['lat']),
+                        _toDouble(store['lng']),
+                      ),
                       child: Tooltip(
                         message: (store['name'] ?? '').toString(),
-                        child: const Icon(Icons.location_on, color: Colors.red, size: 36),
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.red,
+                          size: 36,
+                        ),
                       ),
                     ),
                   )
@@ -660,25 +928,40 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     final sourceLat = _customerLat;
     final sourceLng = _customerLng;
     return Column(
-      children: stores.take(10).map((store) {
-        final distance = _distanceKm(sourceLat, sourceLng, _toDouble(store['lat']), _toDouble(store['lng']));
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          child: ListTile(
-            leading: const Icon(Icons.storefront_outlined, color: kTealDark),
-            title: Text((store['name'] ?? '').toString()),
-            subtitle: Text(
-              'home_discover_store_distance'.tr(namedArgs: {
-                'category': (store['category'] ?? '-').toString(),
-                'distance': distance.toStringAsFixed(2),
-              }),
-            ),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => StoreDetailsScreen(store: store)),
-            ),
-          ),
-        );
-      }).toList(growable: false),
+      children: stores
+          .take(10)
+          .map((store) {
+            final distance = _distanceKm(
+              sourceLat,
+              sourceLng,
+              _toDouble(store['lat']),
+              _toDouble(store['lng']),
+            );
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: const Icon(
+                  Icons.storefront_outlined,
+                  color: kTealDark,
+                ),
+                title: Text((store['name'] ?? '').toString()),
+                subtitle: Text(
+                  'home_discover_store_distance'.tr(
+                    namedArgs: {
+                      'category': (store['category'] ?? '-').toString(),
+                      'distance': distance.toStringAsFixed(2),
+                    },
+                  ),
+                ),
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => StoreDetailsScreen(store: store),
+                  ),
+                ),
+              ),
+            );
+          })
+          .toList(growable: false),
     );
   }
 
@@ -687,10 +970,16 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     return double.tryParse((value ?? '').toString()) ?? 0;
   }
 
-  double _distanceKm(double? fromLat, double? fromLng, double toLat, double toLng) {
+  double _distanceKm(
+    double? fromLat,
+    double? fromLng,
+    double toLat,
+    double toLng,
+  ) {
     final originLat = fromLat ?? _tripoliDefaultCenter.latitude;
     final originLng = fromLng ?? _tripoliDefaultCenter.longitude;
-    return Geolocator.distanceBetween(originLat, originLng, toLat, toLng) / 1000;
+    return Geolocator.distanceBetween(originLat, originLng, toLat, toLng) /
+        1000;
   }
 
   Widget _buildOffersList({
@@ -724,20 +1013,28 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           }
 
           final keyword = _searchController.text.trim().toLowerCase();
-          final rows = snapshot.data!.where((row) {
-            final title = (row['description'] ?? row['title'] ?? '').toString().toLowerCase();
-            final category = (row['category'] ?? '').toString().toLowerCase();
-            final ownerType = (row['ownerType'] ?? row['sourceType'] ?? '').toString().toLowerCase();
+          final rows = snapshot.data!
+              .where((row) {
+                final title = (row['description'] ?? row['title'] ?? '')
+                    .toString()
+                    .toLowerCase();
+                final category = (row['category'] ?? '')
+                    .toString()
+                    .toLowerCase();
+                final ownerType = (row['ownerType'] ?? row['sourceType'] ?? '')
+                    .toString()
+                    .toLowerCase();
 
-            if (sourceType != null && !ownerType.contains(sourceType)) {
-              return false;
-            }
+                if (sourceType != null && !ownerType.contains(sourceType)) {
+                  return false;
+                }
 
-            if (keyword.isEmpty) {
-              return true;
-            }
-            return title.contains(keyword) || category.contains(keyword);
-          }).toList(growable: false);
+                if (keyword.isEmpty) {
+                  return true;
+                }
+                return title.contains(keyword) || category.contains(keyword);
+              })
+              .toList(growable: false);
 
           if (rows.isEmpty) {
             return Padding(
@@ -747,18 +1044,25 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           }
 
           return Column(
-            children: rows.take(6).map((offer) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: KupunaOfferCard(
-                  offer: <String, dynamic>{
-                    ...offer,
-                    'title': (offer['description'] ?? offer['title'] ?? 'new_offer'.tr()).toString(),
-                    'subtitle': (offer['category'] ?? '').toString(),
-                  },
-                ),
-              );
-            }).toList(growable: false),
+            children: rows
+                .take(6)
+                .map((offer) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: KupunaOfferCard(
+                      offer: <String, dynamic>{
+                        ...offer,
+                        'title':
+                            (offer['description'] ??
+                                    offer['title'] ??
+                                    'new_offer'.tr())
+                                .toString(),
+                        'subtitle': (offer['category'] ?? '').toString(),
+                      },
+                    ),
+                  );
+                })
+                .toList(growable: false),
           );
         },
       ),
@@ -789,19 +1093,29 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           }
 
           final keyword = _searchController.text.trim().toLowerCase();
-          final rows = snapshot.data!.where((row) {
-            final ownerType = (row['ownerType'] ?? row['sourceType'] ?? '').toString().toLowerCase();
-            final title = (row['description'] ?? row['title'] ?? '').toString().toLowerCase();
-            final category = (row['category'] ?? '').toString().toLowerCase();
-            final isPeer = ownerType.contains('peer') || ownerType.contains('individual');
-            if (!isPeer) {
-              return false;
-            }
-            if (keyword.isEmpty) {
-              return true;
-            }
-            return title.contains(keyword) || category.contains(keyword);
-          }).toList(growable: false);
+          final rows = snapshot.data!
+              .where((row) {
+                final ownerType = (row['ownerType'] ?? row['sourceType'] ?? '')
+                    .toString()
+                    .toLowerCase();
+                final title = (row['description'] ?? row['title'] ?? '')
+                    .toString()
+                    .toLowerCase();
+                final category = (row['category'] ?? '')
+                    .toString()
+                    .toLowerCase();
+                final isPeer =
+                    ownerType.contains('peer') ||
+                    ownerType.contains('individual');
+                if (!isPeer) {
+                  return false;
+                }
+                if (keyword.isEmpty) {
+                  return true;
+                }
+                return title.contains(keyword) || category.contains(keyword);
+              })
+              .toList(growable: false);
 
           if (rows.isEmpty) {
             return Padding(
@@ -811,19 +1125,28 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           }
 
           return Column(
-            children: rows.take(6).map((offer) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: KupunaOfferCard(
-                  offer: <String, dynamic>{
-                    ...offer,
-                    'title': (offer['content'] ?? offer['description'] ?? 'new_offer'.tr()).toString(),
-                    'subtitle': (offer['targetValue'] ?? offer['category'] ?? '').toString(),
-                    'sourceType': 'peer',
-                  },
-                ),
-              );
-            }).toList(growable: false),
+            children: rows
+                .take(6)
+                .map((offer) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: KupunaOfferCard(
+                      offer: <String, dynamic>{
+                        ...offer,
+                        'title':
+                            (offer['content'] ??
+                                    offer['description'] ??
+                                    'new_offer'.tr())
+                                .toString(),
+                        'subtitle':
+                            (offer['targetValue'] ?? offer['category'] ?? '')
+                                .toString(),
+                        'sourceType': 'peer',
+                      },
+                    ),
+                  );
+                })
+                .toList(growable: false),
           );
         },
       ),
@@ -861,9 +1184,22 @@ class _SectionCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: kDisplayTextStyle(size: 16, weight: FontWeight.w700, color: kInk)),
+                      Text(
+                        title,
+                        style: kDisplayTextStyle(
+                          size: 16,
+                          weight: FontWeight.w700,
+                          color: kInk,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text(subtitle, style: kBodyTextStyle(color: kInk.withValues(alpha: 0.6), size: 12)),
+                      Text(
+                        subtitle,
+                        style: kBodyTextStyle(
+                          color: kInk.withValues(alpha: 0.6),
+                          size: 12,
+                        ),
+                      ),
                     ],
                   ),
                 ),

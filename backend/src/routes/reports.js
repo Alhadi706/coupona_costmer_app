@@ -312,6 +312,16 @@ app.get('/api/merchant/reports/inbox', auth, async (req, res) => {
               r.reward_granted,
               r.reward_points,
               r.resolution_note,
+              r.priority,
+              r.assigned_to_user_id,
+              COALESCE((
+                SELECT json_agg(json_build_object(
+                  'id', ru.id, 'authorUserId', ru.author_user_id,
+                  'authorRole', ru.author_role, 'message', ru.message,
+                  'createdAt', ru.created_at
+                ) ORDER BY ru.created_at)
+                  FROM report_updates ru WHERE ru.report_id = r.id
+              ), '[]'::json) AS updates,
               r.created_at,
               r.updated_at,
               CASE
@@ -357,12 +367,116 @@ app.get('/api/merchant/reports/inbox', auth, async (req, res) => {
       rewardGranted: Boolean(row.reward_granted),
       rewardPoints: Number(row.reward_points || 0),
       resolutionNote: row.resolution_note,
+      priority: row.priority || 'normal',
+      assignedToUserId: row.assigned_to_user_id,
+      updates: row.updates || [],
       visibilityReason: row.visibility_reason,
       createdAt: toIso(row.created_at),
       updatedAt: toIso(row.updated_at),
     })));
   } catch (e) {
     return res.status(500).json({ error: 'merchant_reports_inbox_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/reports/my', auth, async (req, res) => {
+  try {
+    const rows = (await pool.query(
+      `SELECT id,
+              report_type,
+              status,
+              description,
+              product_name,
+              target_store_name_snapshot,
+              target_brand_name_snapshot,
+              reward_granted,
+              reward_points,
+              resolution_note,
+              COALESCE((
+                SELECT json_agg(json_build_object(
+                  'id', ru.id, 'authorUserId', ru.author_user_id,
+                  'authorRole', ru.author_role, 'message', ru.message,
+                  'createdAt', ru.created_at
+                ) ORDER BY ru.created_at)
+                  FROM report_updates ru WHERE ru.report_id = reports.id
+              ), '[]'::json) AS updates,
+              created_at,
+              updated_at
+         FROM reports
+        WHERE owner_id = $1
+        ORDER BY created_at DESC
+        LIMIT 100`,
+      [req.user.userId]
+    )).rows;
+    return res.json(rows.map((row) => ({
+      id: row.id,
+      reportType: row.report_type,
+      status: row.status,
+      description: row.description,
+      productName: row.product_name,
+      targetStoreName: row.target_store_name_snapshot,
+      targetBrandName: row.target_brand_name_snapshot,
+      rewardGranted: Boolean(row.reward_granted),
+      rewardPoints: Number(row.reward_points || 0),
+      resolutionNote: row.resolution_note,
+      updates: row.updates || [],
+      createdAt: toIso(row.created_at),
+      updatedAt: toIso(row.updated_at),
+    })));
+  } catch (e) {
+    return res.status(500).json({ error: 'customer_reports_fetch_failed', details: String(e.message || e) });
+  }
+});
+
+app.post('/api/reports/:id/respond', auth, async (req, res) => {
+  const message = String((req.body || {}).message || '').trim();
+  if (!message) return res.status(400).json({ error: 'response_message_required' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const report = (await client.query(
+      `SELECT id, owner_id, status, target_brand_id, target_store_id
+         FROM reports
+        WHERE id = $1 AND owner_id = $2
+        FOR UPDATE`,
+      [req.params.id, req.user.userId]
+    )).rows[0];
+    if (!report) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'report_not_found' }); }
+    if (report.status !== 'information_requested') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'report_not_awaiting_information', status: report.status });
+    }
+    const updateId = id();
+    await client.query(
+      `INSERT INTO report_updates (id, report_id, author_user_id, author_role, message)
+       VALUES ($1,$2,$3,'customer',$4)`,
+      [updateId, report.id, req.user.userId, message]
+    );
+    await client.query(
+      `UPDATE reports
+          SET status = 'new', assigned_to_user_id = NULL, updated_at = NOW()
+        WHERE id = $1`,
+      [report.id]
+    );
+    const recipients = [];
+    if (report.target_brand_id) {
+      const brandOwner = (await client.query('SELECT user_id FROM brand_profiles WHERE id = $1 LIMIT 1', [report.target_brand_id])).rows[0]?.user_id;
+      if (brandOwner) recipients.push(brandOwner);
+    }
+    if (report.target_store_id) {
+      const storeOwner = (await client.query('SELECT user_id FROM merchant_profiles WHERE id = $1 LIMIT 1', [report.target_store_id])).rows[0]?.user_id;
+      if (storeOwner) recipients.push(storeOwner);
+    }
+    for (const recipient of new Set(recipients)) {
+      await insertNotification(client, recipient, 'report_customer_responded', 'رد جديد على البلاغ', 'أضاف المستهلك المعلومات المطلوبة وأعيد البلاغ إلى قائمة المراجعة.', {reportId: report.id, updateId, targetScreen: 'reports'});
+    }
+    await client.query('COMMIT');
+    return res.json({ok: true, id: report.id, updateId, status: 'new'});
+  } catch (error) {
+    await client.query('ROLLBACK');
+    return res.status(500).json({error: 'report_response_failed', details: String(error.message || error)});
   } finally {
     client.release();
   }
@@ -379,7 +493,16 @@ app.get('/api/brand/reports/inbox', auth, async (req, res) => {
             mp.user_id AS store_user_id, mp.phone AS store_phone,
             mp.location_lat AS store_lat, mp.location_lng AS store_lng,
             mp.location_address AS store_address, mp.business_name AS store_name,
-            r.reward_granted, r.reward_points, r.resolution_note, r.created_at
+            r.reward_granted, r.reward_points, r.resolution_note, r.created_at,
+            COALESCE((
+              SELECT json_agg(json_build_object(
+                'id', ru.id, 'authorUserId', ru.author_user_id,
+                'authorRole', ru.author_role, 'message', ru.message,
+                'createdAt', ru.created_at
+              ) ORDER BY ru.created_at)
+                FROM report_updates ru WHERE ru.report_id = r.id
+            ), '[]'::json) AS updates,
+            r.priority, r.assigned_to_user_id
        FROM reports r
        LEFT JOIN users u ON u.id = r.owner_id
        LEFT JOIN merchant_profiles mp ON mp.id = r.target_store_id
@@ -398,7 +521,9 @@ app.get('/api/brand/reports/inbox', auth, async (req, res) => {
     storePhone: row.store_phone, storeLat: row.store_lat == null ? null : Number(row.store_lat),
     storeLng: row.store_lng == null ? null : Number(row.store_lng), storeAddress: row.store_address,
     rewardGranted: Boolean(row.reward_granted), rewardPoints: Number(row.reward_points || 0),
-    resolutionNote: row.resolution_note, createdAt: toIso(row.created_at),
+    resolutionNote: row.resolution_note, priority: row.priority || 'normal',
+    updates: row.updates || [],
+    assignedToUserId: row.assigned_to_user_id, createdAt: toIso(row.created_at),
   })));
 });
 
@@ -408,20 +533,43 @@ app.post('/api/brand/reports/:id/resolve', auth, async (req, res) => {
   const grantReward = Boolean((req.body || {}).grantReward);
   const rewardPoints = Math.max(0, Number((req.body || {}).rewardPoints || 10));
   const resolutionNote = String((req.body || {}).resolutionNote || '').trim() || null;
+  const action = String((req.body || {}).action || (grantReward ? 'reward' : 'accept'));
+  if (!['accept', 'reward', 'reject', 'request_information'].includes(action)) {
+    return res.status(400).json({ error: 'invalid_report_action' });
+  }
+  if (['reject', 'request_information'].includes(action) && !resolutionNote) {
+    return res.status(400).json({ error: 'resolution_note_required' });
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     const report = (await client.query('SELECT * FROM reports WHERE id = $1 AND target_brand_id = $2 FOR UPDATE', [req.params.id, brandId])).rows[0];
     if (!report) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'report_not_found' }); }
-    const status = grantReward ? 'reward_granted' : 'accepted';
-    await client.query(`UPDATE reports SET status=$2, reward_granted=$3, reward_points=$4, resolved_by_user_id=$5, resolved_at=NOW(), resolution_note=$6, updated_at=NOW() WHERE id=$1`, [report.id, status, grantReward, grantReward ? rewardPoints : 0, req.user.userId, resolutionNote]);
-    if (grantReward && rewardPoints > 0) {
+    if (report.status !== 'new') { await client.query('ROLLBACK'); return res.status(409).json({ error: 'report_already_resolved', status: report.status }); }
+    const effectiveReward = action === 'reward';
+    const status = action === 'reward' ? 'reward_granted' : action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : 'information_requested';
+    await client.query(`UPDATE reports SET status=$2, reward_granted=$3, reward_points=$4, resolved_by_user_id=CASE WHEN $2 = 'information_requested' THEN resolved_by_user_id ELSE $5 END, resolved_at=CASE WHEN $2 = 'information_requested' THEN NULL ELSE NOW() END, assigned_to_user_id=$5, resolution_note=$6, updated_at=NOW() WHERE id=$1`, [report.id, status, effectiveReward, effectiveReward ? rewardPoints : 0, req.user.userId, resolutionNote]);
+    if (resolutionNote) {
+      await client.query(
+        `INSERT INTO report_updates (id, report_id, author_user_id, author_role, message)
+         VALUES ($1,$2,$3,'brand',$4)`,
+        [id(), report.id, req.user.userId, resolutionNote]
+      );
+    }
+    if (effectiveReward && rewardPoints > 0) {
       await client.query('INSERT INTO point_accounts (owner_id, available_points, lifetime_points, updated_at) VALUES ($1,0,0,NOW()) ON CONFLICT (owner_id) DO NOTHING', [report.owner_id]);
       await client.query('UPDATE point_accounts SET available_points=available_points+$2, lifetime_points=lifetime_points+$2, updated_at=NOW() WHERE owner_id=$1', [report.owner_id, rewardPoints]);
     }
-    await insertNotification(client, report.owner_id, grantReward ? 'report_accepted_reward' : 'report_accepted', grantReward ? 'تم قبول البلاغ ومنحك نقاطاً' : 'تم قبول البلاغ', grantReward ? `تم قبول بلاغك ومنحك ${rewardPoints} نقطة.` : 'تمت مراجعة بلاغك وقبوله.', { reportId: report.id, rewardPoints: grantReward ? rewardPoints : 0, targetScreen: 'reports' });
+    const notification = action === 'reward'
+      ? ['report_accepted_reward', 'تم قبول البلاغ ومنحك نقاطاً', `تم قبول بلاغك ومنحك ${rewardPoints} نقطة.`]
+      : action === 'accept'
+        ? ['report_accepted', 'تم قبول البلاغ', 'تمت مراجعة بلاغك وقبوله.']
+        : action === 'reject'
+          ? ['report_rejected', 'تم رفض البلاغ', resolutionNote || 'تمت مراجعة بلاغك ورفضه.']
+          : ['report_information_requested', 'معلومات إضافية مطلوبة', resolutionNote || 'يرجى إضافة معلومات أخرى لإكمال مراجعة البلاغ.'];
+    await insertNotification(client, report.owner_id, notification[0], notification[1], notification[2], { reportId: report.id, rewardPoints: effectiveReward ? rewardPoints : 0, targetScreen: 'reports' });
     await client.query('COMMIT');
-    return res.json({ ok: true, id: report.id, status, rewardPoints: grantReward ? rewardPoints : 0 });
+    return res.json({ ok: true, id: report.id, status, rewardPoints: effectiveReward ? rewardPoints : 0 });
   } catch (e) { await client.query('ROLLBACK'); return res.status(500).json({ error: 'brand_report_resolve_failed', details: String(e.message || e) }); }
   finally { client.release(); }
 });
@@ -431,6 +579,13 @@ app.post('/api/merchant/reports/:id/accept', auth, async (req, res) => {
   const grantReward = Boolean((req.body || {}).grantReward);
   const rewardPoints = Math.max(0, Number((req.body || {}).rewardPoints || 10));
   const resolutionNote = String((req.body || {}).resolutionNote || '').trim() || null;
+  const action = String((req.body || {}).action || (grantReward ? 'reward' : 'accept'));
+  if (!['accept', 'reward', 'reject', 'request_information'].includes(action)) {
+    return res.status(400).json({ error: 'invalid_report_action' });
+  }
+  if (['reject', 'request_information'].includes(action) && !resolutionNote) {
+    return res.status(400).json({ error: 'resolution_note_required' });
+  }
 
   const client = await pool.connect();
   try {
@@ -461,7 +616,8 @@ app.post('/api/merchant/reports/:id/accept', auth, async (req, res) => {
               )
             )
           )
-        LIMIT 1`,
+        LIMIT 1
+        FOR UPDATE`,
       [reportId, merchantId]
     )).rows[0];
 
@@ -469,22 +625,42 @@ app.post('/api/merchant/reports/:id/accept', auth, async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'report_not_found_or_not_visible' });
     }
+    if (reportRow.status !== 'new') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'report_already_resolved', status: reportRow.status });
+    }
 
-    const nextStatus = grantReward ? 'reward_granted' : 'accepted';
+    const effectiveReward = action === 'reward';
+    const nextStatus = action === 'reward'
+      ? 'reward_granted'
+      : action === 'accept'
+        ? 'accepted'
+        : action === 'reject'
+          ? 'rejected'
+          : 'information_requested';
     await client.query(
       `UPDATE reports
           SET status = $2,
               reward_granted = $3,
               reward_points = $4,
               resolved_by_user_id = $5,
-              resolved_at = NOW(),
+              resolved_at = CASE WHEN $2 = 'information_requested' THEN NULL ELSE NOW() END,
+              assigned_to_user_id = $5,
               resolution_note = $6,
               updated_at = NOW()
         WHERE id = $1`,
-      [reportId, nextStatus, grantReward, grantReward ? rewardPoints : 0, req.user.userId, resolutionNote]
+      [reportId, nextStatus, effectiveReward, effectiveReward ? rewardPoints : 0, req.user.userId, resolutionNote]
     );
 
-    if (grantReward && rewardPoints > 0) {
+    if (resolutionNote) {
+      await client.query(
+        `INSERT INTO report_updates (id, report_id, author_user_id, author_role, message)
+         VALUES ($1,$2,$3,'merchant',$4)`,
+        [id(), reportId, req.user.userId, resolutionNote]
+      );
+    }
+
+    if (effectiveReward && rewardPoints > 0) {
       await client.query(
         `INSERT INTO point_accounts (owner_id, available_points, lifetime_points, updated_at)
          VALUES ($1, 0, 0, NOW())
@@ -509,12 +685,18 @@ app.post('/api/merchant/reports/:id/accept', auth, async (req, res) => {
     await insertNotification(
       client,
       reportRow.owner_id,
-      grantReward ? 'report_accepted_reward' : 'report_accepted',
-      grantReward ? 'Report accepted with reward' : 'Report accepted',
-      grantReward
+      effectiveReward
+          ? 'report_accepted_reward'
+          : action === 'reject'
+              ? 'report_rejected'
+              : action === 'request_information'
+                  ? 'report_information_requested'
+                  : 'report_accepted',
+      action === 'reject' ? 'Report rejected' : action === 'request_information' ? 'More information required' : effectiveReward ? 'Report accepted with reward' : 'Report accepted',
+      resolutionNote ?? (effectiveReward
         ? `Your report was accepted by ${merchantName}. Reward +${rewardPoints} points added.`
-        : `Your report was accepted by ${merchantName}.`,
-      { reportId, status: nextStatus, rewardPoints: grantReward ? rewardPoints : 0, targetScreen: 'reports' }
+        : `Your report was accepted by ${merchantName}.`),
+      { reportId, status: nextStatus, rewardPoints: effectiveReward ? rewardPoints : 0, targetScreen: 'reports' }
     );
 
     await client.query('COMMIT');
@@ -522,8 +704,8 @@ app.post('/api/merchant/reports/:id/accept', auth, async (req, res) => {
       ok: true,
       id: reportId,
       status: nextStatus,
-      rewardGranted: grantReward,
-      rewardPoints: grantReward ? rewardPoints : 0,
+      rewardGranted: effectiveReward,
+      rewardPoints: effectiveReward ? rewardPoints : 0,
     });
   } catch (e) {
     await client.query('ROLLBACK');

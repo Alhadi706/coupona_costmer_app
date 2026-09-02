@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
@@ -21,6 +22,7 @@ class _RewardQrCodeScreenState extends State<RewardQrCodeScreen> {
 	String? _pickupQrCode;
 	String? _status;
 	String? _error;
+	String? _claimRequestId;
 
 	@override
 	void dispose() {
@@ -46,12 +48,15 @@ class _RewardQrCodeScreenState extends State<RewardQrCodeScreen> {
 		});
 
 		try {
+			_claimRequestId ??= const Uuid().v4();
 			final data = await CompanyServerService.createRewardClaim(
 				pointsCost: pointsCost,
 				sourceType: _sourceType,
 				sourceId: _sourceIdController.text.trim(),
 				rewardKind: _rewardKind,
+				idempotencyKey: _claimRequestId,
 			);
+			_claimRequestId = null;
 			setState(() {
 				_pickupQrCode = (data['pickupQrCode'] ?? '').toString();
 				_status = (data['status'] ?? '').toString();
@@ -82,7 +87,7 @@ class _RewardQrCodeScreenState extends State<RewardQrCodeScreen> {
 					),
 					const SizedBox(height: 8),
 					DropdownButtonFormField<String>(
-						value: _sourceType,
+						initialValue: _sourceType,
 						decoration: const InputDecoration(labelText: 'Source Type'),
 						items: const [
 							DropdownMenuItem(value: 'merchant', child: Text('merchant')),
@@ -98,7 +103,7 @@ class _RewardQrCodeScreenState extends State<RewardQrCodeScreen> {
 					),
 					const SizedBox(height: 8),
 					DropdownButtonFormField<String>(
-						value: _rewardKind,
+						initialValue: _rewardKind,
 						decoration: const InputDecoration(labelText: 'Reward Kind'),
 						items: const [
 							DropdownMenuItem(value: 'physical', child: Text('physical')),
