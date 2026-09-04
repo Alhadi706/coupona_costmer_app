@@ -106,6 +106,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   List<Map<String, dynamic>> _offers = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _merchantRewards = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _merchantRewardClaims = <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _merchantProducts = <Map<String, dynamic>>[];
   String _rewardFilter = 'all';
   Map<String, dynamic> _loyalty = const <String, dynamic>{};
   Map<String, dynamic> _analytics = const <String, dynamic>{};
@@ -153,6 +154,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                 branchId: branchId,
               ).catchError((_) => <String, dynamic>{}),
               CompanyServerService.getMerchantRewardClaims(),
+              CompanyServerService.getMerchantProducts().catchError((_) => <Map<String, dynamic>>[]),
             ]);
       if (!mounted) return;
       final profile = Map<String, dynamic>.from(results[3] as Map<dynamic, dynamic>);
@@ -165,6 +167,9 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
         _merchantRewards = List<Map<String, dynamic>>.from(results[5] as List<dynamic>);
         _merchantRewardClaims = results.length > 8
           ? List<Map<String, dynamic>>.from(results[8] as List<dynamic>)
+          : <Map<String, dynamic>>[];
+        _merchantProducts = results.length > 9
+          ? List<Map<String, dynamic>>.from(results[9] as List<dynamic>)
           : <Map<String, dynamic>>[];
         _roles = Map<String, dynamic>.from(results[6] as Map<dynamic, dynamic>);
         _merchantProfile = profile;
@@ -1137,6 +1142,125 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     );
   }
 
+  Future<void> _editMerchantProduct([Map<String, dynamic>? product]) async {
+    final name = TextEditingController(text: product != null ? '${product['name'] ?? ''}' : '');
+    final imageUrl = TextEditingController(text: product != null ? '${product['imageUrl'] ?? product['image_url'] ?? ''}' : '');
+    final price = TextEditingController(text: product != null && product['price'] != null ? '${product['price']}' : '');
+    final description = TextEditingController(text: product != null ? '${product['description'] ?? ''}' : '');
+    var active = product != null ? product['isActive'] != false : true;
+
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (sheetContext) => StatefulBuilder(
+          builder: (sheetContext, setSheetState) => Padding(
+            padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(sheetContext).viewInsets.bottom + 20),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    product == null ? 'إضافة منتج للمتجر' : 'تعديل المنتج',
+                    style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+                  ),
+                  TextField(
+                    controller: name,
+                    decoration: const InputDecoration(labelText: 'اسم المنتج *'),
+                  ),
+                  TextField(
+                    controller: price,
+                    decoration: const InputDecoration(labelText: 'السعر (اختياري)'),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                  TextField(
+                    controller: description,
+                    decoration: const InputDecoration(labelText: 'وصف المنتج (اختياري)'),
+                  ),
+                  TextField(
+                    controller: imageUrl,
+                    decoration: InputDecoration(
+                      labelText: 'brand_image_url_optional'.tr(),
+                      hintText: 'https://...',
+                    ),
+                    onChanged: (_) => setSheetState(() {}),
+                  ),
+                  if (imageUrl.text.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          imageUrl.text.trim(),
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 120,
+                            color: Colors.grey.shade100,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (product != null)
+                    SwitchListTile(
+                      value: active,
+                      title: const Text('المنتج نشط'),
+                      subtitle: const Text('سيظهر للعملاء في التطبيق عند تفعيله'),
+                      onChanged: (value) => setSheetState(() => active = value),
+                    ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        final parsedPrice = double.tryParse(price.text.trim());
+                        if (name.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('اسم المنتج مطلوب')),
+                          );
+                          return;
+                        }
+                        if (product == null) {
+                          await CompanyServerService.createMerchantProduct(
+                            name: name.text.trim(),
+                            imageUrl: imageUrl.text.trim(),
+                            price: parsedPrice,
+                            description: description.text.trim(),
+                          );
+                        } else {
+                          await CompanyServerService.updateMerchantProduct(
+                            productId: (product['id'] ?? '').toString(),
+                            name: name.text.trim(),
+                            imageUrl: imageUrl.text.trim(),
+                            price: parsedPrice,
+                            description: description.text.trim(),
+                            isActive: active,
+                          );
+                        }
+                        if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                        await _load();
+                      },
+                      child: Text('save'.tr()),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    } finally {
+      name.dispose();
+      imageUrl.dispose();
+      price.dispose();
+      description.dispose();
+    }
+  }
+
   Widget _buildStoreTab() {
     final selectedBranch = _branches.isEmpty
         ? const <String, dynamic>{}
@@ -1188,20 +1312,155 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
           _buildIndigoSection(
             title: 'merchant_branches'.tr(),
             child: Column(
-              children: _branches.map((branch) => ListTile(
-                leading: Icon(
-                  Icons.store_outlined,
-                  color: (branch['id'] ?? '').toString() == (selectedBranch['id'] ?? '').toString() ? kTeal : null,
+              children: _branches.map((branch) {
+                final bImg = (branch['imageUrl'] ?? branch['image_url'] ?? '').toString();
+                final bLat = branch['latitude'] ?? branch['lat'];
+                final bLng = branch['longitude'] ?? branch['lng'];
+                return ListTile(
+                  leading: bImg.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Image.network(
+                            bImg,
+                            width: 40,
+                            height: 40,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.store_outlined, color: kTeal),
+                          ),
+                        )
+                      : Icon(
+                          Icons.store_outlined,
+                          color: (branch['id'] ?? '').toString() == (selectedBranch['id'] ?? '').toString() ? kTeal : null,
+                        ),
+                  title: Text((branch['name'] ?? 'merchant_unnamed_branch'.tr()).toString()),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('${branch['address'] ?? ''}${(branch['workingHours'] ?? '').toString().isEmpty ? '' : ' | ${branch['workingHours']}'}'),
+                      if ((branch['phone'] ?? '').toString().isNotEmpty)
+                        Text('${'merchant_phone'.tr()}: ${branch['phone']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      if (bLat != null && bLng != null)
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on, size: 12, color: kTealDark),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${double.parse(bLat.toString()).toStringAsFixed(4)}, ${double.parse(bLng.toString()).toStringAsFixed(4)}',
+                              style: const TextStyle(fontSize: 11, color: kTealDark),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                  trailing: IconButton(
+                    tooltip: 'merchant_edit_branch'.tr(),
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _editBranch(branch),
+                  ),
+                  onTap: () => setState(() => _analyticsBranchId = (branch['id'] ?? '').toString()),
+                );
+              }).toList(growable: false),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildIndigoSection(
+            title: 'منتجات المتجر',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => _editMerchantProduct(),
+                    icon: const Icon(Icons.add_circle_outline, color: kTeal),
+                    label: const Text('إضافة منتج جديد', style: TextStyle(color: kTeal)),
+                  ),
                 ),
-                title: Text((branch['name'] ?? 'merchant_unnamed_branch'.tr()).toString()),
-                subtitle: Text('${branch['address'] ?? ''}${(branch['workingHours'] ?? '').toString().isEmpty ? '' : ' | ${branch['workingHours']}'}'),
-                trailing: IconButton(
-                  tooltip: 'merchant_edit_branch'.tr(),
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () => _editBranch(branch),
-                ),
-                onTap: () => setState(() => _analyticsBranchId = (branch['id'] ?? '').toString()),
-              )).toList(growable: false),
+                if (_merchantProducts.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: Text(
+                        'لا توجد منتجات مضافة لهذا المتجر حاليًا.',
+                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                      ),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 160,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _merchantProducts.length,
+                      itemBuilder: (context, index) {
+                        final product = _merchantProducts[index];
+                        final pName = (product['name'] ?? '').toString();
+                        final pImage = (product['imageUrl'] ?? product['image_url'] ?? '').toString();
+                        final pPrice = product['price'];
+
+                        return Container(
+                          width: 140,
+                          margin: const EdgeInsets.only(right: 10),
+                          child: Card(
+                            clipBehavior: Clip.antiAlias,
+                            elevation: 1,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: InkWell(
+                              onTap: () => _editMerchantProduct(product),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: pImage.isNotEmpty
+                                        ? Image.network(
+                                            pImage,
+                                            width: double.infinity,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => const Center(
+                                              child: Icon(Icons.broken_image_outlined, color: Colors.grey),
+                                            ),
+                                          )
+                                        : Container(
+                                            color: Colors.grey.shade100,
+                                            child: const Center(
+                                              child: Icon(Icons.inventory_2_outlined, color: Colors.grey),
+                                            ),
+                                          ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(6.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          pName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        ),
+                                        if (pPrice != null)
+                                          Text(
+                                            '$pPrice د.ل',
+                                            style: const TextStyle(
+                                              color: kTealDark,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
@@ -1428,6 +1687,10 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         _buildSubscriptionNotice(),
+        FutureBuilder<Map<String,dynamic>>(
+          future: CompanyServerService.getMerchantEscrowSummary(),
+          builder: (_, snapshot) => snapshot.hasData ? Card(child:ListTile(leading:const Icon(Icons.account_balance_wallet_outlined),title:Text('merchant_escrow_summary'.tr()),subtitle:Text('${'merchant_escrow_balance'.tr()}: ${snapshot.data?['escrowAccount']?['balance']??0} • ${'merchant_settlements_count'.tr()}: ${(snapshot.data?['settlements'] as List?)?.length??0}'))) : const SizedBox.shrink(),
+        ),
         Padding(
           padding: const EdgeInsets.only(top: 12),
           child: Row(
@@ -1513,6 +1776,9 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     final address = TextEditingController(text: '${branch['address'] ?? ''}');
     final hours = TextEditingController(text: '${branch['workingHours'] ?? ''}');
     final phone = TextEditingController(text: '${branch['phone'] ?? ''}');
+    final imageUrl = TextEditingController(text: '${branch['imageUrl'] ?? branch['image_url'] ?? ''}');
+    double? selectedLat = branch['lat'] != null ? double.tryParse(branch['lat'].toString()) : (branch['latitude'] != null ? double.tryParse(branch['latitude'].toString()) : null);
+    double? selectedLng = branch['lng'] != null ? double.tryParse(branch['lng'].toString()) : (branch['longitude'] != null ? double.tryParse(branch['longitude'].toString()) : null);
     var active = (branch['status'] ?? 'active').toString() == 'active';
     try {
       await showModalBottomSheet<void>(
@@ -1522,40 +1788,110 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
         builder: (sheetContext) => StatefulBuilder(
           builder: (sheetContext, setSheetState) => Padding(
             padding: EdgeInsets.fromLTRB(20, 8, 20, MediaQuery.of(sheetContext).viewInsets.bottom + 20),
-            child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('merchant_edit_branch'.tr(), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
-              TextField(controller: name, decoration: InputDecoration(labelText: 'merchant_name'.tr())),
-              TextField(controller: address, decoration: InputDecoration(labelText: 'merchant_address'.tr())),
-              TextField(controller: hours, decoration: InputDecoration(labelText: 'merchant_working_hours'.tr())),
-              TextField(controller: phone, decoration: InputDecoration(labelText: 'merchant_phone'.tr())),
-              SwitchListTile(
-                value: active,
-                title: Text('merchant_branch_active'.tr()),
-                subtitle: Text(active ? 'merchant_branch_active_hint'.tr() : 'merchant_branch_inactive_hint'.tr()),
-                onChanged: (value) => setSheetState(() => active = value),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('merchant_edit_branch'.tr(), style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+                  TextField(controller: name, decoration: InputDecoration(labelText: 'merchant_name'.tr())),
+                  TextField(controller: address, decoration: InputDecoration(labelText: 'merchant_address'.tr())),
+                  TextField(controller: hours, decoration: InputDecoration(labelText: 'merchant_working_hours'.tr())),
+                  TextField(controller: phone, decoration: InputDecoration(labelText: 'merchant_phone'.tr())),
+                  TextField(
+                    controller: imageUrl,
+                    decoration: InputDecoration(
+                      labelText: 'brand_image_url_optional'.tr(),
+                      hintText: 'https://...',
+                    ),
+                    onChanged: (_) => setSheetState(() {}),
+                  ),
+                  if (imageUrl.text.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          imageUrl.text.trim(),
+                          height: 120,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 120,
+                            color: Colors.grey.shade100,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          selectedLat != null && selectedLng != null
+                              ? '${'location_on_map'.tr()}: ${selectedLat!.toStringAsFixed(6)}, ${selectedLng!.toStringAsFixed(6)}'
+                              : 'merchant_branch_geo_required'.tr(),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: selectedLat != null ? kTealDark : Colors.red,
+                          ),
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () async {
+                          final LatLng? picked = await Navigator.of(context).push<LatLng>(
+                            MaterialPageRoute(
+                              builder: (_) => MapPickerScreen(
+                                initialLocation: (selectedLat != null && selectedLng != null)
+                                    ? LatLng(selectedLat!, selectedLng!)
+                                    : null,
+                              ),
+                            ),
+                          );
+                          if (picked != null) {
+                            setSheetState(() {
+                              selectedLat = picked.latitude;
+                              selectedLng = picked.longitude;
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.map_outlined, size: 18),
+                        label: Text('pick_location_on_map'.tr()),
+                      ),
+                    ],
+                  ),
+                  SwitchListTile(
+                    value: active,
+                    title: Text('merchant_branch_active'.tr()),
+                    subtitle: Text(active ? 'merchant_branch_active_hint'.tr() : 'merchant_branch_inactive_hint'.tr()),
+                    onChanged: (value) => setSheetState(() => active = value),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        await CompanyServerService.updateMerchantBranch(
+                          branchId: (branch['id'] ?? '').toString(),
+                          name: name.text.trim(),
+                          address: address.text.trim(),
+                          workingHours: hours.text.trim(),
+                          phone: phone.text.trim(),
+                          status: active ? 'active' : 'inactive',
+                          latitude: selectedLat,
+                          longitude: selectedLng,
+                          imageUrl: imageUrl.text.trim(),
+                        );
+                        if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                        await _load();
+                      },
+                      child: Text('save'.tr()),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () async {
-                    await CompanyServerService.updateMerchantBranch(
-                      branchId: (branch['id'] ?? '').toString(),
-                      name: name.text.trim(),
-                      address: address.text.trim(),
-                      workingHours: hours.text.trim(),
-                      phone: phone.text.trim(),
-                      status: active ? 'active' : 'inactive',
-                    );
-                    if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-                    await _load();
-                  },
-                  child: Text('save'.tr()),
-                ),
-              ),
-            ],
             ),
           ),
         ),
@@ -1565,6 +1901,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       address.dispose();
       hours.dispose();
       phone.dispose();
+      imageUrl.dispose();
     }
   }
 

@@ -55,18 +55,36 @@ class _BrandTeamScreenState extends State<BrandTeamScreen> {
     var identifier = '';
     var canManageProducts = false;
     var canViewGeo = false;
+    var canManageCommunity = false;
+    var canManageCampaigns = false;
+    var canManageAds = false;
+    var canReplyMessages = false;
+    var canViewAnalytics = false;
+    var canRedeemRewards = false;
     final accepted = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(_tx('brand_team_invite', 'Invite brand team member')),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          content: SizedBox(
+            width: 420,
+            height: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
               TextField(key: const Key('brand-team-identifier'), onChanged: (value) => identifier = value, decoration: InputDecoration(labelText: _tx('brand_team_email_phone', 'Registered email or phone'))),
               CheckboxListTile(value: canManageProducts, title: Text(_tx('brand_can_manage_products', 'Manage products')), onChanged: (value) => setDialogState(() => canManageProducts = value == true)),
               CheckboxListTile(value: canViewGeo, title: Text(_tx('brand_can_view_geo_distribution', 'View geographic distribution')), onChanged: (value) => setDialogState(() => canViewGeo = value == true)),
-            ],
+              CheckboxListTile(value: canManageCommunity, title: const Text('إدارة مجتمع العلامة'), onChanged: (value) => setDialogState(() => canManageCommunity = value == true)),
+              CheckboxListTile(value: canManageCampaigns, title: const Text('إدارة الحملات التسويقية'), onChanged: (value) => setDialogState(() => canManageCampaigns = value == true)),
+              CheckboxListTile(value: canManageAds, title: const Text('إدارة الإعلانات'), onChanged: (value) => setDialogState(() => canManageAds = value == true)),
+              CheckboxListTile(value: canReplyMessages, title: const Text('الرد على الرسائل'), onChanged: (value) => setDialogState(() => canReplyMessages = value == true)),
+              CheckboxListTile(value: canViewAnalytics, title: const Text('عرض التحليلات العامة'), onChanged: (value) => setDialogState(() => canViewAnalytics = value == true)),
+              CheckboxListTile(value: canRedeemRewards, title: const Text('تسليم الجوائز وقراءة QR'), onChanged: (value) => setDialogState(() => canRedeemRewards = value == true)),
+                ],
+              ),
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(_tx('cancel', 'Cancel'))),
@@ -76,7 +94,11 @@ class _BrandTeamScreenState extends State<BrandTeamScreen> {
       ),
     );
     if (accepted != true || identifier.trim().isEmpty) return;
-    await (widget.inviter ?? CompanyServerService.inviteBrandTeamMember)(emailOrPhone: identifier.trim(), canManageProducts: canManageProducts, canViewGeoDistribution: canViewGeo);
+    if (widget.inviter != null) {
+      await widget.inviter!(emailOrPhone: identifier.trim(), canManageProducts: canManageProducts, canViewGeoDistribution: canViewGeo);
+    } else {
+      await CompanyServerService.inviteBrandTeamMember(emailOrPhone: identifier.trim(), canManageProducts: canManageProducts, canViewGeoDistribution: canViewGeo, canManageCommunity: canManageCommunity, canManageCampaigns: canManageCampaigns, canManageAds: canManageAds, canReplyMessages: canReplyMessages, canViewAnalytics: canViewAnalytics, canRedeemRewards: canRedeemRewards);
+    }
     await _load();
   }
 
@@ -107,6 +129,12 @@ class _BrandTeamScreenState extends State<BrandTeamScreen> {
                         subtitle: Text([
                           if (member['canManageProducts'] == true) _tx('brand_can_manage_products', 'Manage products'),
                           if (member['canViewGeoDistribution'] == true) _tx('brand_can_view_geo_distribution', 'View geographic distribution'),
+                          if (member['canManageCommunity'] == true) 'إدارة المجتمع',
+                          if (member['canManageCampaigns'] == true) 'الحملات',
+                          if (member['canManageAds'] == true) 'الإعلانات',
+                          if (member['canReplyMessages'] == true) 'الرسائل',
+                          if (member['canViewAnalytics'] == true) 'التحليلات',
+                          if (member['canRedeemRewards'] == true) 'تسليم الجوائز وQR',
                         ].join(' • ')),
                         trailing: IconButton(key: Key('brand-team-revoke-${member['userId']}'), onPressed: () => _revoke(member['userId'].toString()), icon: const Icon(Icons.person_remove_outlined)),
                       ))),

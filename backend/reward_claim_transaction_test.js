@@ -95,7 +95,7 @@ test('cashier without a shared coalition cannot fulfill a brand reward', async (
   assert.equal(allowed, false);
 });
 
-test('claim uses locked reward metadata and writes one unified customer ledger reference', async () => {
+test('physical claim uses locked reward metadata without debiting points before fulfillment', async () => {
   const queries = [];
   const client = {
     async query(sql, params) {
@@ -127,8 +127,9 @@ test('claim uses locked reward metadata and writes one unified customer ledger r
   assert.equal(claimInsert.params[3], 'brand');
   assert.equal(claimInsert.params[4], 'brand-1');
   assert.equal(claimInsert.params[6], 'physical');
-  const ledgerInsert = queries.find(({sql}) => sql.includes('INSERT INTO ledger_entries'));
-  assert.deepEqual(ledgerInsert.params, ['new-id', 'customer-1', -100, 'reward_claim:new-id']);
+  assert.equal(queries.some(({sql}) => sql.includes('UPDATE point_accounts')), false);
+  assert.equal(queries.some(({sql}) => sql.includes('INSERT INTO ledger_entries')), false);
+  assert.equal(queries.some(({sql}) => sql.includes('UPDATE rewards SET quantity_redeemed')), false);
 });
 
 test('concurrent idempotency conflict returns the committed original claim', async () => {
@@ -200,7 +201,9 @@ test('digital reward usage immediately debits source escrow and records settleme
   assert.equal(response.body.settlementId, 'new-id');
   assert.equal(queries.some(({sql}) => sql.includes("'digital_reward_claim_used'")), true);
   const claimInsert = queries.find(({sql}) => sql.includes('INSERT INTO reward_claims'));
-  assert.equal(claimInsert.params[14], 'new-id');
+  assert.equal(claimInsert.params[15], 'new-id');
+  assert.equal(queries.some(({sql}) => sql.includes('UPDATE point_accounts')), true);
+  assert.equal(queries.some(({sql}) => sql.includes("'rewardRedeemed'")), true);
 });
 
 test('unfunded digital reward cannot debit customer points or create a claim', async () => {
@@ -238,10 +241,12 @@ test('brand physical reward fulfillment debits brand escrow and creates settleme
     async query(sql, params) {
       queries.push({sql, params});
       if (sql.includes('SELECT * FROM reward_claims')) return {rows: [{
-        id: 'claim-1', owner_id: 'customer-1', reward_kind: 'physical',
+        id: 'claim-1', owner_id: 'customer-1', reward_id: 'reward-1', reward_kind: 'physical',
         source_type: 'brand', source_id: 'brand-1', points_cost: 80,
         status: 'pending_pickup', expires_at: new Date(Date.now() + 60000),
       }]};
+      if (sql.includes('SELECT available_points')) return {rows: [{available_points: 100}]};
+      if (sql.includes('UPDATE rewards')) return {rowCount: 1, rows: []};
       if (sql.includes('FROM escrow_accounts')) return {rows: [{id: 'escrow-1', balance: 100}]};
       if (sql.includes('UPDATE escrow_accounts')) return {rowCount: 1, rows: []};
       if (sql.includes('SELECT merchant_id FROM cashier_profiles')) return {rows: [{merchant_id: 'merchant-fulfiller'}]};
@@ -262,6 +267,8 @@ test('brand physical reward fulfillment debits brand escrow and creates settleme
   assert.equal(response.body.status, 'redeemed');
   const escrowLookup = queries.find(({sql}) => sql.includes('FROM escrow_accounts'));
   assert.deepEqual(escrowLookup.params, ['brand', 'brand-1']);
+  const ledger = queries.find(({sql}) => sql.includes("'rewardRedeemed'"));
+  assert.deepEqual(ledger.params, ['new-id', 'customer-1', -80, 'reward_claim:claim-1']);
   assert.equal(queries.some(({sql}) => sql.includes('INSERT INTO settlements')), true);
   assert.equal(queries.some(({sql}) => sql.includes("settlement_id = $3")), true);
   assert.equal(queries.at(-1).sql, 'COMMIT');
@@ -273,10 +280,12 @@ test('insufficient brand escrow leaves claim and fulfiller wallet unchanged', as
     async query(sql, params) {
       queries.push({sql, params});
       if (sql.includes('SELECT * FROM reward_claims')) return {rows: [{
-        id: 'claim-1', owner_id: 'customer-1', reward_kind: 'physical',
+        id: 'claim-1', owner_id: 'customer-1', reward_id: 'reward-1', reward_kind: 'physical',
         source_type: 'brand', source_id: 'brand-1', points_cost: 80,
         status: 'pending_pickup', expires_at: new Date(Date.now() + 60000),
       }]};
+      if (sql.includes('SELECT available_points')) return {rows: [{available_points: 100}]};
+      if (sql.includes('UPDATE rewards')) return {rowCount: 1, rows: []};
       if (sql.includes('FROM escrow_accounts')) return {rows: [{id: 'escrow-1', balance: 20}]};
       if (sql.includes('UPDATE escrow_accounts')) return {rowCount: 0, rows: []};
       return {rows: [], rowCount: 1};
@@ -303,7 +312,7 @@ test('expired physical claim restores points inventory and reference ledger atom
     async query(sql, params) {
       queries.push({sql, params});
       if (sql.includes('FROM reward_claims') && sql.includes("status = 'pending_pickup'")) {
-        return {rows: [{id: 'claim-1', owner_id: 'customer-1', reward_id: 'reward-1', points_cost: 80}]};
+        return {rows: [{id: 'claim-1', owner_id: 'customer-1', reward_id: 'reward-1', points_cost: 80, points_deducted_at: new Date()}]};
       }
       return {rows: [], rowCount: 1};
     },

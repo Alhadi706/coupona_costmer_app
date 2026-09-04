@@ -77,7 +77,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         setState(() => _locationError = 'إذن الموقع مرفوض نهائيًا.');
         return;
       }
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low);
       setState(() {
         _userPosition = position;
         _locationError = null;
@@ -101,7 +101,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
       return;
     }
 
-    final email = _emailController.text.trim();
+    final emailOrPhone = _emailController.text.trim();
+    final isEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(emailOrPhone);
+    final emailParam = emailOrPhone;
+    final phoneParam = isEmail ? null : emailOrPhone;
+
     final password = _passwordController.text.trim();
     final confirmPassword = _confirmPasswordController.text.trim();
 
@@ -135,7 +139,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => _loading = true);
     try {
       await CompanyServerService.signUp(
-        email: email,
+        email: emailParam,
+        phone: phoneParam,
         password: password,
         role: 'customer',
         fullName: _fullNameController.text.trim(),
@@ -174,13 +179,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
               TextFormField(
                 controller: _fullNameController,
                 decoration: InputDecoration(
-                  labelText: _tx('full_name', 'Full name'),
+                  labelText: _tx('full_name', 'Name'),
                   prefixIcon: const Icon(Icons.person),
                   border: const OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if ((value ?? '').trim().isEmpty) {
-                    return _tx('enter_full_name', 'Please enter full name');
+                    return _tx('enter_full_name', 'Please enter name');
                   }
                   return null;
                 },
@@ -190,15 +195,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  labelText: 'email'.tr(),
-                  prefixIcon: Icon(Icons.email),
-                  border: OutlineInputBorder(),
+                  labelText: _tx('email_or_phone', 'Email or Phone Number'),
+                  prefixIcon: const Icon(Icons.mail_outline),
+                  border: const OutlineInputBorder(),
+                  helperText: _tx('email_or_phone_explanation', 'Your email or phone number will be used to send your password in case you lose or forget it.'),
+                  helperMaxLines: 3,
                 ),
                 validator: (value) {
                   final text = (value ?? '').trim();
-                  if (text.isEmpty) return 'enter_email'.tr();
-                  final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text);
-                  if (!ok) return 'invalid_email_format'.tr();
+                  if (text.isEmpty) return _tx('enter_email_or_phone', 'Please enter your email or phone number');
+                  final isEmail = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text);
+                  final isPhone = RegExp(r'^\+?[0-9]{7,15}$').hasMatch(text);
+                  if (!isEmail && !isPhone) {
+                    return _tx('invalid_email_or_phone_format', 'Please enter a valid email or phone number');
+                  }
                   return null;
                 },
               ),
@@ -245,6 +255,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     initialDate: DateTime(now.year - 20, now.month, now.day),
                     firstDate: DateTime(1940),
                     lastDate: now,
+                    initialDatePickerMode: DatePickerMode.year,
                   );
                   if (picked == null) return;
                   setState(() {
@@ -298,6 +309,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   _userPosition == null
                       ? _tx('request_location_access', 'Request location access')
                       : _tx('location_captured', 'Location captured'),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                child: Text(
+                  _tx('location_rationale_body', 'We request approximate location access solely to show nearby merchants and offers, helping you find localized deals easily.'),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  textAlign: TextAlign.start,
                 ),
               ),
               if (_userPosition != null)

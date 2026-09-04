@@ -78,6 +78,42 @@ class _RewardFundingCardState extends State<RewardFundingCard> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_tx('reward_funding_failed', 'Unable to fund reward escrow.'))),
       );
+      showDialog(
+        context: context,
+        builder: (dialogCtx) => AlertDialog(
+          title: Text(_tx('reward_funding_failed', 'Unable to fund reward escrow.')),
+          content: const Text('رصيد المحفظة غير كافٍ أو تعذر التحويل؟ هل ترغب في إحالة الطلب إلى إدارة التطبيق لكي يقوم الأدمن بإرسال رسالة توضح لك طريقة الدفع لحجز النقاط؟'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(dialogCtx);
+                try {
+                  await CompanyServerService.referRewardFundingToAdmin(widget.sourceType, amount: amount);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('تم إحالة الطلب للإدارة بنجاح. سيقوم الأدمن بإرسال رسالة توضح طريقة الدفع لحجز النقاط.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('فشل إرسال الطلب للإدارة: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('إحالة إلى إدارة التطبيق'),
+            ),
+          ],
+        ),
+      );
     }
   }
 

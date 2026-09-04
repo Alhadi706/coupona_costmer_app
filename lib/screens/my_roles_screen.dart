@@ -5,7 +5,6 @@ import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
 import 'role_activation_request_screen.dart';
 import 'role_requests_status_screen.dart';
-import 'team_invitations_screen.dart';
 
 class MyRolesScreen extends StatefulWidget {
   final String currentRole;
@@ -293,13 +292,6 @@ class _MyRolesScreenState extends State<MyRolesScreen> {
               ),
               const SizedBox(height: 8),
               _buildCashierAssociationCard(cashierRows, cashierActive),
-              OutlinedButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const TeamInvitationsScreen()),
-                ),
-                icon: const Icon(Icons.mark_email_unread_outlined),
-                label: Text(_tx('team_invitations_title', 'Team invitations')),
-              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {

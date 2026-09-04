@@ -438,10 +438,19 @@ async function createCoreTables() {
       user_id TEXT NOT NULL,
       can_manage_products BOOLEAN NOT NULL DEFAULT FALSE,
       can_view_geo_distribution BOOLEAN NOT NULL DEFAULT FALSE,
+      can_manage_community BOOLEAN NOT NULL DEFAULT FALSE,
+      can_manage_campaigns BOOLEAN NOT NULL DEFAULT FALSE,
+      can_manage_ads BOOLEAN NOT NULL DEFAULT FALSE,
+      can_reply_messages BOOLEAN NOT NULL DEFAULT FALSE,
+      can_view_analytics BOOLEAN NOT NULL DEFAULT FALSE,
+      can_redeem_rewards BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY(brand_id, user_id)
     )
   `);
+  for (const column of ['can_manage_community', 'can_manage_campaigns', 'can_manage_ads', 'can_reply_messages', 'can_view_analytics', 'can_redeem_rewards']) {
+    await pool.query(`ALTER TABLE brand_team_members ADD COLUMN IF NOT EXISTS ${column} BOOLEAN NOT NULL DEFAULT FALSE`);
+  }
   await pool.query(`
     CREATE TABLE IF NOT EXISTS brand_team_invitations (
       id TEXT PRIMARY KEY,

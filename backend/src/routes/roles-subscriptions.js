@@ -27,6 +27,7 @@ module.exports = function registerRolesSubscriptionsRoutes(app, deps) {
     runSubscriptionTransitions, hasBlockRelation, isPrivateChatParticipant, getPeerUserId,
     sendFcmToTokens, getActivePushTokens, insertNotification, ensureCommunityGroupForRole,
     ensureCommunityMembership, joinCustomerToMerchantCommunity, joinCustomerToBrandCommunities,
+    syncBrandCommunityMembers,
     canModerateCommunityGroup, canTransitionSubscription, getSubscriptionOwnerUserId,
     syncCashierProfilesForMerchantSubscription, applySubscriptionTransition,
     assertMerchantSubscriptionWritable, isMerchantSubscriptionReadOnlyError,
@@ -375,13 +376,14 @@ app.post('/api/admin/role-requests/:id/approve', auth, requireAdmin, async (req,
         'SELECT business_name, user_id FROM brand_profiles WHERE id = $1 LIMIT 1',
         [requestRow.role_profile_id]
       )).rows[0];
-      await ensureCommunityGroupForRole(
+      const brandGroup = await ensureCommunityGroupForRole(
         client,
         'brand',
         requestRow.role_profile_id,
         brandProfile?.user_id || requestRow.user_id,
         brandProfile?.business_name || 'Brand Community'
       );
+      await syncBrandCommunityMembers(client, requestRow.role_profile_id, brandGroup.id);
     }
 
     await client.query(

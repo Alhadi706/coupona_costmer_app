@@ -263,7 +263,7 @@ app.post('/api/brand/rewards', auth, async (req, res) => {
   const value = Number(p.value);
   const quantityLimit = p.quantityLimit == null || String(p.quantityLimit).trim() === '' ? null : Number(p.quantityLimit);
   const drawEnabled = Boolean(p.drawEnabled);
-  if (!name || !Number.isInteger(value) || value <= 0) return res.status(400).json({ error: 'invalid_reward' });
+  if (!name || !Number.isInteger(value) || value < 0) return res.status(400).json({ error: 'invalid_reward' });
   if (quantityLimit != null && (!Number.isInteger(quantityLimit) || quantityLimit <= 0)) return res.status(400).json({ error: 'invalid_quantity_limit' });
   if (drawEnabled && !p.expiresAt) return res.status(400).json({ error: 'draw_expiry_required' });
   const drawDisclosure = 'لا حاجة لأي شراء إضافي للمشاركة، السحب مبني على نقاطك المكتسبة من مشترياتك العادية.';
@@ -274,7 +274,7 @@ app.post('/api/brand/rewards', auth, async (req, res) => {
   const result = await pool.query(
     `INSERT INTO rewards (id, reward_name, description, value, kind, source_type, source_id, image_url, expires_at, is_active, quantity_limit, pickup_instructions, draw_enabled, draw_at)
      VALUES ($1,$2,$3,$4,$5,'brand',$6,$7,$8,TRUE,$9,$10,$11,$12) RETURNING id`,
-    [id(), name, safeDescription, value, p.kind === 'physical' ? 'physical' : 'digital', brandId, String(p.imageUrl || '').trim() || null, p.expiresAt || null, quantityLimit, String(p.pickupInstructions || '').trim() || null, drawEnabled, p.drawAt || p.expiresAt || null]
+    [id(), name, safeDescription, value, ['digital', 'physical', 'gift'].includes(p.kind) ? p.kind : 'physical', brandId, String(p.imageUrl || '').trim() || null, p.expiresAt || null, quantityLimit, String(p.pickupInstructions || '').trim() || null, drawEnabled, p.drawAt || p.expiresAt || null]
   );
   return res.json({ ok: true, id: result.rows[0].id, status: 'active' });
 });
@@ -348,12 +348,12 @@ app.post('/api/merchant/rewards', auth, async (req, res) => {
   const name = String(p.rewardName || '').trim();
   const value = Number(p.value);
   const quantityLimit = p.quantityLimit == null || String(p.quantityLimit).trim() === '' ? null : Number(p.quantityLimit);
-  if (!name || !Number.isInteger(value) || value <= 0) return res.status(400).json({ error: 'invalid_reward' });
+  if (!name || !Number.isInteger(value) || value < 0) return res.status(400).json({ error: 'invalid_reward' });
   if (quantityLimit != null && (!Number.isInteger(quantityLimit) || quantityLimit <= 0)) return res.status(400).json({ error: 'invalid_quantity_limit' });
   const result = await pool.query(
     `INSERT INTO rewards (id, reward_name, description, value, kind, source_type, source_id, image_url, expires_at, is_active, quantity_limit, pickup_instructions, draw_enabled, draw_at)
      VALUES ($1,$2,$3,$4,$5,'merchant',$6,$7,$8,TRUE,$9,$10,$11,$12) RETURNING id`,
-    [id(), name, String(p.description || '').trim() || null, value, p.kind === 'digital' ? 'digital' : 'physical', merchantId, String(p.imageUrl || '').trim() || null, p.expiresAt || null, quantityLimit, String(p.pickupInstructions || '').trim() || null, Boolean(p.drawEnabled), p.drawAt || null]
+    [id(), name, String(p.description || '').trim() || null, value, ['digital', 'physical', 'gift'].includes(p.kind) ? p.kind : 'physical', merchantId, String(p.imageUrl || '').trim() || null, p.expiresAt || null, quantityLimit, String(p.pickupInstructions || '').trim() || null, Boolean(p.drawEnabled), p.drawAt || null]
   );
   return res.json({ ok: true, id: result.rows[0].id, status: 'active' });
 });

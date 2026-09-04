@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/company_server_service.dart';
 import 'package:coupona_app/theme/design_tokens.dart';
+import 'store_details_screen.dart';
 
 class FullMapScreen extends StatefulWidget {
   final bool embedded;
@@ -32,45 +34,187 @@ class _FullMapScreenState extends State<FullMapScreen> {
   }
 
   void _showStoreDetails(Map<String, dynamic> store) {
-    final LatLng storePoint = LatLng(_toDouble(store['lat']), _toDouble(store['lng']));
+    final LatLng storePoint = LatLng(
+      _toDouble(store['lat']),
+      _toDouble(store['lng']),
+    );
     _mapController.move(storePoint, _mapZoom);
 
     setState(() {
       selectedStore = store;
       _mapCenter = storePoint;
     });
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(store['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-            if (store['category'] != null) ...[
-              const SizedBox(height: 8),
-              Chip(label: Text(_localizeCategory(store['category']))),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                store['name'] ?? '',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+              if (store['category'] != null) ...[
+                const SizedBox(height: 8),
+                Chip(label: Text(_localizeCategory(store['category']))),
+              ],
+              if (store['description'] != null) ...[
+                const SizedBox(height: 8),
+                Text(store['description']),
+              ],
+              if (store['phone'] != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.phone, size: 18),
+                    SizedBox(width: 6),
+                    Text(store['phone']),
+                  ],
+                ),
+              ],
+              if (store['location'] != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, size: 18),
+                    SizedBox(width: 6),
+                    Text(store['location']),
+                  ],
+                ),
+              ],
+              if (store['merchantId'] != null) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _storeFact(
+                      Icons.loyalty_outlined,
+                      _pointTierLabel(store['pointTier']),
+                      kGold,
+                    ),
+                    _storeFact(
+                      Icons.add_circle_outline,
+                      'store_points_rate'.tr(
+                        namedArgs: {'value': '${store['pointValue'] ?? 0}'},
+                      ),
+                      kTeal,
+                    ),
+                    _storeFact(
+                      Icons.local_offer_outlined,
+                      'store_offers_count'.tr(
+                        namedArgs: {'value': '${store['offersCount'] ?? 0}'},
+                      ),
+                      kTeal,
+                    ),
+                    _storeFact(
+                      Icons.card_giftcard_outlined,
+                      'store_rewards_count'.tr(
+                        namedArgs: {'value': '${store['rewardsCount'] ?? 0}'},
+                      ),
+                      kTeal,
+                    ),
+                    _storeFact(
+                      Icons.inventory_2_outlined,
+                      'store_products_count'.tr(
+                        namedArgs: {'value': '${store['productsCount'] ?? 0}'},
+                      ),
+                      kTeal,
+                    ),
+                  ],
+                ),
+                if ((store['coalitions'] as List?)?.isNotEmpty == true) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    (store['coalitions'] as List)
+                        .map((item) => (item as Map)['name']?.toString() ?? '')
+                        .where((name) => name.isNotEmpty)
+                        .join(' • '),
+                    style: const TextStyle(
+                      color: kTealDark,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: store['merchantId'] == null
+                          ? null
+                          : () {
+                              Navigator.of(sheetContext).pop();
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      StoreDetailsScreen(store: store),
+                                ),
+                              );
+                            },
+                      icon: const Icon(Icons.storefront_outlined),
+                      label: Text('store_open_page'.tr()),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openDirections(store),
+                      icon: const Icon(Icons.directions_outlined),
+                      label: Text('store_directions'.tr()),
+                    ),
+                  ),
+                ],
+              ),
             ],
-            if (store['description'] != null) ...[
-              const SizedBox(height: 8),
-              Text(store['description']),
-            ],
-            if (store['phone'] != null) ...[
-              const SizedBox(height: 8),
-              Row(children: [const Icon(Icons.phone, size: 18), SizedBox(width: 6), Text(store['phone'])]),
-            ],
-            if (store['location'] != null) ...[
-              const SizedBox(height: 8),
-              Row(children: [const Icon(Icons.location_on, size: 18), SizedBox(width: 6), Text(store['location'])]),
-            ],
-          ],
+          ),
         ),
       ),
     );
+  }
+
+  Widget _storeFact(IconData icon, String label, Color color) {
+    return Chip(
+      avatar: Icon(icon, size: 17, color: color),
+      label: Text(label),
+      side: BorderSide(color: color.withValues(alpha: 0.35)),
+    );
+  }
+
+  String _pointTierLabel(dynamic tier) {
+    return switch (tier?.toString()) {
+      'gold' => 'store_points_gold'.tr(),
+      'silver' => 'store_points_silver'.tr(),
+      _ => 'store_points_bronze'.tr(),
+    };
+  }
+
+  Future<void> _openDirections(Map<String, dynamic> store) async {
+    final lat = _toDouble(store['lat']);
+    final lng = _toDouble(store['lng']);
+    final destination = lat != 0 && lng != 0
+        ? '$lat,$lng'
+        : Uri.encodeComponent(
+            (store['location'] ?? store['name'] ?? '').toString(),
+          );
+    final uri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$destination',
+    );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -84,16 +228,21 @@ class _FullMapScreenState extends State<FullMapScreen> {
         final stores = snapshot.data!;
         // فلترة حسب البحث والتصنيف
         final filteredStores = stores.where((store) {
-          final matchesSearch = searchText.isEmpty || (store['name']?.toString().contains(searchText) ?? false);
-          final matchesCategory = selectedCategory.isEmpty || (store['category'] == selectedCategory);
+          final matchesSearch =
+              searchText.isEmpty ||
+              (store['name']?.toString().contains(searchText) ?? false);
+          final matchesCategory =
+              selectedCategory.isEmpty ||
+              (store['category'] == selectedCategory);
           return matchesSearch && matchesCategory;
         }).toList();
-        final categories = stores
-            .map((store) => (store['category'] ?? '').toString().trim())
-            .where((c) => c.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
+        final categories =
+            stores
+                .map((store) => (store['category'] ?? '').toString().trim())
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
         return Stack(
           children: [
             FlutterMap(
@@ -119,10 +268,17 @@ class _FullMapScreenState extends State<FullMapScreen> {
                       Marker(
                         width: 40,
                         height: 40,
-                        point: LatLng(_toDouble(store['lat']), _toDouble(store['lng'])),
+                        point: LatLng(
+                          _toDouble(store['lat']),
+                          _toDouble(store['lng']),
+                        ),
                         child: GestureDetector(
                           onTap: () => _showStoreDetails(store),
-                          child: const Icon(Icons.location_on, color: kGold, size: 36),
+                          child: const Icon(
+                            Icons.location_on,
+                            color: kGold,
+                            size: 36,
+                          ),
                         ),
                       ),
                   ],
@@ -140,7 +296,10 @@ class _FullMapScreenState extends State<FullMapScreen> {
                   decoration: InputDecoration(
                     hintText: 'search_store_or_category_hint'.tr(),
                     prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: 0.96),
                   ),
@@ -154,10 +313,28 @@ class _FullMapScreenState extends State<FullMapScreen> {
               right: 16,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: Row(children: [
-                  FilterChip(label: Text('all_categories'.tr()), selected: selectedCategory.isEmpty, onSelected: (_) => setState(() => selectedCategory = '')),
-                  ...categories.map((category) => Padding(padding: const EdgeInsets.only(left: 6), child: FilterChip(label: Text(_localizeCategory(category)), selected: selectedCategory == category, onSelected: (_) => setState(() => selectedCategory = selectedCategory == category ? '' : category)))),
-                ]),
+                child: Row(
+                  children: [
+                    FilterChip(
+                      label: Text('all_categories'.tr()),
+                      selected: selectedCategory.isEmpty,
+                      onSelected: (_) => setState(() => selectedCategory = ''),
+                    ),
+                    ...categories.map(
+                      (category) => Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: FilterChip(
+                          label: Text(_localizeCategory(category)),
+                          selected: selectedCategory == category,
+                          onSelected: (_) => setState(
+                            () => selectedCategory =
+                                selectedCategory == category ? '' : category,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

@@ -57,10 +57,41 @@ app.get('/api/stores', auth, async (_req, res) => {
               b.category,
               b.status,
               m.id AS merchant_id,
+              m.user_id AS merchant_user_id,
               m.business_name,
               m.phone,
               m.commercial_registration,
-              m.status AS merchant_status
+              m.status AS merchant_status,
+              m.point_value,
+              m.is_public_coalition_active,
+              CASE
+                WHEN m.is_public_coalition_active THEN 'gold'
+                WHEN EXISTS (
+                  SELECT 1
+                    FROM coalition_members cm
+                    JOIN coalitions c ON c.id = cm.coalition_id
+                   WHERE cm.merchant_id = m.id
+                     AND c.type = 'private'
+                     AND c.is_active = TRUE
+                ) THEN 'silver'
+                ELSE 'bronze'
+              END AS point_tier,
+              COALESCE((
+                SELECT json_agg(json_build_object('id', c.id, 'name', c.name, 'type', c.type) ORDER BY c.name)
+                  FROM coalition_members cm
+                  JOIN coalitions c ON c.id = cm.coalition_id
+                 WHERE cm.merchant_id = m.id AND c.is_active = TRUE
+              ), '[]'::json) AS coalitions,
+              (SELECT COUNT(*)::int FROM offers o
+                WHERE o.owner_id = m.user_id AND o.lifecycle_status = 'active') AS offers_count,
+              (SELECT COUNT(*)::int FROM rewards r
+                WHERE r.source_type = 'merchant' AND r.source_id = m.id AND r.is_active = TRUE) AS rewards_count,
+              (SELECT COUNT(DISTINCT bm.product_id)::int
+                 FROM invoice_scans scan
+                 JOIN invoice_line_items li ON li.invoice_scan_id = scan.id
+                 JOIN brand_matches bm ON bm.invoice_line_item_id = li.id
+                 JOIN product_registry pr ON pr.id = bm.product_id AND pr.is_active = TRUE
+                WHERE scan.merchant_profile_id = m.id) AS products_count
          FROM branches b
          JOIN merchant_profiles m ON m.id = b.merchant_id
         WHERE b.status = 'active'
@@ -81,6 +112,12 @@ app.get('/api/stores', auth, async (_req, res) => {
     location: s.location,
     lat: s.lat == null ? null : Number(s.lat),
     lng: s.lng == null ? null : Number(s.lng),
+    pointValue: null,
+    pointTier: null,
+    coalitions: [],
+    offersCount: 0,
+    rewardsCount: 0,
+    productsCount: 0,
   }));
 
   const normalizedBranches = branchRows.rows.map((b) => ({
@@ -96,6 +133,13 @@ app.get('/api/stores', auth, async (_req, res) => {
     location: b.location || b.address || null,
     lat: b.latitude == null ? null : Number(b.latitude),
     lng: b.longitude == null ? null : Number(b.longitude),
+    pointValue: Number(b.point_value || 0),
+    pointTier: b.point_tier,
+    isPublicCoalitionActive: b.is_public_coalition_active === true,
+    coalitions: Array.isArray(b.coalitions) ? b.coalitions : [],
+    offersCount: Number(b.offers_count || 0),
+    rewardsCount: Number(b.rewards_count || 0),
+    productsCount: Number(b.products_count || 0),
   }));
 
   let stores = [...normalizedSeed, ...normalizedBranches];
@@ -125,6 +169,149 @@ app.get('/api/stores', auth, async (_req, res) => {
   }
 
   res.json(stores);
+});
+
+app.get('/api/stores/:merchantId/details', auth, async (req, res) => {
+  const merchantId = String(req.params.merchantId || '').trim();
+  const merchant = (await pool.query(
+    `SELECT id, user_id, business_name, commercial_registration, phone,
+            location_lat, location_lng, location_address, point_value,
+            is_public_coalition_active, status
+       FROM merchant_profiles
+      WHERE id = $1 AND status = 'active'
+      LIMIT 1`,
+    [merchantId]
+  )).rows[0];
+  if (!merchant) return res.status(404).json({ error: 'store_not_found' });
+
+  const [branches, offers, rewards, products, coalitions, directProducts] = await Promise.all([
+    pool.query(
+      `SELECT id, name, address, location, latitude, longitude, category, working_hours, status, phone, image_url
+         FROM branches WHERE merchant_id = $1 ORDER BY status = 'active' DESC, created_at ASC`,
+      [merchantId]
+    ),
+    pool.query(
+      `SELECT id, offer_type, category, discount_type, discount_value, price, description,
+              start_date, end_date, location, image_url
+         FROM offers
+        WHERE owner_id = $1 AND lifecycle_status = 'active'
+          AND (end_date IS NULL OR end_date > NOW())
+        ORDER BY created_at DESC`,
+      [merchant.user_id]
+    ),
+    pool.query(
+      `SELECT id, reward_name, description, value, kind, image_url, expires_at,
+              quantity_limit, quantity_redeemed
+         FROM rewards
+        WHERE source_type = 'merchant' AND source_id = $1 AND is_active = TRUE
+          AND (expires_at IS NULL OR expires_at > NOW())
+        ORDER BY value ASC`,
+      [merchantId]
+    ),
+    pool.query(
+      `SELECT DISTINCT pr.id, pr.name, pr.image_url, pr.barcode, pr.brand_id,
+              bp.business_name AS brand_name
+         FROM invoice_scans scan
+         JOIN invoice_line_items li ON li.invoice_scan_id = scan.id
+         JOIN brand_matches bm ON bm.invoice_line_item_id = li.id
+         JOIN product_registry pr ON pr.id = bm.product_id AND pr.is_active = TRUE
+         LEFT JOIN brand_profiles bp ON bp.id = pr.brand_id
+        WHERE scan.merchant_profile_id = $1
+        ORDER BY pr.name`,
+      [merchantId]
+    ),
+    pool.query(
+      `SELECT c.id, c.name, c.type, c.category, c.region
+         FROM coalition_members cm
+         JOIN coalitions c ON c.id = cm.coalition_id
+        WHERE cm.merchant_id = $1 AND c.is_active = TRUE
+        ORDER BY c.type = 'public' DESC, c.name`,
+      [merchantId]
+    ),
+    pool.query(
+      `SELECT id, name, image_url, price, description
+         FROM merchant_products
+        WHERE merchant_id = $1 AND is_active = TRUE
+        ORDER BY name`,
+      [merchantId]
+    ).catch(() => ({ rows: [] })),
+  ]);
+
+  const privateCoalition = coalitions.rows.some((row) => row.type === 'private');
+  const pointTier = merchant.is_public_coalition_active ? 'gold' : (privateCoalition ? 'silver' : 'bronze');
+  return res.json({
+    merchant: {
+      id: merchant.id,
+      name: merchant.business_name,
+      commercialRegistration: merchant.commercial_registration,
+      phone: merchant.phone,
+      location: merchant.location_address,
+      lat: merchant.location_lat == null ? null : Number(merchant.location_lat),
+      lng: merchant.location_lng == null ? null : Number(merchant.location_lng),
+      pointValue: Number(merchant.point_value || 0),
+      pointTier,
+      isPublicCoalitionActive: merchant.is_public_coalition_active === true,
+    },
+    branches: branches.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      address: row.location || row.address,
+      lat: row.latitude == null ? null : Number(row.latitude),
+      lng: row.longitude == null ? null : Number(row.longitude),
+      category: row.category,
+      workingHours: row.working_hours,
+      phone: row.phone,
+      imageUrl: row.image_url,
+      status: row.status,
+    })),
+    offers: offers.rows.map((row) => ({
+      id: row.id,
+      title: row.description || row.offer_type,
+      category: row.category,
+      discountType: row.discount_type,
+      discountValue: row.discount_value,
+      price: row.price,
+      location: row.location,
+      imageUrl: row.image_url,
+      startDate: toIso(row.start_date),
+      endDate: toIso(row.end_date),
+    })),
+    rewards: rewards.rows.map((row) => ({
+      id: row.id,
+      name: row.reward_name,
+      description: row.description,
+      points: Number(row.value || 0),
+      kind: row.kind,
+      imageUrl: row.image_url,
+      expiresAt: toIso(row.expires_at),
+      remaining: row.quantity_limit == null ? null : Math.max(0, Number(row.quantity_limit) - Number(row.quantity_redeemed || 0)),
+    })),
+    products: [
+      ...((directProducts && directProducts.rows) || []).map((row) => ({
+        id: row.id,
+        name: row.name,
+        imageUrl: row.image_url,
+        price: row.price,
+        description: row.description,
+        brandId: null,
+        brandName: '',
+      })),
+      ...products.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        imageUrl: row.image_url,
+        barcode: row.barcode,
+        brandId: row.brand_id,
+        brandName: row.brand_name || '',
+      })),
+    ],
+    coalitions: [
+      ...(merchant.is_public_coalition_active
+        ? [{ id: 'public-platform-coalition', name: 'Kupuna public network', type: 'public' }]
+        : []),
+      ...coalitions.rows,
+    ].filter((row, index, rows) => rows.findIndex((item) => item.id === row.id) === index),
+  });
 });
 
 app.get('/api/groups', auth, async (_req, res) => {

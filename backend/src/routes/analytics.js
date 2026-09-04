@@ -23,7 +23,7 @@ module.exports = function registerAnalyticsRoutes(app, deps) {
     detectImageMime, toIso, normalizeMerchantKey, canonicalMerchantName, normalizeForFingerprint,
     buildInvoiceFingerprint, parseFlexibleDate, haversineDistanceKm, calculateAgeYears,
     parseTargetingCriteria, extractJsonObject, normalizeAiInvoiceFields, analyzeInvoiceWithGemini,
-    auth, requireAdmin, ensureCustomerProfile, getIntSetting, canManageInvoice, canRedeemClaim,
+    auth, requireAdmin, ensureCustomerProfile, getIntSetting, canManageInvoice, canRedeemClaim, getBrandIdWithPermission,
     runSubscriptionTransitions, hasBlockRelation, isPrivateChatParticipant, getPeerUserId,
     sendFcmToTokens, getActivePushTokens, insertNotification, ensureCommunityGroupForRole,
     ensureCommunityMembership, joinCustomerToMerchantCommunity, joinCustomerToBrandCommunities,
@@ -333,7 +333,8 @@ app.get('/api/merchant/analytics', auth, async (req, res) => {
 app.get('/api/brand/analytics', auth, async (req, res) => {
   const client = await pool.connect();
   try {
-    const brandId = await getBrandProfileIdByUser(client, req.user.userId);
+    const brandId = await getBrandProfileIdByUser(client, req.user.userId)
+      || await getBrandIdWithPermission(client, req.user.userId, 'can_view_analytics');
     if (!brandId) {
       return res.status(403).json({ error: 'brand_role_required' });
     }

@@ -39,11 +39,23 @@ module.exports = function registerAuthRoutes(app, deps) {
   } = deps;
 
 app.get('/api/health', async (_req, res) => {
+  const startedAt = Date.now();
   try {
     await pool.query('SELECT 1');
-    res.json({ ok: true });
+    res.json({
+      ok: true,
+      database: 'ready',
+      databaseLatencyMs: Date.now() - startedAt,
+      uptimeSeconds: Math.floor(process.uptime()),
+      version: process.env.APP_VERSION || 'development',
+    });
   } catch (e) {
-    res.status(500).json({ ok: false, error: String(e) });
+    res.status(503).json({
+      ok: false,
+      database: 'unavailable',
+      databaseLatencyMs: Date.now() - startedAt,
+      error: String(e),
+    });
   }
 });
 

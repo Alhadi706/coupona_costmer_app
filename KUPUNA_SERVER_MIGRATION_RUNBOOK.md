@@ -98,6 +98,13 @@ ss -tuln | egrep ':22|:80|:443|:3000|:5433|:6379|:7860|:3002|:5434|:6380'
 - Store secrets outside git-tracked files.
 - Do not place any non-Kupuna project files under `/opt/projects/kupuna`.
 
+## Web Release And Rollback
+
+- Deploy with `./release_web.sh`. It builds first, snapshots the current deployment, updates the bind-mounted directory, verifies health, and compares bundle checksums.
+- Roll back with `./release_web.sh --rollback`.
+- Disable a failing API area without redeploying by setting `DISABLED_API_PREFIXES` to comma-separated `/api/...` prefixes and restarting `kupuna_api`.
+- Every API response includes `X-Request-Id`; backend logs emit one structured `http_request` JSON event with status and duration.
+
 ## KUPUNA SERVER MIGRATION REPORT TEMPLATE
 
 ### 1) Files transferred

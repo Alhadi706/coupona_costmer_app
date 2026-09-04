@@ -413,7 +413,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     if (_redeeming) return;
     final requiredPoints = _toInt(reward['value']);
     final currentPoints = _toInt(_points['availablePoints']);
-    if (requiredPoints <= 0) {
+    if (requiredPoints < 0) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('reward_invalid_value'.tr())));
@@ -694,7 +694,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
             )
           else
             Text(
-              'redeem_points_value'.tr(namedArgs: {'value': '$cost'}),
+              cost == 0 ? 'هدية تشجيعية مجانية' : 'redeem_points_value'.tr(namedArgs: {'value': '$cost'}),
               style: kBodyTextStyle(
                 size: 11,
                 color: kTeal,
@@ -811,7 +811,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                 : ElevatedButton(
                     onPressed: _redeeming ? null : () => _redeemReward(reward),
                     child: Text(
-                      'redeem_points_value'.tr(namedArgs: {'value': '$cost'}),
+                      cost == 0 ? 'احصل عليها مجاناً' : 'redeem_points_value'.tr(namedArgs: {'value': '$cost'}),
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
@@ -824,6 +824,9 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
   String _rewardKindKey(dynamic raw, {String? rewardName}) {
     final value = (raw ?? '').toString().toLowerCase();
     final name = (rewardName ?? '').toString().toLowerCase();
+    if (value == 'gift') {
+      return 'gift';
+    }
     if (value.isEmpty) {
       if (name.contains('car') ||
           name.contains('vehicle') ||
@@ -876,12 +879,16 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
   Widget _buildRewardsBody() {
     final availablePoints = _toInt(_points['availablePoints']);
     final visibleRewards = _rewards.where((reward) {
-      if (_rewardTab == 0) return true;
       final rewardKind = _rewardKindKey(
         reward['kind'],
         rewardName: (reward['reward_name'] ?? '').toString(),
       );
-      return rewardKind == (_rewardTab == 1 ? 'digital' : 'physical');
+      final rewardCost = _toInt(reward['value']);
+      if (_rewardTab == 0) return rewardKind != 'gift' && rewardCost > 0;
+      if (_rewardTab == 1) return rewardKind == 'digital';
+      if (_rewardTab == 2) return rewardKind == 'physical';
+      if (_rewardTab == 3) return rewardKind == 'gift' || rewardCost == 0;
+      return true;
     }).toList();
     final nextMilestone = _nextMilestoneValue(availablePoints);
     final progress = nextMilestone == null
@@ -945,6 +952,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                 'rewards_filter_all'.tr(),
                 'rewards_filter_digital'.tr(),
                 'rewards_filter_physical'.tr(),
+                'هدايا الجائزة',
               ],
               activeIndex: _rewardTab,
               onSelect: (index) => setState(() => _rewardTab = index),

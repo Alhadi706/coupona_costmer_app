@@ -2,7 +2,7 @@ const { createCampaign, launchCampaign, redeemCoupon } = require('../promotion-c
 const { resolveSegment } = require('../customer-segmentation-service');
 
 module.exports = function registerCampaignRoutes(app, deps) {
-  const { pool, auth, getMerchantProfileIdByUser, getBrandProfileIdByUser, insertNotification, toIso } = deps;
+  const { pool, auth, getMerchantProfileIdByUser, getBrandProfileIdByUser, getBrandIdWithPermission, insertNotification, toIso } = deps;
 
   async function resolveSource(req) {
     const merchantId = await getMerchantProfileIdByUser(pool, req.user.userId);
@@ -10,7 +10,8 @@ module.exports = function registerCampaignRoutes(app, deps) {
       const { rows: [m] } = await pool.query('SELECT business_name FROM merchant_profiles WHERE id = $1', [merchantId]);
       return { sourceType: 'merchant', sourceId: merchantId, sourceName: m?.business_name || 'Merchant' };
     }
-    const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
+    const brandId = await getBrandProfileIdByUser(pool, req.user.userId)
+      || await getBrandIdWithPermission(pool, req.user.userId, 'can_manage_campaigns');
     if (brandId) {
       const { rows: [b] } = await pool.query('SELECT business_name FROM brand_profiles WHERE id = $1', [brandId]);
       return { sourceType: 'brand', sourceId: brandId, sourceName: b?.business_name || 'Brand' };

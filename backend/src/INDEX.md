@@ -13,6 +13,7 @@
 | `src/access-control.js` | middleware المصادقة `auth`/`requireAdmin`، صلاحيات الوصول للفواتير والملف الشخصي للعميل | 121 |
 | `src/schema-core.js` | إنشاء الجداول الأساسية (users, offers, stores, wallet...) | 447 |
 | `src/schema-extra.js` | إنشاء بقية الجداول (community, disputes, escrow, rewards...) | 435 |
+| `src/schema-rewards-gifts-offers.js` | تشغيل migrations 019-024 الخاصة بأساس Rewards/Gifts/Offers عند `initSchema()` حتى تتطابق قواعد البيانات الجديدة مع قواعد البيانات المهاجرة | 24 |
 | `src/services-social.js` | إدارة الاشتراكات، الحظر، المحادثات الخاصة، الإشعارات (FCM)، مجموعات المجتمع | 537 |
 | `src/services-matching.js` | مكافآت اعتماد الفواتير، مطابقة العروض/الماركات، دوال التحليلات (analytics) | 461 |
 
@@ -37,6 +38,7 @@
 | `src/routes/analytics.js` | `/api/merchant/analytics`, `/api/brand/analytics`, `/api/merchant/customers/top` |
 | `src/routes/wallet-core.js` | `/api/wallet/*` (ensure, points, ledger, cashback, redeem...) |
 | `src/routes/offers-lifecycle-stats.js` | `/api/offers/:id/lifecycle/*`, `/api/stats/counts` |
+| `src/routes/gifts.js` | `/api/gifts/definitions*`, `/api/customer/gifts/assignments*`, `/api/cashier/gifts/*` |
 
 ## نقطة التشغيل
 

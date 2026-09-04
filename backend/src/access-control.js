@@ -101,6 +101,14 @@ async function canManageInvoice(client, user, invoiceId, targetState = null, get
 async function canRedeemClaim(client, user, claim) {
   if (isAdmin(user)) return true;
   if (!claim.source_id) return false;
+  if (claim.source_type === 'brand') {
+    const brandStaff = (await client.query(
+      `SELECT 1 FROM brand_team_members
+        WHERE brand_id = $1 AND user_id = $2 AND can_redeem_rewards = TRUE LIMIT 1`,
+      [claim.source_id, user.userId]
+    )).rows[0];
+    if (brandStaff) return true;
+  }
   const fulfiller = (await client.query(
     `SELECT id AS merchant_id FROM merchant_profiles WHERE user_id = $1 AND status = 'active'
      UNION ALL
@@ -121,6 +129,18 @@ async function canRedeemClaim(client, user, claim) {
     [claim.source_id, fulfiller.merchant_id]
   )).rows[0];
   return Boolean(sharedCoalition);
+}
+
+async function getBrandIdWithPermission(client, userId, permission) {
+  const allowed = new Set(['can_manage_campaigns', 'can_manage_ads', 'can_reply_messages', 'can_view_analytics', 'can_redeem_rewards']);
+  if (!allowed.has(permission)) return null;
+  const owner = (await client.query('SELECT id FROM brand_profiles WHERE user_id = $1 AND status = \'active\' LIMIT 1', [userId])).rows[0];
+  if (owner) return owner.id;
+  const member = (await client.query(
+    `SELECT brand_id FROM brand_team_members WHERE user_id = $1 AND ${permission} = TRUE LIMIT 1`,
+    [userId]
+  )).rows[0];
+  return member?.brand_id || null;
 }
 
 async function getManageableBrandProductId(client, userId) {
@@ -150,4 +170,5 @@ module.exports = {
   canManageInvoice,
   canRedeemClaim,
   getManageableBrandProductId,
+  getBrandIdWithPermission,
 };

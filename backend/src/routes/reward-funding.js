@@ -1,5 +1,5 @@
 module.exports = function registerRewardFundingRoutes(app, deps) {
-  const {pool, auth, id, getMerchantProfileIdByUser, getBrandProfileIdByUser} = deps;
+  const {pool, auth, id, getMerchantProfileIdByUser, getBrandProfileIdByUser, ensurePrivateChatBetweenUsers} = deps;
 
   async function resolveSource(client, userId, rawType) {
     const sourceType = String(rawType || '').trim().toLowerCase();
@@ -118,6 +118,59 @@ module.exports = function registerRewardFundingRoutes(app, deps) {
     } catch (error) {
       await client.query('ROLLBACK');
       return res.status(500).json({error: 'reward_funding_failed', details: String(error.message || error)});
+    } finally {
+      client.release();
+    }
+  });
+
+  app.post('/api/reward-funding/:sourceType/refer-to-admin', auth, async (req, res) => {
+    const amount = Number(req.body?.amount || 0);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const source = await resolveSource(client, req.user.userId, req.params.sourceType);
+      if (!source) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({error: 'reward_funding_role_required'});
+      }
+      
+      const admin = (await client.query('SELECT id, email, full_name FROM users WHERE is_system_owner = TRUE LIMIT 1')).rows[0];
+      if (!admin) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({error: 'system_admin_not_found'});
+      }
+
+      let sourceName = 'التاجر';
+      if (source.sourceType === 'merchant') {
+        const mRow = (await client.query('SELECT name FROM merchant_profiles WHERE id = $1 LIMIT 1', [source.sourceId])).rows[0];
+        if (mRow) sourceName = `التاجر (${mRow.name})`;
+      } else {
+        const bRow = (await client.query('SELECT name FROM brand_profiles WHERE id = $1 LIMIT 1', [source.sourceId])).rows[0];
+        if (bRow) sourceName = `العلامة التجارية (${bRow.name})`;
+      }
+
+      const chatTitle = `دعم ضمان المكافآت - ${sourceName}`;
+      const chatId = await ensurePrivateChatBetweenUsers(client, req.user.userId, admin.id, chatTitle);
+
+      const msgText = `طلب تحويل لضمان المكافآت: يرغب ${sourceName} في حجز ونقل ${amount ? amount + ' ' : ''}نقاط للضمان. يرجى توضيح طريقة الدفع وإرسال تفاصيل الإيداع البنكي لحجز النقاط.`;
+      
+      const msgId = id();
+      await client.query(
+        'INSERT INTO private_messages (id, chat_id, sender_id, sender_name, text) VALUES ($1,$2,$3,$4,$5)',
+        [msgId, chatId, req.user.userId, sourceName, msgText]
+      );
+      await client.query('UPDATE private_chats SET last_message = $1, updated_at = NOW() WHERE id = $2', [msgText, chatId]);
+      await client.query(
+        `INSERT INTO private_chat_user_state (user_id, chat_id, is_hidden, is_deleted, updated_at)
+         VALUES ($1, $2, FALSE, FALSE, NOW()) ON CONFLICT (user_id, chat_id) DO UPDATE SET is_hidden = FALSE, updated_at = NOW()`,
+        [admin.id, chatId]
+      );
+
+      await client.query('COMMIT');
+      return res.json({ok: true, chatId});
+    } catch (error) {
+      await client.query('ROLLBACK');
+      return res.status(500).json({error: 'refer_to_admin_failed', details: String(error.message || error)});
     } finally {
       client.release();
     }

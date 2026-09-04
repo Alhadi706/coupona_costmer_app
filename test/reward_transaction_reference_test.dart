@@ -10,7 +10,7 @@ void main() {
     };
     const ledger = <Map<String, dynamic>>[
       <String, dynamic>{
-        'type': 'rewardClaimCreated',
+        'type': 'rewardRedeemed',
         'points': -100,
         'reference': 'reward_claim:claim-1',
       },

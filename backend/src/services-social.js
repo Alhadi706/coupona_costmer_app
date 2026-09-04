@@ -167,10 +167,11 @@ async function insertNotification(db, userId, type, title, body, payload = {}) {
   if (!userId) return;
   const notificationId = id();
   const targetScreen = payload?.target_screen || payload?.targetScreen || null;
+  const businessEventId = payload?.business_event_id || payload?.businessEventId || null;
   await db.query(
-    `INSERT INTO notifications (id, user_id, type, title, body, target_screen, payload)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
-    [notificationId, userId, type, title || null, body || null, targetScreen, JSON.stringify(payload || {})]
+    `INSERT INTO notifications (id, user_id, type, title, body, target_screen, business_event_id, payload)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)`,
+    [notificationId, userId, type, title || null, body || null, targetScreen, businessEventId, JSON.stringify(payload || {})]
   );
 
   const tokens = await getActivePushTokens(db, userId);
@@ -306,6 +307,27 @@ async function joinCustomerToBrandCommunities(client, customerId, invoiceScanId)
   }
 }
 
+async function syncBrandCommunityMembers(client, brandId, groupId) {
+  await client.query(
+    `INSERT INTO community_group_members (group_id, user_id)
+     SELECT $2, customers.owner_id
+       FROM (
+         SELECT DISTINCT invoice.owner_id
+           FROM brand_matches match
+           JOIN invoice_line_items item ON item.id = match.invoice_line_item_id
+           JOIN invoice_scans invoice ON invoice.id = item.invoice_scan_id
+          WHERE match.brand_id = $1
+            AND invoice.state = 'approved'
+       ) customers
+      WHERE NOT EXISTS (
+        SELECT 1 FROM community_group_bans ban
+         WHERE ban.group_id = $2 AND ban.user_id = customers.owner_id
+      )
+     ON CONFLICT (group_id, user_id) DO NOTHING`,
+    [brandId, groupId]
+  );
+}
+
 async function canModerateCommunityGroup(client, groupId, userId) {
   const owner = (await client.query(
     `SELECT 1
@@ -336,7 +358,7 @@ async function canModerateCommunityGroup(client, groupId, userId) {
        JOIN brand_team_members btm ON btm.brand_id = cg.role_profile_id AND btm.user_id = $2
       WHERE cg.id = $1
         AND cg.role_type = 'brand'
-        AND btm.can_manage_products = TRUE
+        AND btm.can_manage_community = TRUE
       LIMIT 1`,
     [groupId, userId]
   )).rows[0];
@@ -527,6 +549,7 @@ module.exports = {
   ensureCommunityMembership,
   joinCustomerToMerchantCommunity,
   joinCustomerToBrandCommunities,
+  syncBrandCommunityMembers,
   canModerateCommunityGroup,
   canTransitionSubscription,
   getSubscriptionOwnerUserId,

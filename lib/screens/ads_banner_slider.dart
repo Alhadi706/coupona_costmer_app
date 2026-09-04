@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../theme/design_tokens.dart';
 
 class AdsBannerSlider extends StatefulWidget {
   final List<Map<String, dynamic>> ads;
@@ -135,9 +136,45 @@ class _AdsBannerSliderState extends State<AdsBannerSlider> {
 
   Widget _fallback(BuildContext context) {
     return Container(
-      color: Theme.of(context).colorScheme.primaryContainer,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: <Color>[kTealDark, kTeal],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+      ),
+      padding: const EdgeInsets.all(16),
       alignment: Alignment.center,
-      child: const Icon(Icons.campaign_outlined, size: 48),
+      child: Row(
+        children: [
+          const Icon(Icons.campaign_outlined, size: 44, color: kGold),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  'أحدث العروض والمكافآت',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'تصفح أقوى التخفيضات والجوائز الحصرية اليوم',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

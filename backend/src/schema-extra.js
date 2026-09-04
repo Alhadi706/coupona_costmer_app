@@ -356,6 +356,7 @@ async function createExtraTables() {
   await pool.query('ALTER TABLE community_messages ADD COLUMN IF NOT EXISTS poll_json JSONB');
   await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS working_hours TEXT');
   await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS phone TEXT');
+  await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS image_url TEXT');
   await pool.query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()');
 
   await pool.query('CREATE INDEX IF NOT EXISTS idx_branches_merchant_id ON branches(merchant_id)');
@@ -505,6 +506,19 @@ async function createExtraTables() {
       );
     }
   }
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS merchant_products (
+      id TEXT PRIMARY KEY,
+      merchant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      image_url TEXT,
+      price DOUBLE PRECISION,
+      description TEXT,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
 
 }
 

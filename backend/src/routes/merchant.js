@@ -58,6 +58,9 @@ app.get('/api/merchant/profile', auth, async (req, res) => {
       id: row.id,
       userId: row.user_id,
       businessName: row.business_name,
+      category: row.category || '',
+      phone: row.phone || '',
+      logoUrl: row.logo_url || '',
       commercialRegistration: row.commercial_registration,
       status: row.status,
       pointValue: SYSTEM_POINT_VALUE,
@@ -65,6 +68,54 @@ app.get('/api/merchant/profile', auth, async (req, res) => {
     });
   } catch (e) {
     return res.status(500).json({ error: 'merchant_profile_fetch_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
+});
+
+app.patch('/api/merchant/profile', auth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+    if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+    await assertMerchantSubscriptionWritable(client, merchantId);
+    const p = req.body || {};
+    const businessName = p.businessName == null ? null : String(p.businessName).trim();
+    const category = p.category == null ? null : String(p.category).trim();
+    const phone = p.phone == null ? null : String(p.phone).trim();
+    const logoUrl = p.logoUrl == null ? null : String(p.logoUrl).trim();
+    const commercialRegistration = p.commercialRegistration == null ? null : String(p.commercialRegistration).trim();
+
+    const result = await client.query(
+      `UPDATE merchant_profiles
+          SET business_name = COALESCE($1, business_name),
+              category = COALESCE($2, category),
+              phone = COALESCE($3, phone),
+              logo_url = COALESCE($4, logo_url),
+              commercial_registration = COALESCE($5, commercial_registration),
+              updated_at = NOW()
+        WHERE id = $6
+        RETURNING *`,
+      [businessName, category, phone, logoUrl, commercialRegistration, merchantId]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'merchant_profile_not_found' });
+    const row = result.rows[0];
+    return res.json({
+      ok: true,
+      profile: {
+        id: row.id,
+        userId: row.user_id,
+        businessName: row.business_name,
+        category: row.category || '',
+        phone: row.phone || '',
+        logoUrl: row.logo_url || '',
+        commercialRegistration: row.commercial_registration,
+        status: row.status,
+      }
+    });
+  } catch (e) {
+    if (isMerchantSubscriptionReadOnlyError(e)) return res.status(403).json({ error: 'merchant_subscription_read_only' });
+    return res.status(500).json({ error: 'merchant_profile_update_failed', details: String(e.message || e) });
   } finally {
     client.release();
   }
@@ -184,15 +235,30 @@ app.patch('/api/merchant/branches/:id', auth, async (req, res) => {
     if (status != null && !['active', 'inactive'].includes(status)) {
       return res.status(400).json({ error: 'invalid_branch_status' });
     }
+    const lat = p.latitude == null ? null : Number(p.latitude);
+    const lng = p.longitude == null ? null : Number(p.longitude);
     const result = await client.query(
       `UPDATE branches
           SET name = COALESCE($1, name), address = COALESCE($2, address),
               working_hours = COALESCE($3, working_hours), phone = COALESCE($4, phone),
               status = COALESCE($7, status),
+              latitude = COALESCE($8, latitude), longitude = COALESCE($9, longitude),
+              image_url = COALESCE($10, image_url),
               updated_at = NOW()
         WHERE id = $5 AND merchant_id = $6
         RETURNING *`,
-      [p.name == null ? null : String(p.name).trim(), p.address == null ? null : String(p.address).trim(), p.workingHours == null ? null : String(p.workingHours).trim(), p.phone == null ? null : String(p.phone).trim(), branchId, merchantId, status]
+      [
+        p.name == null ? null : String(p.name).trim(),
+        p.address == null ? null : String(p.address).trim(),
+        p.workingHours == null ? null : String(p.workingHours).trim(),
+        p.phone == null ? null : String(p.phone).trim(),
+        branchId,
+        merchantId,
+        status,
+        lat,
+        lng,
+        p.imageUrl == null ? null : String(p.imageUrl).trim()
+      ]
     );
     if (!result.rowCount) return res.status(404).json({ error: 'branch_not_found' });
     return res.json({ ok: true, branch: result.rows[0] });
@@ -282,6 +348,97 @@ app.post('/api/merchant/cashiers/bind', auth, async (req, res) => {
       return res.status(403).json({ error: 'merchant_subscription_read_only' });
     }
     return res.status(500).json({ error: 'cashier_bind_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/merchant/cashiers/unassigned', auth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+    if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+
+    const query = `
+      SELECT DISTINCT u.id as "id", u.id as "userId", u.name, u.phone, u.email
+      FROM users u
+      LEFT JOIN cashier_profiles cp ON cp.user_id = u.id AND cp.merchant_id = $1
+      LEFT JOIN user_roles ur ON ur.user_id = u.id
+      WHERE (ur.role = 'cashier' OR u.role = 'cashier' OR cp.merchant_id = $1)
+        AND (cp.branch_id IS NULL OR cp.is_active = FALSE OR cp.id IS NULL)
+      ORDER BY u.name ASC
+    `;
+    const rows = (await client.query(query, [merchantId])).rows;
+    return res.json(rows);
+  } catch (e) {
+    return res.status(500).json({ error: 'unassigned_cashiers_fetch_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/api/merchant/cashiers', auth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+    if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+
+    const query = `
+      SELECT cp.id, cp.user_id as "userId", cp.branch_id as "branchId", cp.is_active as "isActive",
+             u.name as "cashierName", u.phone as "cashierPhone", b.name as "branchName"
+      FROM cashier_profiles cp
+      JOIN users u ON u.id = cp.user_id
+      LEFT JOIN branches b ON b.id = cp.branch_id
+      WHERE cp.merchant_id = $1
+      ORDER BY cp.created_at DESC
+    `;
+    const rows = (await client.query(query, [merchantId])).rows;
+    return res.json(rows);
+  } catch (e) {
+    return res.status(500).json({ error: 'cashiers_fetch_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/api/merchant/branches/assign-cashier', auth, async (req, res) => {
+  const p = req.body || {};
+  let cashierUserId = String(p.cashierUserId || p.cashierId || '').trim();
+  const branchId = String(p.branchId || '').trim();
+  if (!branchId || !cashierUserId) {
+    return res.status(400).json({ error: 'branchId_and_cashierUserId_required' });
+  }
+  const client = await pool.connect();
+  try {
+    const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+    if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+    await assertMerchantSubscriptionWritable(client, merchantId);
+
+    const branch = (await client.query('SELECT id, merchant_id FROM branches WHERE id = $1 LIMIT 1', [branchId])).rows[0];
+    if (!branch) return res.status(404).json({ error: 'branch_not_found' });
+    if (branch.merchant_id !== merchantId) return res.status(403).json({ error: 'forbidden' });
+
+    const existing = (await client.query(
+      'SELECT id FROM cashier_profiles WHERE user_id = $1 AND merchant_id = $2 LIMIT 1',
+      [cashierUserId, merchantId]
+    )).rows[0];
+    if (existing) {
+      await client.query('UPDATE cashier_profiles SET branch_id = $1, is_active = TRUE WHERE id = $2', [branchId, existing.id]);
+      return res.json({ ok: true, id: existing.id, updated: true });
+    }
+
+    const cashierId = id();
+    await client.query(
+      `INSERT INTO cashier_profiles (id, user_id, merchant_id, branch_id, is_active)
+       VALUES ($1,$2,$3,$4,TRUE)`,
+      [cashierId, cashierUserId, merchantId, branchId]
+    );
+    return res.json({ ok: true, id: cashierId, cashierUserId });
+  } catch (e) {
+    if (isMerchantSubscriptionReadOnlyError(e)) {
+      return res.status(403).json({ error: 'merchant_subscription_read_only' });
+    }
+    return res.status(500).json({ error: 'cashier_assign_failed', details: String(e.message || e) });
   } finally {
     client.release();
   }
@@ -458,5 +615,96 @@ app.post('/api/brand/team-members', auth, async (req, res) => {
     client.release();
   }
 });
+
+  app.get('/api/merchant/products', auth, async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+      if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+      const rows = (await client.query(
+        `SELECT id, name, image_url, price, description, is_active, created_at
+           FROM merchant_products
+          WHERE merchant_id = $1
+          ORDER BY created_at DESC`,
+        [merchantId]
+      )).rows;
+      return res.json(rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        imageUrl: row.image_url,
+        price: row.price == null ? null : Number(row.price),
+        description: row.description,
+        isActive: row.is_active,
+        createdAt: toIso(row.created_at),
+      })));
+    } catch (e) {
+      return res.status(500).json({ error: 'fetch_products_failed', details: String(e.message || e) });
+    } finally {
+      client.release();
+    }
+  });
+
+  app.post('/api/merchant/products', auth, async (req, res) => {
+    const client = await pool.connect();
+    try {
+      const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+      if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+      await assertMerchantSubscriptionWritable(client, merchantId);
+      const p = req.body || {};
+      const name = String(p.name || '').trim();
+      if (!name) return res.status(400).json({ error: 'name_required' });
+      const productId = id();
+      const result = await client.query(
+        `INSERT INTO merchant_products (id, merchant_id, name, image_url, price, description)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [productId, merchantId, name, p.imageUrl == null ? null : String(p.imageUrl).trim(), p.price == null ? null : Number(p.price), p.description == null ? null : String(p.description).trim()]
+      );
+      return res.json({ ok: true, product: result.rows[0] });
+    } catch (e) {
+      if (isMerchantSubscriptionReadOnlyError(e)) return res.status(403).json({ error: 'merchant_subscription_read_only' });
+      return res.status(500).json({ error: 'create_product_failed', details: String(e.message || e) });
+    } finally {
+      client.release();
+    }
+  });
+
+  app.patch('/api/merchant/products/:id', auth, async (req, res) => {
+    const productId = String(req.params.id || '').trim();
+    const client = await pool.connect();
+    try {
+      const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+      if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+      await assertMerchantSubscriptionWritable(client, merchantId);
+      const p = req.body || {};
+      const active = p.isActive == null ? null : p.isActive === true;
+      const result = await client.query(
+        `UPDATE merchant_products
+            SET name = COALESCE($1, name),
+                image_url = COALESCE($2, image_url),
+                price = COALESCE($3, price),
+                description = COALESCE($4, description),
+                is_active = COALESCE($5, is_active)
+          WHERE id = $6 AND merchant_id = $7
+          RETURNING *`,
+        [
+          p.name == null ? null : String(p.name).trim(),
+          p.imageUrl == null ? null : String(p.imageUrl).trim(),
+          p.price == null ? null : Number(p.price),
+          p.description == null ? null : String(p.description).trim(),
+          active,
+          productId,
+          merchantId
+        ]
+      );
+      if (!result.rowCount) return res.status(404).json({ error: 'product_not_found' });
+      return res.json({ ok: true, product: result.rows[0] });
+    } catch (e) {
+      if (isMerchantSubscriptionReadOnlyError(e)) return res.status(403).json({ error: 'merchant_subscription_read_only' });
+      return res.status(500).json({ error: 'update_product_failed', details: String(e.message || e) });
+    } finally {
+      client.release();
+    }
+  });
 
 };

@@ -374,6 +374,33 @@ app.post('/api/offers', auth, async (req, res) => {
   res.json({ id: offerId, ok: true });
 });
 
+app.get('/api/customer/banners', auth, async (_req, res) => {
+  const rows = (await pool.query(
+    `SELECT id, offer_type, category, description, location, image_url, start_date, end_date,
+            created_at, published_at
+       FROM offers
+      WHERE image_url IS NOT NULL
+        AND image_url <> ''
+        AND lifecycle_status = 'active'
+        AND (start_date IS NULL OR start_date <= NOW())
+        AND (end_date IS NULL OR end_date > NOW())
+      ORDER BY published_at DESC NULLS LAST, created_at DESC
+      LIMIT 30`
+  )).rows;
+  return res.json(rows.map((row) => ({
+    id: row.id,
+    offerType: row.offer_type,
+    category: row.category,
+    description: row.description,
+    location: row.location,
+    imageUrl: `/api/billboard-ads/${row.id}/image`,
+    startDate: toIso(row.start_date),
+    endDate: toIso(row.end_date),
+    createdAt: toIso(row.created_at),
+    publishedAt: toIso(row.published_at),
+  })));
+});
+
 app.get('/api/billboard-ads', auth, async (_req, res) => {
   const rows = (await pool.query(
     `SELECT id, offer_type, category, description, location, image_url, start_date, end_date,

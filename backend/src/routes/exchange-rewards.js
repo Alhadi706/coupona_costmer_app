@@ -167,7 +167,7 @@ app.post('/api/points/exchange', auth, async (req, res) => {
 app.post('/api/reward-claims/create', auth, async (req, res) => {
   const p = req.body || {};
   const pointsCost = Number(p.pointsCost || 0);
-  if (!Number.isInteger(pointsCost) || pointsCost <= 0) return res.status(400).json({ error: 'invalid_points_cost' });
+  if (!Number.isInteger(pointsCost) || pointsCost < 0) return res.status(400).json({ error: 'invalid_points_cost' });
   const rewardKind = String(p.rewardKind || 'physical');
   const rewardId = String(p.rewardId || '').trim() || null;
   const idempotencyKey = String(p.idempotencyKey || '').trim() || null;

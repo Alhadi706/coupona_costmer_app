@@ -119,7 +119,51 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('login_title'.tr())),
+      appBar: AppBar(
+        title: Text('login_title'.tr()),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.translate),
+            onPressed: () async {
+              final List<Map<String, String>> loginLanguages = const [
+                {'code': 'ar', 'name': 'العربية'},
+                {'code': 'en', 'name': 'English'},
+                {'code': 'fr', 'name': 'Français'},
+                {'code': 'es', 'name': 'Español'},
+                {'code': 'tr', 'name': 'Türkçe'},
+                {'code': 'ru', 'name': 'Русский'},
+                {'code': 'zh', 'name': '中文'},
+                {'code': 'de', 'name': 'Deutsch'},
+                {'code': 'it', 'name': 'Italiano'},
+                {'code': 'pt', 'name': 'Português'},
+                {'code': 'hi', 'name': 'हिन्दी'},
+                {'code': 'id', 'name': 'Bahasa Indonesia'},
+                {'code': 'ja', 'name': '日本語'},
+                {'code': 'ko', 'name': '한국어'},
+                {'code': 'bn', 'name': 'বাংলা'},
+                {'code': 'ur', 'name': 'اردو'},
+              ];
+              String? selected = await showDialog<String>(
+                context: context,
+                builder: (context) => SimpleDialog(
+                  title: Text('choose_language'.tr()),
+                  children: loginLanguages.map((lang) => SimpleDialogOption(
+                    onPressed: () => Navigator.pop(context, lang['code']),
+                    child: Text(lang['name']!),
+                  )).toList(),
+                ),
+              );
+              if (selected != null) {
+                if (mounted) {
+                  await context.setLocale(Locale(selected));
+                  setState(() {});
+                }
+              }
+            },
+            tooltip: 'change_language'.tr(),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(

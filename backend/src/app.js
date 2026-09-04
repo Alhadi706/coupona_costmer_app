@@ -88,9 +88,44 @@ function corsGuard(req, res, next) {
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-kupuna-webhook-secret');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-Id, x-kupuna-webhook-secret');
+  res.setHeader('Access-Control-Expose-Headers', 'X-Request-Id');
   if (req.method === 'OPTIONS') return res.status(204).end();
   return next();
+}
+
+function createRequestObservability({ logger = console, now = Date.now, createId = crypto.randomUUID } = {}) {
+  return (req, res, next) => {
+    const suppliedId = String(req.headers['x-request-id'] || '').trim();
+    const requestId = /^[a-zA-Z0-9._:-]{8,128}$/.test(suppliedId) ? suppliedId : createId();
+    const startedAt = now();
+    req.requestId = requestId;
+    res.setHeader('X-Request-Id', requestId);
+    res.once('finish', () => {
+      logger.info(JSON.stringify({
+        event: 'http_request',
+        requestId,
+        method: req.method,
+        path: req.originalUrl || req.url,
+        statusCode: res.statusCode,
+        durationMs: Math.max(0, now() - startedAt),
+      }));
+    });
+    next();
+  };
+}
+
+function createFeatureGate(disabledPrefixes = parseList(process.env.DISABLED_API_PREFIXES)) {
+  const prefixes = disabledPrefixes.filter((prefix) => prefix.startsWith('/api/'));
+  return (req, res, next) => {
+    const matchedPrefix = prefixes.find((prefix) => req.path === prefix || req.path.startsWith(`${prefix}/`));
+    if (!matchedPrefix) return next();
+    res.setHeader('Retry-After', '60');
+    return res.status(503).json({
+      error: 'feature_temporarily_unavailable',
+      requestId: req.requestId,
+    });
+  };
 }
 
 function createRateLimiter({ windowMs, max, keyPrefix, keyParts }) {
@@ -155,6 +190,8 @@ const ownerResendRateLimit = createRateLimiter({
   keyParts: (req) => [String((req.body || {}).challengeId || '').trim()],
 });
 
+app.use(createRequestObservability());
+app.use(createFeatureGate());
 app.use(corsGuard);
 app.use(express.json({ limit: '8mb' }));
 
@@ -195,6 +232,8 @@ module.exports = {
   requiredEnv,
   parseList,
   corsGuard,
+  createRequestObservability,
+  createFeatureGate,
   createRateLimiter,
   loginRateLimit,
   signupRateLimit,

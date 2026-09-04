@@ -7,6 +7,7 @@ import '../theme/app_themes.dart';
 import '../theme/design_tokens.dart';
 import 'admin_report_detail_screen.dart';
 import 'admin_public_coalition_requests_screen.dart';
+import 'admin_subscriptions_screen.dart';
 
 typedef AdminRoleRequestsLoader =
     Future<List<Map<String, dynamic>>> Function(String status);
@@ -67,7 +68,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
     _refreshAll();
   }
 
@@ -1223,6 +1224,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             Tab(text: _tx('admin_tab_peer_ads', 'Peer Ads')),
             Tab(text: _tx('billboard_review_title', 'Home Billboard Ads')),
             Tab(text: _tx('public_coalition_admin_tab', 'Public Coalition')),
+            Tab(text: _tx('admin_subscriptions_tab', 'Subscriptions')),
           ],
         ),
         Expanded(
@@ -1235,6 +1237,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               _buildPeerAds(),
               _buildBillboardAds(),
               const AdminPublicCoalitionRequestsScreen(embedded: true),
+              const AdminSubscriptionsScreen(),
             ],
           ),
         ),

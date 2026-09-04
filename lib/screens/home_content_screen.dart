@@ -937,25 +937,124 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
               _toDouble(store['lat']),
               _toDouble(store['lng']),
             );
+            final coalitions = (store['coalitions'] as List?) ?? const [];
             return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: const Icon(
-                  Icons.storefront_outlined,
-                  color: kTealDark,
-                ),
-                title: Text((store['name'] ?? '').toString()),
-                subtitle: Text(
-                  'home_discover_store_distance'.tr(
-                    namedArgs: {
-                      'category': (store['category'] ?? '-').toString(),
-                      'distance': distance.toStringAsFixed(2),
-                    },
-                  ),
-                ),
+              margin: const EdgeInsets.only(bottom: 10),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(kRadiusCard),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => StoreDetailsScreen(store: store),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const CircleAvatar(
+                            backgroundColor: kMint,
+                            child: Icon(
+                              Icons.storefront_outlined,
+                              color: kTealDark,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  (store['name'] ?? '').toString(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Text(
+                                  'home_discover_store_distance'.tr(
+                                    namedArgs: {
+                                      'category': (store['category'] ?? '-')
+                                          .toString(),
+                                      'distance': distance.toStringAsFixed(2),
+                                    },
+                                  ),
+                                  style: kBodyTextStyle(
+                                    size: 12,
+                                    color: kInk.withValues(alpha: 0.65),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.arrow_back_ios_new,
+                            size: 16,
+                            color: kTeal,
+                          ),
+                        ],
+                      ),
+                      if (store['merchantId'] != null) ...[
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            _storeMetaChip(
+                              Icons.loyalty_outlined,
+                              _storePointTierLabel(store['pointTier']),
+                              kGold,
+                            ),
+                            _storeMetaChip(
+                              Icons.add_circle_outline,
+                              'store_points_rate'.tr(
+                                namedArgs: {
+                                  'value': '${store['pointValue'] ?? 0}',
+                                },
+                              ),
+                              kTeal,
+                            ),
+                            _storeMetaChip(
+                              Icons.inventory_2_outlined,
+                              'store_content_summary'.tr(
+                                namedArgs: {
+                                  'products': '${store['productsCount'] ?? 0}',
+                                  'offers': '${store['offersCount'] ?? 0}',
+                                  'rewards': '${store['rewardsCount'] ?? 0}',
+                                },
+                              ),
+                              kIndigo,
+                            ),
+                          ],
+                        ),
+                        if (coalitions.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'store_coalitions_value'.tr(
+                              namedArgs: {
+                                'value': coalitions
+                                    .map(
+                                      (item) =>
+                                          (item as Map)['name']?.toString() ??
+                                          '',
+                                    )
+                                    .where((name) => name.isNotEmpty)
+                                    .join(' • '),
+                              },
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: kBodyTextStyle(
+                              size: 12,
+                              weight: FontWeight.w600,
+                              color: kTealDark,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
                   ),
                 ),
               ),
@@ -963,6 +1062,40 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
           })
           .toList(growable: false),
     );
+  }
+
+  Widget _storeMetaChip(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(kRadiusPill),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: kBodyTextStyle(
+              size: 11,
+              weight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _storePointTierLabel(dynamic tier) {
+    return switch (tier?.toString()) {
+      'gold' => 'store_points_gold'.tr(),
+      'silver' => 'store_points_silver'.tr(),
+      _ => 'store_points_bronze'.tr(),
+    };
   }
 
   double _toDouble(dynamic value) {

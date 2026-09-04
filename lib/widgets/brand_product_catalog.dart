@@ -39,6 +39,11 @@ class _BrandProductCatalogState extends State<BrandProductCatalog> {
   String _search = '';
   String _status = 'all';
 
+  String _tx(String key, String fallback) {
+    final value = key.tr();
+    return value == key ? fallback : value;
+  }
+
   @override
   Widget build(BuildContext context) {
     final normalizedSearch = _search.trim().toLowerCase();
@@ -54,7 +59,7 @@ class _BrandProductCatalogState extends State<BrandProductCatalog> {
       children: [
         TextField(
           key: const Key('brand-product-search'),
-          decoration: InputDecoration(labelText: 'brand_product_search'.tr(), prefixIcon: const Icon(Icons.search)),
+          decoration: InputDecoration(labelText: _tx('brand_product_search', 'بحث في منتجات العلامة'), prefixIcon: const Icon(Icons.search)),
           onChanged: (value) => setState(() => _search = value),
         ),
         const SizedBox(height: 8),
@@ -63,9 +68,9 @@ class _BrandProductCatalogState extends State<BrandProductCatalog> {
           child: SegmentedButton<String>(
             key: const Key('brand-product-status-filter'),
             segments: [
-              ButtonSegment(value: 'all', label: Text('brand_product_filter_all'.tr())),
-              ButtonSegment(value: 'active', label: Text('brand_product_active'.tr())),
-              ButtonSegment(value: 'inactive', label: Text('brand_product_inactive'.tr())),
+              ButtonSegment(value: 'all', label: Text(_tx('brand_product_filter_all', 'الكل'))),
+              ButtonSegment(value: 'active', label: Text(_tx('brand_product_active', 'نشط'))),
+              ButtonSegment(value: 'inactive', label: Text(_tx('brand_product_inactive', 'متوقف'))),
             ],
             selected: {_status},
             onSelectionChanged: (selection) => setState(() => _status = selection.first),
@@ -105,18 +110,18 @@ class _BrandProductCatalogState extends State<BrandProductCatalog> {
                 ),
               ),
         title: Text((product['name'] ?? '-').toString()),
-        subtitle: Text('${'brand_product_barcode'.tr()}: ${(product['barcode'] ?? '-').toString()} • ${isActive ? 'brand_product_active'.tr() : 'brand_product_inactive'.tr()}'),
+        subtitle: Text('${_tx('brand_product_barcode', 'الباركود')}: ${(product['barcode'] ?? '-').toString()} • ${isActive ? _tx('brand_product_active', 'نشط') : _tx('brand_product_inactive', 'متوقف')}'),
         enabled: isActive,
         trailing: PopupMenuButton<String>(
           key: Key('brand-product-menu-${product['id']}'),
-          tooltip: 'brand_product_actions'.tr(),
+          tooltip: _tx('brand_product_actions', 'إجراءات المنتج'),
           onSelected: (action) {
             if (action == 'edit') _showProductDialog(product: product);
             if (action == 'deactivate') _confirmDeactivate(product);
           },
           itemBuilder: (_) => [
-            PopupMenuItem(value: 'edit', child: Text('brand_product_edit'.tr())),
-            if (isActive) PopupMenuItem(value: 'deactivate', child: Text('brand_product_deactivate'.tr())),
+            PopupMenuItem(value: 'edit', child: Text(_tx('brand_product_edit', 'تعديل المنتج'))),
+            if (isActive) PopupMenuItem(value: 'deactivate', child: Text(_tx('brand_product_deactivate', 'إيقاف المنتج'))),
           ],
         ),
       ),
@@ -171,7 +176,7 @@ class _BrandProductCatalogState extends State<BrandProductCatalog> {
                   icon: selectingImage
                       ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.photo_library_outlined),
-                  label: Text(imageUrl.isEmpty ? 'brand_product_select_image'.tr() : 'brand_product_image_selected'.tr()),
+                  label: Text(imageUrl.isEmpty ? _tx('brand_product_select_image', 'اختيار صورة المنتج') : _tx('brand_product_image_selected', 'تم اختيار صورة المنتج')),
                 ),
                 KeyedSubtree(
                   key: const Key('brand-product-barcode'),
@@ -228,14 +233,14 @@ class _BrandProductCatalogState extends State<BrandProductCatalog> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('brand_product_deactivate_title'.tr()),
-        content: Text('brand_product_deactivate_message'.tr(namedArgs: {'name': (product['name'] ?? '-').toString()})),
+        title: Text(_tx('brand_product_deactivate_title', 'إيقاف المنتج')),
+        content: Text(_tx('brand_product_deactivate_message', 'سيبقى {name} في السجلات السابقة، وسيتم إيقافه من الاستخدام الجديد.').replaceAll('{name}', (product['name'] ?? '-').toString())),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text('cancel'.tr())),
           FilledButton(
             key: const Key('brand-product-confirm-deactivate'),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text('brand_product_deactivate'.tr()),
+            child: Text(_tx('brand_product_deactivate', 'إيقاف المنتج')),
           ),
         ],
       ),

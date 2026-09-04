@@ -1,0 +1,178 @@
+import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+
+import '../services/company_server_service.dart';
+import '../theme/design_tokens.dart';
+
+class CustomerGiftsScreen extends StatefulWidget {
+  const CustomerGiftsScreen({super.key});
+
+  @override
+  State<CustomerGiftsScreen> createState() => _CustomerGiftsScreenState();
+}
+
+class _CustomerGiftsScreenState extends State<CustomerGiftsScreen> {
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _assignments = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final assignments = await CompanyServerService.getMyGiftAssignments();
+      if (!mounted) return;
+      setState(() => _assignments = assignments);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _viewGift(String assignmentId) async {
+    await CompanyServerService.markGiftAssignmentViewed(assignmentId).catchError((_) => <String, dynamic>{});
+    await _load();
+  }
+
+  Future<void> _claimGift(Map<String, dynamic> assignment) async {
+    final assignmentId = (assignment['assignmentId'] ?? '').toString();
+    if (assignmentId.isEmpty) return;
+    try {
+      final claim = await CompanyServerService.claimGiftAssignment(assignmentId);
+      if (!mounted) return;
+      await _showGiftQr(assignment, claim);
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر استخدام الهدية: $error')));
+    }
+  }
+
+  Future<void> _showGiftQr(Map<String, dynamic> assignment, Map<String, dynamic> claim) async {
+    final gift = (assignment['gift'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final token = (claim['redemptionToken'] ?? '').toString();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text((gift['title'] ?? 'هدية').toString(), textAlign: TextAlign.center, style: kDisplayTextStyle(size: 20)),
+              const SizedBox(height: 8),
+              Text('اعرض هذا الرمز للكاشير عند الاستلام.', textAlign: TextAlign.center, style: kBodyTextStyle(size: 13)),
+              const SizedBox(height: 16),
+              if (token.isNotEmpty) ...[
+                QrImageView(data: token, size: 230),
+                const SizedBox(height: 8),
+                SelectableText(token, textAlign: TextAlign.center),
+              ] else
+                const Text('لم يتم إنشاء رمز الاستلام.'),
+              if ((claim['expiresAt'] ?? '').toString().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text('صالح حتى: ${(claim['expiresAt'] ?? '').toString().split('T').first}'),
+              ],
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                  label: const Text('إغلاق'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('هداياي')),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text('الهدايا المجانية', style: kDisplayTextStyle(size: 22, weight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text('هذه الهدايا لا تخصم من نقاطك. يتم الاستلام فقط بعد تحقق الكاشير من QR.', style: kBodyTextStyle(size: 13, color: kInk.withValues(alpha: 0.68))),
+            const SizedBox(height: 16),
+            if (_loading)
+              const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+            else if (_error != null)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.error_outline, color: Colors.redAccent),
+                  title: const Text('تعذر تحميل الهدايا'),
+                  subtitle: Text(_error!),
+                  trailing: IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+                ),
+              )
+            else if (_assignments.isEmpty)
+              const Card(
+                child: ListTile(
+                  leading: Icon(Icons.card_giftcard_outlined, color: kTeal),
+                  title: Text('لا توجد هدايا حالية'),
+                  subtitle: Text('عندما يرسل لك تاجر أو علامة تجارية هدية ستظهر هنا.'),
+                ),
+              )
+            else
+              ..._assignments.map(_buildGiftCard),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGiftCard(Map<String, dynamic> assignment) {
+    final gift = (assignment['gift'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final assignmentId = (assignment['assignmentId'] ?? '').toString();
+    final status = (assignment['status'] ?? '').toString();
+    final title = (gift['title'] ?? 'هدية').toString();
+    final description = (gift['description'] ?? '').toString();
+    final canClaim = status == 'NOTIFIED' || status == 'VIEWED' || status == 'CLAIMED';
+    final redeemed = status == 'REDEEMED';
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: redeemed ? kLine : kTeal.withValues(alpha: 0.14),
+          child: Icon(redeemed ? Icons.check_circle_outline : Icons.card_giftcard_outlined, color: redeemed ? Colors.grey : kTeal),
+        ),
+        title: Text(title, style: kBodyTextStyle(size: 15, weight: FontWeight.w700)),
+        subtitle: Text([
+          if (description.isNotEmpty) description,
+          'الحالة: $status',
+          if ((assignment['expiresAt'] ?? '').toString().isNotEmpty) 'صالحة حتى: ${(assignment['expiresAt'] ?? '').toString().split('T').first}',
+        ].join('\n')),
+        isThreeLine: true,
+        trailing: canClaim
+            ? FilledButton(
+                onPressed: () async {
+                  await _viewGift(assignmentId);
+                  await _claimGift(assignment);
+                },
+                child: const Text('استخدم'),
+              )
+            : null,
+      ),
+    );
+  }
+}

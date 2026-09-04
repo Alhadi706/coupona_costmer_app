@@ -5,6 +5,12 @@ module.exports = function registerBrandTeamRoutes(app, deps) {
     return {
       canManageProducts: raw?.canManageProducts === true,
       canViewGeoDistribution: raw?.canViewGeoDistribution === true,
+      canManageCommunity: raw?.canManageCommunity === true,
+      canManageCampaigns: raw?.canManageCampaigns === true,
+      canManageAds: raw?.canManageAds === true,
+      canReplyMessages: raw?.canReplyMessages === true,
+      canViewAnalytics: raw?.canViewAnalytics === true,
+      canRedeemRewards: raw?.canRedeemRewards === true,
     };
   }
 
@@ -44,7 +50,9 @@ module.exports = function registerBrandTeamRoutes(app, deps) {
     const brandId = await getBrandProfileIdByUser(pool, req.user.userId);
     if (!brandId) return res.status(403).json({error: 'brand_owner_required'});
     const members = (await pool.query(
-      `SELECT m.user_id, m.can_manage_products, m.can_view_geo_distribution, m.created_at,
+            `SELECT m.user_id, m.can_manage_products, m.can_view_geo_distribution, m.can_manage_community,
+              m.can_manage_campaigns, m.can_manage_ads, m.can_reply_messages, m.can_view_analytics,
+              m.can_redeem_rewards, m.created_at,
               u.full_name, u.email, u.phone
          FROM brand_team_members m JOIN users u ON u.id = m.user_id
         WHERE m.brand_id = $1 ORDER BY m.created_at`,
@@ -57,7 +65,7 @@ module.exports = function registerBrandTeamRoutes(app, deps) {
       [brandId]
     )).rows;
     return res.json({
-      members: members.map((row) => ({userId: row.user_id, name: row.full_name, email: row.email, phone: row.phone, canManageProducts: row.can_manage_products === true, canViewGeoDistribution: row.can_view_geo_distribution === true, createdAt: toIso(row.created_at)})),
+      members: members.map((row) => ({userId: row.user_id, name: row.full_name, email: row.email, phone: row.phone, canManageProducts: row.can_manage_products === true, canViewGeoDistribution: row.can_view_geo_distribution === true, canManageCommunity: row.can_manage_community === true, canManageCampaigns: row.can_manage_campaigns === true, canManageAds: row.can_manage_ads === true, canReplyMessages: row.can_reply_messages === true, canViewAnalytics: row.can_view_analytics === true, canRedeemRewards: row.can_redeem_rewards === true, createdAt: toIso(row.created_at)})),
       invitations: invitations.map((row) => ({id: row.id, invitedUserId: row.invited_user_id, name: row.full_name, email: row.email, phone: row.phone, permissions: row.permissions || {}, status: row.status, createdAt: toIso(row.created_at)})),
     });
   });
@@ -86,12 +94,15 @@ module.exports = function registerBrandTeamRoutes(app, deps) {
       if (action === 'accept') {
         const allowed = permissions(invitation.permissions);
         await client.query(
-          `INSERT INTO brand_team_members (brand_id, user_id, can_manage_products, can_view_geo_distribution)
-           VALUES ($1,$2,$3,$4)
+          `INSERT INTO brand_team_members (brand_id, user_id, can_manage_products, can_view_geo_distribution, can_manage_community, can_manage_campaigns, can_manage_ads, can_reply_messages, can_view_analytics, can_redeem_rewards)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
            ON CONFLICT (brand_id, user_id) DO UPDATE SET
              can_manage_products=EXCLUDED.can_manage_products,
-             can_view_geo_distribution=EXCLUDED.can_view_geo_distribution`,
-          [invitation.brand_id, req.user.userId, allowed.canManageProducts, allowed.canViewGeoDistribution]
+             can_view_geo_distribution=EXCLUDED.can_view_geo_distribution,
+             can_manage_community=EXCLUDED.can_manage_community, can_manage_campaigns=EXCLUDED.can_manage_campaigns,
+             can_manage_ads=EXCLUDED.can_manage_ads, can_reply_messages=EXCLUDED.can_reply_messages,
+             can_view_analytics=EXCLUDED.can_view_analytics, can_redeem_rewards=EXCLUDED.can_redeem_rewards`,
+          [invitation.brand_id, req.user.userId, allowed.canManageProducts, allowed.canViewGeoDistribution, allowed.canManageCommunity, allowed.canManageCampaigns, allowed.canManageAds, allowed.canReplyMessages, allowed.canViewAnalytics, allowed.canRedeemRewards]
         );
       }
       const status = action === 'accept' ? 'accepted' : 'rejected';
