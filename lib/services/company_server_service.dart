@@ -1285,6 +1285,79 @@ class CompanyServerService {
     }, auth: true);
   }
 
+  // ── Customer Community Marketplace Offers ──────────────────
+
+  static Future<List<Map<String, dynamic>>> getCustomerCommunityOffers({
+    String? category,
+    String? visibilityScope,
+    String? status,
+    String? search,
+    bool? myOnly,
+  }) async {
+    final queryParams = <String, String>{};
+    if (category != null && category.isNotEmpty) queryParams['category'] = category;
+    if (visibilityScope != null && visibilityScope.isNotEmpty) queryParams['visibility_scope'] = visibilityScope;
+    if (status != null && status.isNotEmpty) queryParams['status'] = status;
+    if (search != null && search.isNotEmpty) queryParams['search'] = search;
+    if (myOnly == true) queryParams['my_only'] = 'true';
+
+    final data = await get('/customer/community-offers', query: queryParams, auth: true);
+    if (data is Map && data['offers'] is List) {
+      return (data['offers'] as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+    }
+    if (data is List) {
+      return data.map((e) => (e as Map).cast<String, dynamic>()).toList();
+    }
+    return [];
+  }
+
+  static Future<Map<String, dynamic>> createCustomerCommunityOffer({
+    required String title,
+    required String description,
+    required String category,
+    List<String>? images,
+    double priceLyd = 0.0,
+    bool acceptsPointsTrade = false,
+    String visibilityScope = 'PUBLIC_COMMUNITY',
+  }) async {
+    final data = await post('/customer/community-offers', {
+      'title': title,
+      'description': description,
+      'category': category,
+      'images': images ?? [],
+      'price_lyd': priceLyd,
+      'accepts_points_trade': acceptsPointsTrade,
+      'visibility_scope': visibilityScope,
+    }, auth: true);
+    if (data is Map && data['offer'] is Map) {
+      return (data['offer'] as Map).cast<String, dynamic>();
+    }
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> updateCommunityOfferStatus({
+    required String offerId,
+    required String status,
+  }) async {
+    final data = await patch('/customer/community-offers/$offerId/status', {
+      'status': status,
+    }, auth: true);
+    if (data is Map) {
+      return data.cast<String, dynamic>();
+    }
+    return {};
+  }
+
+  static Future<Map<String, dynamic>> contactCommunityOfferSeller({
+    required String offerId,
+  }) async {
+    final data = await post('/customer/community-offers/$offerId/contact', {}, auth: true);
+    if (data is Map) {
+      return data.cast<String, dynamic>();
+    }
+    return {};
+  }
+
   static Future<List<Map<String, dynamic>>> getPrivateChats() async {
     final userId = await AppSession.userId();
     if (userId == null || userId.isEmpty) {
@@ -2541,6 +2614,24 @@ class CompanyServerService {
       'claimId': claimId,
       'reason': reason,
     }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  // ── Customer Gifts & Merchant Gift Campaigns ─────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> getMyGiftAssignments() async {
+    final data = await get('/customer/gifts/assignments', auth: true);
+    final list = (data as Map)['assignments'] as List? ?? const <dynamic>[];
+    return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> markGiftAssignmentViewed(String assignmentId) async {
+    final data = await post('/customer/gifts/assignments/$assignmentId/view', <String, dynamic>{}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> claimGiftAssignment(String assignmentId) async {
+    final data = await post('/customer/gifts/assignments/$assignmentId/claim', <String, dynamic>{}, auth: true);
     return (data as Map).cast<String, dynamic>();
   }
 }
