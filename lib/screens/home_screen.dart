@@ -59,11 +59,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> _notifications = const <Map<String, dynamic>>[];
   int _unreadNotifications = 0;
   int _groupMessageUnread = 0;
-
-  String _tx(String key, String fallback) {
-    final value = key.tr();
-    return value == key ? fallback : value;
-  }
+  int _communityBadgeCount = 0;
+  int _rewardsBadgeCount = 0;
+  int _mapBadgeCount = 0;
 
   @override
   void initState() {
@@ -83,16 +81,67 @@ class _HomeScreenState extends State<HomeScreen> {
       final groupUnread = rows.where((n) {
         if (n['isRead'] == true) return false;
         final type = (n['type'] ?? '').toString();
-        return type == 'group_message' || type == 'group_message_new';
+        return type == 'group_message' ||
+            type == 'group_message_new' ||
+            type.contains('community') ||
+            type.contains('offer');
       }).length;
       setState(() {
         _notifications = rows;
         _unreadNotifications = unread;
         _groupMessageUnread = groupUnread;
+        _communityBadgeCount = groupUnread;
       });
     } catch (_) {
       // Keep shell usable even if notifications endpoint is temporarily unavailable.
     }
+    _loadTabBadges();
+  }
+
+  Future<void> _loadTabBadges() async {
+    try {
+      final pointsAccount = await CompanyServerService.getPointAccount().catchError(
+        (_) => <String, dynamic>{},
+      );
+      final rewards = await CompanyServerService.getRewards().catchError(
+        (_) => <Map<String, dynamic>>[],
+      );
+      final giftCatalog = await CompanyServerService.getCustomerGiftCatalog().catchError(
+        (_) => <String, dynamic>{},
+      );
+      final stores = await CompanyServerService.getStores().catchError(
+        (_) => <Map<String, dynamic>>[],
+      );
+
+      final availablePoints = (pointsAccount['availablePoints'] as num?)?.toInt() ?? 0;
+      int unlockedRewards = 0;
+      for (final r in rewards) {
+        final val = (r['value'] ?? r['pointsCost'] as num?)?.toInt() ?? 0;
+        if (val > 0 && availablePoints >= val) {
+          unlockedRewards++;
+        }
+      }
+      final items = giftCatalog['items'] as List? ?? [];
+      final unclaimedGifts = items.where((g) {
+        if (g is Map) {
+          final claimed = g['claimed'] == true || g['isClaimed'] == true;
+          return !claimed;
+        }
+        return false;
+      }).length;
+
+      final activeDeals = stores.where((s) {
+        final hasDeals = s['hasActiveDeal'] == true || s['isCoalition'] == true;
+        final offers = (s['offersCount'] as num?)?.toInt() ?? 0;
+        return hasDeals || offers > 0;
+      }).length;
+
+      if (!mounted) return;
+      setState(() {
+        _rewardsBadgeCount = unlockedRewards + unclaimedGifts;
+        _mapBadgeCount = activeDeals;
+      });
+    } catch (_) {}
   }
 
   Future<void> _openNotificationTarget(Map<String, dynamic> notification) async {
@@ -305,6 +354,39 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Widget _buildNavIconWithBadge(IconData icon, int count) {
+    if (count <= 0) {
+      return Icon(icon);
+    }
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon),
+        Positioned(
+          right: -8,
+          top: -5,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE53935),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+            alignment: Alignment.center,
+            child: Text(
+              count > 99 ? '99+' : '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final List<Widget> customerTabs = <Widget>[
@@ -375,12 +457,17 @@ class _HomeScreenState extends State<HomeScreen> {
             onSelectHomeTab: _onItemTapped,
             currentRole: _activeRole,
           ),
-      body: _activeRole == 'customer'
-          ? KeyedSubtree(
-              key: const ValueKey<String>('customer_mode_surface'),
-              child: customerTabs[_selectedIndex],
-            )
-          : _buildRoleSurface(),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: _activeRole == 'customer'
+              ? KeyedSubtree(
+                  key: const ValueKey<String>('customer_mode_surface'),
+                  child: customerTabs[_selectedIndex],
+                )
+              : _buildRoleSurface(),
+        ),
+      ),
         floatingActionButton: _activeRole == 'customer' && _selectedIndex == 0
           ? FloatingActionButton(
               onPressed: () {
@@ -408,48 +495,33 @@ class _HomeScreenState extends State<HomeScreen> {
                 BottomNavigationBarItem(
                   icon: const Icon(Icons.home_outlined),
                   activeIcon: const Icon(Icons.home),
-                  label: _tx('home_bottom_home', 'Home'),
+                  label: 'home_bottom_home'.tr(),
                 ),
                 BottomNavigationBarItem(
-                  icon: const Icon(Icons.map_outlined),
+                  icon: _buildNavIconWithBadge(Icons.map_outlined, _mapBadgeCount),
                   activeIcon: const Icon(Icons.map),
-                  label: _tx('home_bottom_map', 'Map'),
+                  label: 'home_bottom_map'.tr(),
                 ),
                 BottomNavigationBarItem(
-                  icon: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      const Icon(Icons.groups_outlined),
-                      if (_groupMessageUnread > 0)
-                        Positioned(
-                          right: -8,
-                          top: -6,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              _groupMessageUnread > 99 ? '99+' : '$_groupMessageUnread',
-                              style: const TextStyle(color: kWhite, fontSize: 10, fontWeight: FontWeight.w700),
-                            ),
-                          ),
-                        ),
-                    ],
+                  icon: _buildNavIconWithBadge(
+                    Icons.groups_outlined,
+                    _communityBadgeCount > 0 ? _communityBadgeCount : _groupMessageUnread,
                   ),
                   activeIcon: const Icon(Icons.groups),
-                  label: _tx('home_bottom_communities', 'Communities'),
+                  label: 'home_bottom_communities'.tr(),
                 ),
                 BottomNavigationBarItem(
-                  icon: const Icon(Icons.account_balance_wallet_outlined),
+                  icon: _buildNavIconWithBadge(
+                    Icons.account_balance_wallet_outlined,
+                    _rewardsBadgeCount,
+                  ),
                   activeIcon: const Icon(Icons.account_balance_wallet),
-                  label: _tx('home_bottom_wallet', 'Wallet'),
+                  label: 'home_bottom_wallet'.tr(),
                 ),
                 BottomNavigationBarItem(
                   icon: const Icon(Icons.person_outline),
                   activeIcon: const Icon(Icons.person),
-                  label: _tx('home_bottom_account', 'My Account'),
+                  label: 'home_bottom_account'.tr(),
                 ),
               ],
             ),

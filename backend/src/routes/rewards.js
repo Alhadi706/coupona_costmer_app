@@ -39,12 +39,24 @@ module.exports = function registerRewardsRoutes(app, deps) {
     analyticsAgeBucket, analyticsCountEntries, analyticsTopEntries,
   } = deps;
 
-app.get('/api/rewards', auth, async (_req, res) => {
-  const rows = (await pool.query(
-    `${REWARDS_WITH_STORE_NAME_SQL} WHERE r.is_active = TRUE AND (r.quantity_limit IS NULL OR r.quantity_redeemed < r.quantity_limit) AND (r.expires_at IS NULL OR r.expires_at > NOW()) ORDER BY r.value DESC`
-  )).rows;
-  res.json(rows.map(mapRewardRow));
-});
+  const getCustomerRewardsHandler = async (req, res) => {
+    const { merchant_id, coalition_id } = req.query;
+    let query = `${REWARDS_WITH_STORE_NAME_SQL} WHERE r.is_active = TRUE AND (r.quantity_limit IS NULL OR r.quantity_redeemed < r.quantity_limit) AND (r.expires_at IS NULL OR r.expires_at > NOW())`;
+    const params = [];
+    if (merchant_id) {
+      params.push(merchant_id);
+      query += ` AND ((r.source_type = 'merchant' AND r.source_id = $${params.length}) OR r.merchant_id = $${params.length})`;
+    } else if (coalition_id) {
+      params.push(coalition_id);
+      query += ` AND (r.source_id IN (SELECT merchant_id FROM coalition_members WHERE coalition_id = $${params.length}) OR r.source_id = $${params.length})`;
+    }
+    query += ` ORDER BY r.value DESC`;
+    const rows = (await pool.query(query, params)).rows;
+    res.json(rows.map(mapRewardRow));
+  };
+
+  app.get('/api/rewards', auth, getCustomerRewardsHandler);
+  app.get('/api/customer/rewards', auth, getCustomerRewardsHandler);
 
 app.get('/api/merchant/rewards', auth, async (req, res) => {
   const merchantId = await getMerchantProfileIdByUser(pool, req.user.userId);

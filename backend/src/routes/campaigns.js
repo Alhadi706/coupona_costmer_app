@@ -24,7 +24,7 @@ module.exports = function registerCampaignRoutes(app, deps) {
     if (!source) return res.status(403).json({ error: 'merchant_or_brand_profile_required' });
     const p = req.body || {};
     const campaignType = String(p.campaignType || '').trim();
-    if (!['free_gift', 'early_access_discount', 'raffle'].includes(campaignType)) {
+    if (campaignType === 'free_gift' || !['early_access_discount', 'raffle'].includes(campaignType)) {
       return res.status(400).json({ error: 'invalid_campaign_type' });
     }
     const startsAt = new Date(p.startsAt);
@@ -167,8 +167,12 @@ module.exports = function registerCampaignRoutes(app, deps) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const owned = (await client.query('SELECT id FROM promo_campaigns WHERE id = $1 AND source_type = $2 AND source_id = $3', [req.params.id, source.sourceType, source.sourceId])).rows[0];
+      const owned = (await client.query('SELECT id, campaign_type, gift_definition_id FROM promo_campaigns WHERE id = $1 AND source_type = $2 AND source_id = $3', [req.params.id, source.sourceType, source.sourceId])).rows[0];
       if (!owned) { await client.query('ROLLBACK'); return res.status(404).json({error: 'campaign_not_found'}); }
+      if (owned.campaign_type === 'free_gift' || owned.gift_definition_id) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'use_gift_engine' });
+      }
       const launch = await launchCampaign(client, req.params.id, insertNotification, source.sourceName);
       await client.query('COMMIT');
       return res.json({ok: true, segmentSize: launch.segmentSize || 0});

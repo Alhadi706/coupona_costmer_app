@@ -7,7 +7,7 @@ module.exports = function registerCoalitionRoutes(app, deps) {
   const { pool, auth, id, toIso, getMerchantProfileIdByUser, getBrandProfileIdByUser, insertNotification } = deps;
 
   app.get('/api/customer/wallet/tiers', auth, async (req, res) => {
-    const [tierResult, accountResult] = await Promise.all([
+    const [tierResult, accountResult, bronzeResult, silverResult] = await Promise.all([
       pool.query(`
         SELECT tier, COALESCE(SUM(balance), 0)::int AS balance,
                COALESCE(SUM(lifetime_earned), 0)::int AS lifetime_earned
@@ -19,6 +19,23 @@ module.exports = function registerCoalitionRoutes(app, deps) {
         'SELECT available_points, lifetime_points FROM point_accounts WHERE owner_id = $1',
         [req.user.userId]
       ),
+      pool.query(`
+        SELECT cpt.merchant_id, COALESCE(mp.business_name, 'متجر') AS business_name,
+               mp.logo_url, COALESCE(SUM(cpt.balance), 0)::int AS points
+          FROM customer_point_tiers cpt
+          LEFT JOIN merchant_profiles mp ON mp.id = cpt.merchant_id
+         WHERE cpt.customer_id = $1 AND cpt.tier = 'bronze' AND cpt.balance > 0
+         GROUP BY cpt.merchant_id, mp.business_name, mp.logo_url
+      `, [req.user.userId]),
+      pool.query(`
+        SELECT cpt.coalition_id, COALESCE(c.name, 'ائتلاف') AS coalition_name,
+               (SELECT COUNT(*)::int FROM coalition_members cm WHERE cm.coalition_id = cpt.coalition_id) AS stores_count,
+               COALESCE(SUM(cpt.balance), 0)::int AS points
+          FROM customer_point_tiers cpt
+          LEFT JOIN coalitions c ON c.id = cpt.coalition_id
+         WHERE cpt.customer_id = $1 AND cpt.tier = 'silver' AND cpt.balance > 0
+         GROUP BY cpt.coalition_id, c.name
+      `, [req.user.userId]),
     ]);
     const availablePoints = Number(accountResult.rows[0]?.available_points || 0);
     const lifetimePoints = Number(accountResult.rows[0]?.lifetime_points || 0);
@@ -27,7 +44,13 @@ module.exports = function registerCoalitionRoutes(app, deps) {
       tierResult.rows,
       lifetimePoints
     );
-    res.json({ tiers, availablePoints, legacyUnclassified });
+    res.json({
+      tiers,
+      availablePoints,
+      legacyUnclassified,
+      bronzeStores: bronzeResult.rows,
+      silverCoalitions: silverResult.rows,
+    });
   });
 
   app.get('/api/customer/wallet/pending-points', auth, async (req, res) => {
@@ -116,6 +139,10 @@ module.exports = function registerCoalitionRoutes(app, deps) {
     });
   });
 
+  function hashToken(token) {
+    return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+  }
+
   app.post('/api/customer/redemptions/dynamic-voucher', auth, async (req, res) => {
     const body = req.body || {};
     const rawCashValue = Number(body.cashValueLyD ?? body.cashValue ?? body.amount ?? 0);
@@ -162,25 +189,30 @@ module.exports = function registerCoalitionRoutes(app, deps) {
       );
       const selectedTier = tierRows.rows[0]?.tier || 'bronze';
 
-      const qrCode = crypto.randomUUID().replace(/-/g, '').slice(0, 24).toUpperCase();
-      const redemptionId = id();
+      const rawToken = crypto.randomUUID().replace(/-/g, '').slice(0, 24).toUpperCase();
+      const tokenHash = hashToken(rawToken);
+      const claimId = id();
+
+      const { rows: [claim] } = await client.query(
+        `INSERT INTO cash_voucher_claims (id, customer_id, points_cost, cash_value_lyd, status, claimed_at, tokenized_at, expires_at)
+         VALUES ($1, $2, $3, $4, 'TOKENIZED', NOW(), NOW(), NOW() + INTERVAL '24 hours')
+         RETURNING *`,
+        [claimId, customerId, requiredPoints, rawCashValue]
+      );
 
       await client.query(
-        'UPDATE point_accounts SET available_points = available_points - $1, updated_at = NOW() WHERE owner_id = $2',
-        [requiredPoints, customerId]
-      );
-      await client.query(
-        'INSERT INTO ledger_entries (id, owner_id, type, amount, points, reference, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())',
-        [id(), customerId, 'pointsRedeemed', 0, requiredPoints, `dynamic_voucher:${redemptionId}`]
+        `INSERT INTO redemption_tokens (id, cash_voucher_claim_id, purpose, token_hash, status, issued_at, active_at, expires_at)
+         VALUES ($1, $2, 'REDEMPTION', $3, 'ACTIVE', NOW(), NOW(), NOW() + INTERVAL '24 hours')`,
+        [id(), claimId, tokenHash]
       );
 
       await client.query('COMMIT');
       return res.status(201).json({
         ok: true,
-        redemptionId,
+        redemptionId: claimId,
         voucher: {
-          id: redemptionId,
-          qrCode,
+          id: claimId,
+          qrCode: rawToken,
           pointsUsed: requiredPoints,
           cashValueLyD: Number(rawCashValue.toFixed(2)),
           status: 'ready_for_cashier',
@@ -191,6 +223,190 @@ module.exports = function registerCoalitionRoutes(app, deps) {
     } catch (error) {
       await client.query('ROLLBACK');
       return res.status(500).json({ error: 'dynamic_voucher_failed', details: String(error.message || error) });
+    } finally {
+      client.release();
+    }
+  });
+
+  app.post('/api/cashier/dynamic-voucher/verify', auth, async (req, res) => {
+    const body = req.body || {};
+    const rawToken = String(body.qrCode || body.redemptionToken || body.token || '').trim();
+    if (!rawToken) return res.status(400).json({ error: 'token_required' });
+    const tokenHash = hashToken(rawToken);
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows: [token] } = await client.query(
+        `SELECT rt.*, cvc.customer_id, cvc.points_cost, cvc.cash_value_lyd, cvc.status AS claim_status
+           FROM redemption_tokens rt
+           JOIN cash_voucher_claims cvc ON cvc.id = rt.cash_voucher_claim_id
+          WHERE rt.token_hash = $1 FOR UPDATE`,
+        [tokenHash]
+      );
+
+      if (!token) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'token_not_found' });
+      }
+
+      if (token.status === 'USED' || token.claim_status === 'REDEEMED') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'token_already_used' });
+      }
+
+      if (token.status === 'EXPIRED' || (token.expires_at && new Date(token.expires_at) < new Date())) {
+        await client.query('ROLLBACK');
+        return res.status(410).json({ error: 'token_expired' });
+      }
+
+      await client.query(
+        `UPDATE redemption_tokens SET status = 'VERIFIED', scanned_at = NOW(), verified_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [token.id]
+      );
+      await client.query(
+        `UPDATE cash_voucher_claims SET status = 'VERIFIED', verified_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [token.cash_voucher_claim_id]
+      );
+
+      await client.query(
+        `INSERT INTO token_scans (id, token_id, scanned_by_user_id, status, verification_result)
+         VALUES ($1, $2, $3, 'VERIFIED', 'dynamic_voucher_verified')`,
+        [id(), token.id, req.user.userId]
+      );
+
+      await client.query('COMMIT');
+      return res.json({
+        ok: true,
+        status: 'VERIFIED',
+        cashValueLyD: Number(token.cash_value_lyd),
+        pointsCost: Number(token.points_cost),
+        customerId: token.customer_id,
+        claimId: token.cash_voucher_claim_id,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      return res.status(500).json({ error: 'verify_failed', details: String(error.message || error) });
+    } finally {
+      client.release();
+    }
+  });
+
+  app.post('/api/cashier/dynamic-voucher/redeem', auth, async (req, res) => {
+    const body = req.body || {};
+    const rawToken = String(body.qrCode || body.redemptionToken || body.token || '').trim();
+    const idempotencyKey = String(body.idempotencyKey || '').trim();
+    if (!rawToken) return res.status(400).json({ error: 'token_required' });
+    const tokenHash = hashToken(rawToken);
+
+    if (idempotencyKey) {
+      const { rows: [reqRow] } = await pool.query(
+        `SELECT response_json FROM redemption_requests WHERE actor_user_id = $1 AND idempotency_key = $2 AND status = 'COMPLETED'`,
+        [req.user.userId, idempotencyKey]
+      );
+      if (reqRow && reqRow.response_json) {
+        return res.json({ ...reqRow.response_json, idempotentReplay: true });
+      }
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows: [token] } = await client.query(
+        `SELECT rt.*, cvc.customer_id, cvc.points_cost, cvc.cash_value_lyd, cvc.status AS claim_status
+           FROM redemption_tokens rt
+           JOIN cash_voucher_claims cvc ON cvc.id = rt.cash_voucher_claim_id
+          WHERE rt.token_hash = $1 FOR UPDATE`,
+        [tokenHash]
+      );
+
+      if (!token) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'token_not_found' });
+      }
+
+      if (token.status === 'USED' || token.claim_status === 'REDEEMED') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'token_already_used' });
+      }
+
+      if (token.status === 'EXPIRED' || (token.expires_at && new Date(token.expires_at) < new Date())) {
+        await client.query('ROLLBACK');
+        return res.status(410).json({ error: 'token_expired' });
+      }
+
+      const pointsCost = Number(token.points_cost);
+      const customerId = token.customer_id;
+
+      const { rows: [account] } = await client.query(
+        `SELECT available_points FROM point_accounts WHERE owner_id = $1 FOR UPDATE`,
+        [customerId]
+      );
+
+      if (!account || Number(account.available_points || 0) < pointsCost) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'insufficient_points' });
+      }
+
+      const fulfillerMerchantId = await getMerchantProfileIdByUser(client, req.user.userId) || null;
+      const redemptionId = id();
+
+      await client.query(
+        `UPDATE point_accounts SET available_points = available_points - $1, updated_at = NOW() WHERE owner_id = $2`,
+        [pointsCost, customerId]
+      );
+
+      await client.query(
+        `INSERT INTO ledger_entries (id, owner_id, type, amount, points, reference, created_at)
+         VALUES ($1, $2, 'cashVoucherRedeemed', $3, $4, $5, NOW())`,
+        [id(), customerId, Number(token.cash_value_lyd), -pointsCost, `cash_voucher:${token.cash_voucher_claim_id}`]
+      );
+
+      await client.query(
+        `INSERT INTO redemptions (id, token_id, cash_voucher_claim_id, redemption_kind, customer_id, fulfilled_by_user_id, fulfiller_merchant_id, status, completed_at)
+         VALUES ($1, $2, $3, 'CASH_VALUE', $4, $5, $6, 'COMPLETED', NOW())`,
+        [redemptionId, token.id, token.cash_voucher_claim_id, customerId, req.user.userId, fulfillerMerchantId]
+      );
+
+      await client.query(
+        `UPDATE cash_voucher_claims SET status = 'REDEEMED', redeemed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [token.cash_voucher_claim_id]
+      );
+
+      await client.query(
+        `UPDATE redemption_tokens SET status = 'USED', used_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [token.id]
+      );
+
+      await client.query(
+        `INSERT INTO business_events (id, event_type, aggregate_type, aggregate_id, customer_id, redemption_id, payload)
+         VALUES ($1, 'CASH_VOUCHER_REDEEMED', 'cash_voucher_claims', $2, $3, $4, $5::jsonb)`,
+        [id(), token.cash_voucher_claim_id, customerId, redemptionId, JSON.stringify({ cashValueLyD: Number(token.cash_value_lyd), pointsCost })]
+      );
+
+      const responsePayload = {
+        ok: true,
+        redemptionId,
+        pointsDebited: pointsCost,
+        cashValueLyD: Number(token.cash_value_lyd),
+        status: 'COMPLETED',
+      };
+
+      if (idempotencyKey) {
+        await client.query(
+          `INSERT INTO redemption_requests (id, actor_user_id, idempotency_key, request_type, status, response_json)
+           VALUES ($1, $2, $3, 'CASH_VALUE_REDEMPTION', 'COMPLETED', $4::jsonb)
+           ON CONFLICT (actor_user_id, idempotency_key) DO NOTHING`,
+          [id(), req.user.userId, idempotencyKey, JSON.stringify(responsePayload)]
+        );
+      }
+
+      await client.query('COMMIT');
+      return res.json(responsePayload);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      return res.status(500).json({ error: 'redeem_failed', details: String(error.message || error) });
     } finally {
       client.release();
     }

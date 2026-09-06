@@ -201,7 +201,7 @@ test('digital reward usage immediately debits source escrow and records settleme
   assert.equal(response.body.settlementId, 'new-id');
   assert.equal(queries.some(({sql}) => sql.includes("'digital_reward_claim_used'")), true);
   const claimInsert = queries.find(({sql}) => sql.includes('INSERT INTO reward_claims'));
-  assert.equal(claimInsert.params[15], 'new-id');
+  assert.equal(claimInsert.params[14], 'new-id');
   assert.equal(queries.some(({sql}) => sql.includes('UPDATE point_accounts')), true);
   assert.equal(queries.some(({sql}) => sql.includes("'rewardRedeemed'")), true);
 });

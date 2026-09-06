@@ -12,6 +12,8 @@ import '../widgets/design_system/kupuna_offer_card.dart';
 import '../widgets/design_system/kupuna_top_tabs.dart';
 import '../widgets/stream_load_error.dart';
 import 'ads_banner_slider.dart';
+import 'customer_offers_screen.dart';
+import 'my_rewards_screen.dart';
 import 'store_details_screen.dart';
 
 class HomeContentScreen extends StatefulWidget {
@@ -21,6 +23,7 @@ class HomeContentScreen extends StatefulWidget {
   final VoidCallback? onOpenRewards;
   final VoidCallback? onOpenCoalitions;
   final VoidCallback? onOpenCommunity;
+  final VoidCallback? onOpenCustomerOffers;
   final VoidCallback? onScanReceipt;
   final Future<List<Map<String, dynamic>>> Function()? billboardAdsLoader;
 
@@ -32,6 +35,7 @@ class HomeContentScreen extends StatefulWidget {
     this.onOpenRewards,
     this.onOpenCoalitions,
     this.onOpenCommunity,
+    this.onOpenCustomerOffers,
     this.onScanReceipt,
     this.billboardAdsLoader,
   });
@@ -52,6 +56,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   double? _customerLng;
   late Future<List<Map<String, dynamic>>> _storesFuture;
   late Future<List<Map<String, dynamic>>> _billboardAdsFuture;
+  late Future<List<Map<String, dynamic>>> _customerBannersFuture;
   late Future<Map<String, dynamic>> _pointsFuture;
   late Future<Map<String, dynamic>> _tiersFuture;
   late Future<Map<String, dynamic>> _pendingFuture;
@@ -74,6 +79,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
         (widget.billboardAdsLoader?.call() ??
                 CompanyServerService.getBillboardAds())
             .catchError((_) => const <Map<String, dynamic>>[]);
+    _customerBannersFuture = CompanyServerService.getCustomerBanners().catchError(
+      (_) => const <Map<String, dynamic>>[],
+    );
     _pointsFuture = CompanyServerService.getPointAccount().catchError(
       (_) => <String, dynamic>{},
     );
@@ -161,7 +169,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
         child: Align(
           alignment: Alignment.topCenter,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
+            constraints: const BoxConstraints(maxWidth: 600),
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               child: Column(
@@ -170,6 +178,8 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                   _buildBanner(),
                   const SizedBox(height: 12),
                   _buildWelcomeSummary(),
+                  const SizedBox(height: 12),
+                  _buildQuickShortcutActions(),
                   const SizedBox(height: 12),
                   const CustomerCampaignCouponsSection(),
                   const SizedBox(height: 16),
@@ -499,13 +509,27 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   }
 
   Widget _buildBanner() {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _billboardAdsFuture,
+    return FutureBuilder<List<dynamic>>(
+      future: Future.wait<dynamic>([
+        _billboardAdsFuture,
+        _customerBannersFuture,
+      ]),
       builder: (context, snapshot) {
-        final ads = snapshot.data ?? const <Map<String, dynamic>>[];
-        if (ads.isNotEmpty) {
+        final billboardAds = snapshot.hasData && snapshot.data![0] is List
+            ? List<Map<String, dynamic>>.from(snapshot.data![0] as List)
+            : const <Map<String, dynamic>>[];
+        final customerBanners = snapshot.hasData && snapshot.data![1] is List
+            ? List<Map<String, dynamic>>.from(snapshot.data![1] as List)
+            : const <Map<String, dynamic>>[];
+
+        final combined = <Map<String, dynamic>>[
+          ...customerBanners,
+          ...billboardAds,
+        ];
+
+        if (combined.isNotEmpty) {
           return AdsBannerSlider(
-            ads: ads,
+            ads: combined,
             height: 164,
             onAdTap: _handleBillboardTap,
             onAdImpression: (ad) {
@@ -518,86 +542,144 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
             },
           );
         }
-        if (snapshot.hasError) {
-          return _buildDefaultBanner();
-        }
-        if (snapshot.hasData && ads.isEmpty) {
-          return _buildDefaultBanner();
-        }
-        return Container(
+
+        final defaultBanners = <Map<String, dynamic>>[
+          {
+            'id': 'default_banner_1',
+            'title': 'home_banner_title'.tr(),
+            'description': 'home_banner_1'.tr(),
+          },
+          {
+            'id': 'default_banner_2',
+            'title': 'home_banner_title'.tr(),
+            'description': 'home_banner_2'.tr(),
+          },
+          {
+            'id': 'default_banner_3',
+            'title': 'home_banner_title'.tr(),
+            'description': 'home_banner_3'.tr(),
+          },
+        ];
+
+        return AdsBannerSlider(
+          ads: defaultBanners,
           height: 164,
-          width: double.infinity,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: kTealDark,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: const CircularProgressIndicator(color: kGold),
+          onAdTap: (ad) {},
         );
       },
     );
   }
 
-  Widget _buildDefaultBanner() {
-    final String bannerText = _bannerKeys[_bannerIndex].tr();
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          colors: <Color>[kTealDark, kTeal],
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-        ),
-        boxShadow: kShadowFloating,
+  Widget _buildQuickShortcutActions() {
+    final actions = [
+      _ShortcutItem(
+        icon: Icons.calculate_outlined,
+        label: 'حاسبة الخصم',
+        color: kTeal,
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const MyRewardsScreen(openDynamicVoucherOnLoad: true),
+            ),
+          );
+        },
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'home_banner_title'.tr(),
-            style: kDisplayTextStyle(
-              size: 20,
-              weight: FontWeight.w700,
+      _ShortcutItem(
+        icon: Icons.camera_alt_outlined,
+        label: 'مسح فاتورة',
+        color: const Color(0xFFE53935),
+        onTap: () {
+          widget.onScanReceipt?.call();
+        },
+      ),
+      _ShortcutItem(
+        icon: Icons.card_giftcard_outlined,
+        label: 'هداياي الخاصة',
+        color: kGold,
+        onTap: () {
+          if (widget.onOpenRewards != null) {
+            widget.onOpenRewards!();
+          } else {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const MyRewardsScreen(focusGifts: true),
+              ),
+            );
+          }
+        },
+      ),
+      _ShortcutItem(
+        icon: Icons.local_offer_outlined,
+        label: 'عروض الزبائن',
+        color: const Color(0xFF6D4C41),
+        onTap: () {
+          if (widget.onOpenCustomerOffers != null) {
+            widget.onOpenCustomerOffers!();
+            return;
+          }
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CustomerOffersScreen()),
+          );
+        },
+      ),
+      _ShortcutItem(
+        icon: Icons.storefront_outlined,
+        label: 'سوق المجتمع',
+        color: const Color(0xFF1E88E5),
+        onTap: () {
+          widget.onOpenCommunity?.call();
+        },
+      ),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: actions.map((item) {
+          return Padding(
+            padding: const EdgeInsetsDirectional.only(end: 10),
+            child: Material(
               color: kWhite,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            bannerText,
-            style: kBodyTextStyle(
-              size: 13,
-              color: kWhite.withValues(alpha: 0.92),
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              OutlinedButton(
-                onPressed: () {
-                  setState(() {
-                    _bannerIndex = (_bannerIndex + 1) % _bannerKeys.length;
-                  });
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: kWhite,
-                  side: BorderSide(color: kWhite.withValues(alpha: 0.8)),
+              borderRadius: BorderRadius.circular(16),
+              elevation: 1,
+              shadowColor: Colors.black.withValues(alpha: 0.06),
+              child: InkWell(
+                onTap: item.onTap,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: kLine),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: item.color.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(item.icon, size: 20, color: item.color),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        item.label,
+                        style: kBodyTextStyle(
+                          size: 13,
+                          weight: FontWeight.w700,
+                          color: kInk,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Text('home_banner_next'.tr()),
               ),
-              const SizedBox(width: 8),
-              Text(
-                '${_bannerIndex + 1}/${_bannerKeys.length}',
-                style: kBodyTextStyle(
-                  size: 12,
-                  color: kWhite.withValues(alpha: 0.86),
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -1346,6 +1428,20 @@ class _SectionCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ShortcutItem {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ShortcutItem({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 }
 
 extension _StreamInit<T> on Stream<T> {

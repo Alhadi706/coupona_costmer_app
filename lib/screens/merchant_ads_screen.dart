@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import '../services/company_server_service.dart';
 import 'merchant_campaign_screen.dart';
 
@@ -43,14 +42,12 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
           final serverCampaigns = await CompanyServerService.getMyCampaigns();
           fetched = List<Map<String, dynamic>>.from(serverCampaigns);
         } catch (_) {
-          // If server fails or offline, fallback to empty list
           fetched = [];
         }
       }
 
       if (!mounted) return;
 
-      // Seed with initial default campaigns if none exist for interactive display
       if (fetched.isEmpty) {
         fetched = [
           {
@@ -98,7 +95,6 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
     final String newStatus = (currentStatus == 'active') ? 'paused' : 'active';
     final String id = (campaign['id'] ?? '').toString();
 
-    // Optimistic UI update
     setState(() {
       campaign['status'] = newStatus;
       if (_selectedCampaign?['id'] == id) {
@@ -109,7 +105,7 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
     try {
       await CompanyServerService.updateCampaignStatus(id, newStatus);
     } catch (_) {
-      // Revert if request failed in non-mocked environment
+      // Graceful offline fallback
     }
   }
 
@@ -196,7 +192,7 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
             // Campaign Analytics Table Header
             Row(
               children: [
-                const Icon(Icons.analytics_outlined),
+                const Icon(Icons.analytics_outlined, color: kMerchantPrimary),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -274,7 +270,7 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
                 label: const Text('🎯 إطلاق حملة هدايا مستهدفة'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: kMerchantPrimary,
-                  side: BorderSide(color: kMerchantPrimary),
+                  side: const BorderSide(color: kMerchantPrimary),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
@@ -637,7 +633,6 @@ class _AddBannerModalState extends State<_AddBannerModal> {
   final _linkController = TextEditingController();
   final _imageUrlController = TextEditingController();
 
-  XFile? _selectedImage;
   String _selectedAudience = 'كافة الزبائن';
   DateTime _expiryDate = DateTime.now().add(const Duration(days: 30));
 
@@ -647,19 +642,6 @@ class _AddBannerModalState extends State<_AddBannerModal> {
     _linkController.dispose();
     _imageUrlController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickImageFromGallery() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-      if (image != null) {
-        setState(() {
-          _selectedImage = image;
-          _imageUrlController.text = image.path;
-        });
-      }
-    } catch (_) {}
   }
 
   Future<void> _selectExpiryDate() async {
@@ -755,132 +737,15 @@ class _AddBannerModalState extends State<_AddBannerModal> {
               ),
               const SizedBox(height: 12),
 
-              // Image Upload from Gallery / Studio
-              InkWell(
-                key: const Key('banner-image-picker-btn'),
-                onTap: _pickImageFromGallery,
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: _selectedImage != null || _imageUrlController.text.isNotEmpty
-                          ? kMerchantPrimary
-                          : Colors.grey.shade400,
-                      width: 1.5,
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    color: _selectedImage != null || _imageUrlController.text.isNotEmpty
-                        ? kMerchantPrimary.withValues(alpha: 0.05)
-                        : Colors.grey.shade50,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: kMerchantPrimary.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.photo_library_outlined,
-                          color: kMerchantPrimary,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _selectedImage != null
-                                  ? 'تم اختيار الصورة من الاستوديو'
-                                  : (_imageUrlController.text.isNotEmpty
-                                      ? 'تم تحديد رابط الصورة'
-                                      : 'رفع الصورة من الاستوديو'),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: _selectedImage != null || _imageUrlController.text.isNotEmpty
-                                    ? kMerchantPrimary
-                                    : Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _selectedImage != null
-                                  ? _selectedImage!.name
-                                  : (_imageUrlController.text.isNotEmpty
-                                      ? _imageUrlController.text
-                                      : 'اضغط هنا لاختيار صورة من المعرض (Studio)'),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (_selectedImage != null || _imageUrlController.text.isNotEmpty)
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.red, size: 20),
-                          onPressed: () {
-                            setState(() {
-                              _selectedImage = null;
-                              _imageUrlController.clear();
-                            });
-                          },
-                        )
-                      else
-                        ElevatedButton.icon(
-                          onPressed: _pickImageFromGallery,
-                          icon: const Icon(Icons.upload, size: 16),
-                          label: const Text('اختيار صورة', style: TextStyle(fontSize: 12)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: kMerchantPrimary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Optional Direct Image Link Field
+              // Image URL / path
               TextFormField(
                 key: const Key('banner-image-field'),
                 controller: _imageUrlController,
-                decoration: InputDecoration(
-                  labelText: 'أو أدخل رابط صورة مباشر (اختياري)',
+                decoration: const InputDecoration(
+                  labelText: 'رابط صورة الإعلان (اختياري)',
                   hintText: 'https://example.com/banner.png',
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                  suffixIcon: _imageUrlController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () {
-                            setState(() {
-                              _imageUrlController.clear();
-                              _selectedImage = null;
-                            });
-                          },
-                        )
-                      : null,
+                  border: OutlineInputBorder(),
                 ),
-                onChanged: (val) {
-                  if (_selectedImage != null && val != _selectedImage!.path) {
-                    setState(() {
-                      _selectedImage = null;
-                    });
-                  }
-                },
               ),
               const SizedBox(height: 12),
 

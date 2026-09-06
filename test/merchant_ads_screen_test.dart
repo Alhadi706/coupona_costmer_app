@@ -93,8 +93,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('إضافة بانر إعلاني رئيسي جديد'), findsOneWidget);
-    expect(find.byKey(const Key('banner-image-picker-btn')), findsOneWidget);
-    expect(find.text('رفع الصورة من الاستوديو'), findsOneWidget);
 
     // Tap submit without entering title
     await tester.tap(find.byKey(const Key('submit-banner-btn')));

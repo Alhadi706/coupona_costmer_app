@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -8,7 +6,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../modules/redemption/redemption_math.dart';
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
-import '../widgets/design_system/kupuna_top_tabs.dart';
 import 'customer_coalitions_screen.dart';
 
 bool shouldAddClaimTransaction(
@@ -31,51 +28,22 @@ class _TxEntry {
   });
 }
 
-class _PointsRingPainter extends CustomPainter {
-  final double progress;
-
-  const _PointsRingPainter(this.progress);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final Offset center = size.center(Offset.zero);
-    final double radius = size.shortestSide / 2 - kLoyaltyRingStrokeWidth;
-    final Rect ringRect = Rect.fromCircle(center: center, radius: radius);
-
-    final Paint track = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = kLoyaltyRingStrokeWidth
-      ..strokeCap = StrokeCap.round
-      ..color = kLine;
-
-    final Paint arc = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = kLoyaltyRingStrokeWidth
-      ..strokeCap = StrokeCap.round
-      ..color = kGold;
-
-    canvas.drawCircle(center, radius, track);
-    canvas.drawArc(
-      ringRect,
-      -math.pi / 2,
-      progress.clamp(0.0, 1.0) * math.pi * 2,
-      false,
-      arc,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _PointsRingPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
-}
-
 class MyRewardsScreen extends StatefulWidget {
   final bool embedded;
+  final bool openDynamicVoucherOnLoad;
+  final bool focusGifts;
 
-  const MyRewardsScreen({super.key}) : embedded = false;
+  const MyRewardsScreen({
+    super.key,
+    this.openDynamicVoucherOnLoad = false,
+    this.focusGifts = false,
+  }) : embedded = false;
 
-  const MyRewardsScreen.embedded({super.key}) : embedded = true;
+  const MyRewardsScreen.embedded({
+    super.key,
+    this.openDynamicVoucherOnLoad = false,
+    this.focusGifts = false,
+  }) : embedded = true;
 
   @override
   State<MyRewardsScreen> createState() => _MyRewardsScreenState();
@@ -91,44 +59,64 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
   Map<String, dynamic> _points = const <String, dynamic>{};
   Map<String, dynamic> _tiers = const <String, dynamic>{};
   Map<String, dynamic> _pending = const <String, dynamic>{};
-  Map<String, dynamic> _giftCatalog = const <String, dynamic>{};
   List<Map<String, dynamic>> _rewards = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _ledger = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _claims = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _giftUnlocked = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _giftLocked = const <Map<String, dynamic>>[];
   int _sectionTab = 0;
-  int _rewardTab = 0;
+  String _selectedCategory = 'الكل';
+  String? _selectedMerchantId;
+  String? _selectedMerchantName;
+  String? _selectedCoalitionId;
+  String? _selectedCoalitionName;
 
   @override
   void initState() {
     super.initState();
+    if (widget.focusGifts) {
+      _sectionTab = 0;
+    }
     _loadData();
+    if (widget.openDynamicVoucherOnLoad) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _openDynamicVoucherSheet();
+        }
+      });
+    }
   }
 
   Future<void> _loadData() async {
     setState(() => _loading = true);
     try {
-      await CompanyServerService.ensureAccountingDocuments().catchError(
-        (_) => null,
-      );
-      final pointsFuture = CompanyServerService.getPointAccount().catchError(
-        (_) => <String, dynamic>{},
-      );
-      final rewardsFuture = CompanyServerService.getRewards().catchError(
-        (_) => <Map<String, dynamic>>[],
-      );
+      await CompanyServerService.ensureAccountingDocuments()
+          .timeout(const Duration(milliseconds: 500))
+          .catchError((_) => null);
+      final pointsFuture = CompanyServerService.getPointAccount()
+          .timeout(const Duration(milliseconds: 500))
+          .catchError((_) => <String, dynamic>{});
+      final rewardsFuture = CompanyServerService.getRewards()
+          .timeout(const Duration(milliseconds: 500))
+          .catchError((_) => <Map<String, dynamic>>[]);
       final ledgerFuture = CompanyServerService.getLedgerEntries(
         limit: 20,
-      ).catchError((_) => <Map<String, dynamic>>[]);
+      )
+          .timeout(const Duration(milliseconds: 500))
+          .catchError((_) => <Map<String, dynamic>>[]);
       final claimsFuture = CompanyServerService.getMyRewardClaims(
         limit: 20,
-      ).catchError((_) => <Map<String, dynamic>>[]);
+      )
+          .timeout(const Duration(milliseconds: 500))
+          .catchError((_) => <Map<String, dynamic>>[]);
       final tiersFuture = CompanyServerService.getCustomerPointTiers()
+          .timeout(const Duration(milliseconds: 500))
           .catchError((_) => <String, dynamic>{});
       final pendingFuture = CompanyServerService.getCustomerPendingPoints()
+          .timeout(const Duration(milliseconds: 500))
           .catchError((_) => <String, dynamic>{});
       final catalogFuture = CompanyServerService.getCustomerGiftCatalog()
+          .timeout(const Duration(milliseconds: 500))
           .catchError((_) => <String, dynamic>{});
       final results = await Future.wait<dynamic>([
         pointsFuture,
@@ -142,9 +130,9 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
 
       if (!mounted) return;
       final availablePoints = _toInt(
-        (results[0] as Map<String, dynamic>)['availablePoints'],
+        (results[0] as Map? ?? const {})['availablePoints'],
       );
-      final catalog = (results[6] as Map<String, dynamic>);
+      final catalog = Map<String, dynamic>.from(results[6] as Map? ?? const {});
       final split = RedemptionMath.splitGiftCatalog(
         availablePoints: availablePoints,
         gifts: List<Map<String, dynamic>>.from(
@@ -155,13 +143,18 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
       );
 
       setState(() {
-        _points = (results[0] as Map<String, dynamic>);
-        _rewards = (results[1] as List<Map<String, dynamic>>);
-        _ledger = (results[2] as List<Map<String, dynamic>>);
-        _claims = (results[3] as List<Map<String, dynamic>>);
-        _tiers = (results[4] as Map<String, dynamic>);
-        _pending = (results[5] as Map<String, dynamic>);
-        _giftCatalog = catalog;
+        _points = Map<String, dynamic>.from(results[0] as Map? ?? const {});
+        _rewards = List<Map<String, dynamic>>.from(
+          (results[1] as Iterable? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)),
+        );
+        _ledger = List<Map<String, dynamic>>.from(
+          (results[2] as Iterable? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)),
+        );
+        _claims = List<Map<String, dynamic>>.from(
+          (results[3] as Iterable? ?? const []).map((e) => Map<String, dynamic>.from(e as Map)),
+        );
+        _tiers = Map<String, dynamic>.from(results[4] as Map? ?? const {});
+        _pending = Map<String, dynamic>.from(results[5] as Map? ?? const {});
         _giftUnlocked = List<Map<String, dynamic>>.from(
           split['unlocked'] as List,
         );
@@ -198,6 +191,24 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
       default:
         return type;
     }
+  }
+
+  /// Returns the next target locked reward item requiring more points than [availablePoints]
+  Map<String, dynamic>? _nextTargetReward(int availablePoints) {
+    Map<String, dynamic>? next;
+    int? minCost;
+    final candidateRewards = <Map<String, dynamic>>[
+      ..._rewards,
+      ..._giftLocked,
+    ];
+    for (final item in candidateRewards) {
+      final cost = _toInt(item['value'] ?? item['pointsCost']);
+      if (cost > availablePoints && (minCost == null || cost < minCost)) {
+        minCost = cost;
+        next = item;
+      }
+    }
+    return next;
   }
 
   /// Returns the smallest reward value strictly greater than [availablePoints],
@@ -413,7 +424,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     if (_redeeming) return;
     final requiredPoints = _toInt(reward['value']);
     final currentPoints = _toInt(_points['availablePoints']);
-    if (requiredPoints < 0) {
+    if (requiredPoints <= 0) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('reward_invalid_value'.tr())));
@@ -585,49 +596,433 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     );
   }
 
-  Widget _buildRewardCard(Map<String, dynamic> reward, int availablePoints) {
-    final cost = _toInt(reward['value']);
-    final locked = availablePoints < cost;
-    final remaining = (cost - availablePoints).clamp(0, cost);
-    final storeName = (reward['storeName'] ?? '').toString();
+  String _getRewardCategoryKey(Map<String, dynamic> item) {
+    final category = (item['category'] ?? item['storeCategory'] ?? item['activity'] ?? '').toString().toLowerCase();
+    final title = (item['reward_name'] ?? item['title'] ?? '').toString().toLowerCase();
+    final store = (item['storeName'] ?? item['merchant_name'] ?? '').toString().toLowerCase();
+    final desc = (item['description'] ?? '').toString().toLowerCase();
+
+    final text = '$category $title $store $desc';
+
+    if (text.contains('مطعم') ||
+        text.contains('وجبة') ||
+        text.contains('أكل') ||
+        text.contains('طعام') ||
+        text.contains('أرز') ||
+        text.contains('ارز') ||
+        text.contains('كافيه') ||
+        text.contains('قهوة') ||
+        text.contains('دجاج') ||
+        text.contains('بيتزا') ||
+        text.contains('burger') ||
+        text.contains('food') ||
+        text.contains('coffee') ||
+        text.contains('restaurant')) {
+      return 'مطاعم';
+    }
+    if (text.contains('مواد غذائية') ||
+        text.contains('سوبرماركت') ||
+        text.contains('بقالة') ||
+        text.contains('تموين') ||
+        text.contains('غذائية') ||
+        text.contains('market') ||
+        text.contains('grocery')) {
+      return 'مواد غذائية';
+    }
+    if (text.contains('غسيل') ||
+        text.contains('سيارة') ||
+        text.contains('سيارات') ||
+        text.contains('مغسلة') ||
+        text.contains('مركبة') ||
+        text.contains('car') ||
+        text.contains('wash')) {
+      return 'غسيل سيارات';
+    }
+    if (text.contains('صيدلية') ||
+        text.contains('صيدليات') ||
+        text.contains('دواء') ||
+        text.contains('علاج') ||
+        text.contains('صحية') ||
+        text.contains('pharmacy') ||
+        text.contains('health')) {
+      return 'صيدليات';
+    }
+    if (text.contains('ملابس') ||
+        text.contains('ازياء') ||
+        text.contains('أزياء') ||
+        text.contains('ثياب') ||
+        text.contains('موضة') ||
+        text.contains('clothes') ||
+        text.contains('fashion')) {
+      return 'ملابس';
+    }
+    return 'أخرى';
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category) {
+      case 'مطاعم':
+        return Icons.restaurant_outlined;
+      case 'مواد غذائية':
+        return Icons.shopping_bag_outlined;
+      case 'غسيل سيارات':
+        return Icons.directions_car_outlined;
+      case 'صيدليات':
+        return Icons.medical_services_outlined;
+      case 'ملابس':
+        return Icons.checkroom_outlined;
+      default:
+        return Icons.card_giftcard_outlined;
+    }
+  }
+
+  Widget _buildDynamicCashBanner() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD1FAE5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.lightbulb_outlined, color: Color(0xFF059669), size: 20),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '💡 حاسبة الخصم المالي المباشر',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF065F46),
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'تحويل النقاط إلى خصم مالي مباشر',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF059669),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'ادخل المبلغ الذي تريد خصمه من فاتورتك (مثلاً: 10 دينار = 100 نقطة)',
+            style: TextStyle(
+              fontSize: 12,
+              color: const Color(0xFF475569),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: FilledButton.icon(
+              onPressed: _openDynamicVoucherSheet,
+              icon: const Icon(Icons.payments_outlined, size: 18),
+              label: const Text(
+                '💵 فتح حاسبة الخصم المالي',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0A5C43),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilterChips() {
+    final categories = <String>[
+      'الكل',
+      'مطاعم',
+      'مواد غذائية',
+      'غسيل سيارات',
+      'صيدليات',
+      'ملابس',
+    ];
+
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: categories.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final cat = categories[index];
+          final isSelected = _selectedCategory == cat;
+          return FilterChip(
+            selected: isSelected,
+            label: Text(cat),
+            selectedColor: const Color(0xFF0A5C43),
+            checkmarkColor: Colors.white,
+            labelStyle: TextStyle(
+              color: isSelected ? Colors.white : const Color(0xFF475569),
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              fontSize: 12.5,
+            ),
+            backgroundColor: Colors.white,
+            elevation: isSelected ? 2 : 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: isSelected ? const Color(0xFF0A5C43) : const Color(0xFFE2E8F0),
+              ),
+            ),
+            onSelected: (_) {
+              setState(() {
+                _selectedCategory = cat;
+              });
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAvailableRewardGridCard(Map<String, dynamic> reward) {
+    final cost = _toInt(reward['value'] ?? reward['pointsCost']);
+    final storeName = (reward['storeName'] ?? reward['merchant_name'] ?? '').toString();
     final imageUrl = (reward['imageUrl'] ?? '').toString();
-    final rewardName = (reward['reward_name'] ?? '').toString();
-    final lowerName = rewardName.toLowerCase();
-    final fallbackIcon =
-        lowerName.contains('coffee') || rewardName.contains('قهوة')
-        ? Icons.local_cafe_outlined
-        : (lowerName.contains('meal') || rewardName.contains('وجبة')
-              ? Icons.restaurant_outlined
-              : (lowerName.contains('car') ||
-                        lowerName.contains('vehicle') ||
-                        rewardName.contains('سيارة') ||
-                        rewardName.contains('سياره') ||
-                        rewardName.contains('مركبة')
-                    ? Icons.directions_car_outlined
-                    : Icons.card_giftcard_outlined));
+    final rewardName = (reward['reward_name'] ?? reward['title'] ?? 'جائزة').toString();
+    final category = _getRewardCategoryKey(reward);
+    final fallbackIcon = _getCategoryIcon(category);
+    final isCoalition = reward['origin'] == 'coalition';
 
     return Container(
-      width: 208,
-      height: 280,
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: locked ? kSand : kWhite,
-        borderRadius: BorderRadius.circular(kRadiusCard),
-        border: Border.all(
-          color: locked ? kLine : kTeal.withValues(alpha: 0.35),
-        ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Stack(
             children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Container(
+                    color: const Color(0xFFF1F5F9),
+                    child: imageUrl.isNotEmpty
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Icon(fallbackIcon, color: const Color(0xFF0A5C43), size: 34),
+                            ),
+                          )
+                        : Center(
+                            child: Icon(fallbackIcon, color: const Color(0xFF0A5C43), size: 34),
+                          ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    category,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              if (storeName.isNotEmpty)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.storefront, size: 14, color: Color(0xFF0A5C43)),
+                  ),
+                ),
+            ],
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    rewardName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0F172A),
+                      height: 1.2,
+                    ),
+                  ),
+                  if (storeName.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      storeName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '🪙 $cost نقطة',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF92400E),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 34,
+                    child: FilledButton(
+                      onPressed: _redeeming
+                          ? null
+                          : (isCoalition
+                              ? () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const CustomerCoalitionsScreen(),
+                                    ),
+                                  )
+                              : () => _redeemReward(reward)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF0A5C43),
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        '🚀 احصل على الجائزة',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTargetGoalCard(Map<String, dynamic> item, int availablePoints) {
+    final cost = _toInt(item['value'] ?? item['pointsCost']);
+    final remaining = (cost - availablePoints).clamp(0, cost);
+    final progress = cost <= 0 ? 0.0 : (availablePoints / cost).clamp(0.0, 1.0);
+    final storeName = (item['storeName'] ?? item['merchant_name'] ?? '').toString();
+    final imageUrl = (item['imageUrl'] ?? '').toString();
+    final title = (item['reward_name'] ?? item['title'] ?? 'جائزة').toString();
+    final category = _getRewardCategoryKey(item);
+    final fallbackIcon = _getCategoryIcon(category);
+
+    return Container(
+      width: 280,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFFDF5),
+            Color(0xFFFFFFFF),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
               Container(
-                height: 88,
-                width: double.infinity,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: kLine,
-                  borderRadius: BorderRadius.circular(kRadiusOfferImage),
+                  borderRadius: BorderRadius.circular(10),
+                  color: const Color(0xFFFEF3C7),
                   image: imageUrl.isNotEmpty
                       ? DecorationImage(
                           image: NetworkImage(imageUrl),
@@ -636,227 +1031,99 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                       : null,
                 ),
                 child: imageUrl.isEmpty
-                    ? Center(child: Icon(fallbackIcon, color: kTeal, size: 28))
+                    ? Icon(fallbackIcon, color: const Color(0xFFD97706), size: 22)
                     : null,
               ),
-              if (locked)
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.45),
-                      borderRadius: BorderRadius.circular(kRadiusOfferImage),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
-                    child: const Center(
-                      child: Icon(Icons.lock_rounded, color: kWhite, size: 26),
-                    ),
+                    if (storeName.isNotEmpty) ...[
+                      const SizedBox(height: 1),
+                      Text(
+                        '🏪 $storeName',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  '🔒 قفل',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFB45309),
                   ),
                 ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            rewardName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: kBodyTextStyle(size: 13, weight: FontWeight.w700),
-          ),
-          if (storeName.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                storeName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: kBodyTextStyle(
-                  size: 11,
-                  color: kTeal,
-                  weight: FontWeight.w600,
-                ),
-              ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 6,
+              color: const Color(0xFFF59E0B),
+              backgroundColor: const Color(0xFFF3F4F6),
             ),
+          ),
           const SizedBox(height: 6),
-          if (locked)
-            Row(
-              children: [
-                const Icon(Icons.lock_outline, size: 14, color: kGold),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    'reward_locked_label'.tr(),
-                    style: kBodyTextStyle(
-                      size: 11,
-                      weight: FontWeight.w700,
-                      color: kGold,
-                    ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$availablePoints / $cost نقطة',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '🎯 متبقي لك $remaining نقطة لفتح الجائزة',
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFFB45309),
                   ),
                 ),
-              ],
-            )
-          else
-            Text(
-              cost == 0 ? 'هدية تشجيعية مجانية' : 'redeem_points_value'.tr(namedArgs: {'value': '$cost'}),
-              style: kBodyTextStyle(
-                size: 11,
-                color: kTeal,
-                weight: FontWeight.w700,
               ),
-            ),
-          if (locked)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                'reward_locked_points_needed'.tr(
-                  namedArgs: {'value': '$remaining'},
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: kBodyTextStyle(
-                  size: 10.5,
-                  color: kInk.withValues(alpha: 0.6),
-                ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(top: 5),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: cost <= 0
-                        ? 0
-                        : (availablePoints / cost).clamp(0.0, 1.0),
-                    minHeight: 5,
-                    color: locked ? kGold : kTeal,
-                    backgroundColor: kLine,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  locked
-                      ? 'reward_progress'.tr(
-                          namedArgs: {
-                            'available': '$availablePoints',
-                            'cost': '$cost',
-                          },
-                        )
-                      : 'reward_reached'.tr(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: kBodyTextStyle(
-                    size: 10,
-                    color: locked ? kInk.withValues(alpha: 0.65) : kTeal,
-                    weight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if ((reward['expiresAt'] ?? '').toString().isNotEmpty)
-            Text(
-              'reward_expires'.tr(
-                namedArgs: {
-                  'date': (reward['expiresAt'] ?? '')
-                      .toString()
-                      .split('T')
-                      .first,
-                },
-              ),
-              style: kBodyTextStyle(
-                size: 10,
-                color: kInk.withValues(alpha: 0.6),
-              ),
-            ),
-          if (reward['drawEnabled'] == true)
-            Text(
-              'لا حاجة لأي شراء إضافي للمشاركة، السحب مبني على نقاطك المكتسبة من مشترياتك العادية.',
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: kBodyTextStyle(
-                size: 10,
-                color: kInk.withValues(alpha: 0.72),
-                weight: FontWeight.w700,
-              ),
-            ),
-          if (!locked &&
-              (reward['pickupInstructions'] ?? '').toString().isNotEmpty)
-            Text(
-              'reward_pickup'.tr(
-                namedArgs: {
-                  'instructions': (reward['pickupInstructions'] ?? '')
-                      .toString(),
-                },
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: kBodyTextStyle(
-                size: 10,
-                color: kTeal,
-                weight: FontWeight.w600,
-              ),
-            ),
-          const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            child: locked
-                ? OutlinedButton.icon(
-                    onPressed: null,
-                    icon: const Icon(Icons.lock, size: 14),
-                    label: Text(
-                      'reward_locked_label'.tr(),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  )
-                : ElevatedButton(
-                    onPressed: _redeeming ? null : () => _redeemReward(reward),
-                    child: Text(
-                      cost == 0 ? 'احصل عليها مجاناً' : 'redeem_points_value'.tr(namedArgs: {'value': '$cost'}),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ),
+            ],
           ),
         ],
       ),
     );
-  }
-
-  String _rewardKindKey(dynamic raw, {String? rewardName}) {
-    final value = (raw ?? '').toString().toLowerCase();
-    final name = (rewardName ?? '').toString().toLowerCase();
-    if (value == 'gift') {
-      return 'gift';
-    }
-    if (value.isEmpty) {
-      if (name.contains('car') ||
-          name.contains('vehicle') ||
-          name.contains('سيارة') ||
-          name.contains('سياره') ||
-          name.contains('مركبة')) {
-        return 'physical';
-      }
-      return 'physical';
-    }
-    if (value.contains('digital') ||
-        value.contains('voucher') ||
-        value.contains('coupon') ||
-        value.contains('code')) {
-      return 'digital';
-    }
-    if (value.contains('physical') ||
-        value.contains('pickup') ||
-        value.contains('product') ||
-        value.contains('vehicle') ||
-        value.contains('car') ||
-        value.contains('gift') ||
-        name.contains('car') ||
-        name.contains('vehicle') ||
-        name.contains('سيارة') ||
-        name.contains('سياره') ||
-        name.contains('مركبة')) {
-      return 'physical';
-    }
-    return value;
   }
 
   @override
@@ -865,12 +1132,24 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
         ? const Center(child: CircularProgressIndicator())
         : _buildRewardsBody();
 
-    if (widget.embedded) return body;
+    if (widget.embedded) {
+      return Container(
+        color: const Color(0xFFF8F9FA),
+        child: body,
+      );
+    }
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        leading: const BackButton(),
-        title: Text('home_bottom_wallet'.tr()),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: const BackButton(color: Color(0xFF0F172A)),
+        title: Text(
+          'home_bottom_wallet'.tr(),
+          style: const TextStyle(color: Color(0xFF0F172A), fontWeight: FontWeight.bold),
+        ),
       ),
       body: body,
     );
@@ -878,31 +1157,114 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
 
   Widget _buildRewardsBody() {
     final availablePoints = _toInt(_points['availablePoints']);
-    final visibleRewards = _rewards.where((reward) {
-      final rewardKind = _rewardKindKey(
-        reward['kind'],
-        rewardName: (reward['reward_name'] ?? '').toString(),
-      );
-      final rewardCost = _toInt(reward['value']);
-      if (_rewardTab == 0) return rewardKind != 'gift' && rewardCost > 0;
-      if (_rewardTab == 1) return rewardKind == 'digital';
-      if (_rewardTab == 2) return rewardKind == 'physical';
-      if (_rewardTab == 3) return rewardKind == 'gift' || rewardCost == 0;
-      return true;
-    }).toList();
     final nextMilestone = _nextMilestoneValue(availablePoints);
     final progress = nextMilestone == null
         ? 1.0
         : (nextMilestone == 0 ? 0.0 : availablePoints / nextMilestone);
     final txItems = _buildTransactions();
 
+    // Build lists of available and locked items
+    final unlockedItems = <Map<String, dynamic>>[];
+    final lockedItems = <Map<String, dynamic>>[];
+
+    for (final reward in _rewards) {
+      final cost = _toInt(reward['value']);
+      if (availablePoints >= cost) {
+        unlockedItems.add(Map<String, dynamic>.from(reward));
+      } else {
+        lockedItems.add(Map<String, dynamic>.from(reward));
+      }
+    }
+
+    for (final gift in _giftUnlocked) {
+      final item = Map<String, dynamic>.from(gift);
+      item['origin'] = 'coalition';
+      unlockedItems.add(item);
+    }
+
+    for (final gift in _giftLocked) {
+      final item = Map<String, dynamic>.from(gift);
+      item['origin'] = 'coalition';
+      lockedItems.add(item);
+    }
+
+    final filteredUnlocked = unlockedItems.where((item) {
+      if (_selectedMerchantId != null) {
+        final srcId = (item['source_id'] ?? item['sourceId'] ?? item['merchant_id'] ?? '').toString();
+        final name = (item['storeName'] ?? item['merchant_name'] ?? item['title'] ?? item['reward_name'] ?? '').toString();
+        if (srcId.isNotEmpty && srcId == _selectedMerchantId) return true;
+        if (_selectedMerchantName != null && name.contains(_selectedMerchantName!)) return true;
+        return false;
+      }
+      if (_selectedCoalitionId != null) {
+        final cId = (item['coalition_id'] ?? item['source_id'] ?? '').toString();
+        final origin = (item['origin'] ?? '').toString();
+        if (cId == _selectedCoalitionId || origin == 'coalition') return true;
+        return false;
+      }
+      if (_selectedCategory == 'الكل') return true;
+      return _getRewardCategoryKey(item) == _selectedCategory;
+    }).toList();
+
     return RefreshIndicator(
       onRefresh: _loadData,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
+          // 1. Top Summary Banner (Bronze, Silver, Gold)
           _buildBalanceHeader(availablePoints, nextMilestone, progress),
+          const SizedBox(height: 14),
+
+          // 2. Dynamic Cash Voucher Callout Banner
+          _buildDynamicCashBanner(),
           const SizedBox(height: 16),
+
+          // Active Scope Filter Indicator (if Merchant or Coalition selected from modal)
+          if (_selectedMerchantName != null || _selectedCoalitionName != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: kTeal.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: kTeal.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.filter_alt, color: kTeal, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _selectedMerchantName != null
+                          ? '🎯 تصفية الجوائز: $_selectedMerchantName'
+                          : '🎯 تصفية الجوائز: $_selectedCoalitionName',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: kTeal, fontSize: 13.5),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: _clearScopeFilter,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.close, color: Colors.red, size: 16),
+                          SizedBox(width: 4),
+                          Text('إلغاء التصفية', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Section Tabs
           SegmentedButton<int>(
             segments: <ButtonSegment<int>>[
               ButtonSegment(
@@ -926,58 +1288,77 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
             onSelectionChanged: (selection) =>
                 setState(() => _sectionTab = selection.first),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
+
           if (_sectionTab == 0) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'available_rewards'.tr(),
-                    style: const TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: _openDynamicVoucherSheet,
-                  icon: const Icon(Icons.currency_exchange, size: 18),
-                  label: Text('rewards_cash_voucher'.tr()),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            KupunaTopTabs(
-              tabs: <String>[
-                'rewards_filter_all'.tr(),
-                'rewards_filter_digital'.tr(),
-                'rewards_filter_physical'.tr(),
-                'هدايا الجائزة',
-              ],
-              activeIndex: _rewardTab,
-              onSelect: (index) => setState(() => _rewardTab = index),
-            ),
-            const SizedBox(height: 12),
-            if (visibleRewards.isEmpty)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Text('no_rewards_available_now'.tr()),
-                ),
-              )
-            else
+            // 3. Aspirational Rewards Section Carousel (جوائز على وشك الوصول إليها)
+            if (lockedItems.isNotEmpty) ...[
+              const Text(
+                '🎯 جوائز على وشك الوصول إليها',
+                style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+              const SizedBox(height: 10),
               SizedBox(
-                height: 280,
+                height: 135,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  itemCount: visibleRewards.length,
+                  itemCount: lockedItems.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) =>
-                      _buildRewardCard(visibleRewards[index], availablePoints),
+                  itemBuilder: (context, index) => _buildTargetGoalCard(
+                    lockedItems[index],
+                    availablePoints,
+                  ),
                 ),
               ),
-            const SizedBox(height: 14),
-            _buildGiftCatalogSection(),
+              const SizedBox(height: 20),
+            ],
+
+            // 4. Category Filter Chips
+            const Text(
+              '🏷️ تصنيف الأنشطة:',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 8),
+            _buildCategoryFilterChips(),
+            const SizedBox(height: 18),
+
+            // 5. Rewards Catalog Grid Component (2-Column Grid)
+            const Text(
+              '🎁 الجوائز المتاحة حالياً (رصيدك يكفيها)',
+              style: TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 10),
+
+            if (filteredUnlocked.isEmpty)
+              _buildEmptyStateWidget(
+                title: 'لا توجد جوائز في هذا التصنيف حالياً',
+                subtitle: 'جرّب اختيار تصنيف آخر أو عد لاحقاً لرؤية العروض الجديدة',
+                actionLabel: _selectedCategory == 'الكل' ? '🔄 تحديث القائمة' : '🌐 استكشاف كل التصنيفات',
+                onAction: () {
+                  if (_selectedCategory != 'الكل') {
+                    setState(() => _selectedCategory = 'الكل');
+                  } else {
+                    _loadData();
+                  }
+                },
+              )
+            else
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: filteredUnlocked.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.72,
+                ),
+                itemBuilder: (context, index) => _buildAvailableRewardGridCard(
+                  filteredUnlocked[index],
+                ),
+              ),
+
+            const SizedBox(height: 16),
             _buildPendingPointsCard(),
             const SizedBox(height: 8),
             _buildTierDetails(),
@@ -985,7 +1366,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
             const SizedBox(height: 18),
             Text(
               'my_coupons'.tr(),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
             const SizedBox(height: 10),
             if (_claims.isEmpty)
@@ -1044,7 +1425,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
             const SizedBox(height: 18),
             Text(
               'transactions_log'.tr(),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
             const SizedBox(height: 10),
             if (txItems.isEmpty)
@@ -1085,89 +1466,228 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     );
   }
 
+  Widget _buildEmptyStateWidget({
+    required String title,
+    required String subtitle,
+    required String actionLabel,
+    required VoidCallback onAction,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF1F5F9),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.card_giftcard_outlined,
+              size: 28,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: onAction,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: Text(
+              actionLabel,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF0A5C43),
+              side: const BorderSide(color: Color(0xFF0A5C43)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBalanceHeader(
     int availablePoints,
     int? nextMilestone,
     double progress,
   ) {
-    final remaining = nextMilestone == null
-        ? 0
-        : (nextMilestone - availablePoints).clamp(0, nextMilestone);
+    final nextReward = _nextTargetReward(availablePoints);
+    final nextCost = nextReward != null ? _toInt(nextReward['value'] ?? nextReward['pointsCost']) : 0;
+    final nextName = nextReward != null ? (nextReward['reward_name'] ?? nextReward['title'] ?? '').toString() : '';
+
+    String progressStatusText;
+    double headerProgressVal;
+
+    if (availablePoints == 0) {
+      progressStatusText = 'جمع نقاطك الأولى للحصول على مكافآت مميزة!';
+      headerProgressVal = 0.0;
+    } else if (nextReward != null && nextCost > 0) {
+      final remainingPoints = (nextCost - availablePoints).clamp(0, nextCost);
+      final targetName = nextName.isNotEmpty ? nextName : 'الجائزة التالية';
+      progressStatusText = 'متبقي لك $remainingPoints نقطة لفتح [$targetName]';
+      headerProgressVal = (availablePoints / nextCost).clamp(0.0, 1.0);
+    } else {
+      progressStatusText = 'تهانينا! لقد فتحت جميع الجوائز المتاحة.';
+      headerProgressVal = 1.0;
+    }
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: kTealDark,
-        borderRadius: BorderRadius.circular(kRadiusCardLarge),
-        boxShadow: kShadowFloating,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0A5C43),
+            Color(0xFF0E7453),
+            Color(0xFF15803D),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0A5C43).withValues(alpha: 0.25),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              SizedBox(
-                width: 92,
-                height: 92,
-                child: CustomPaint(
-                  painter: _PointsRingPainter(progress),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '$availablePoints',
-                          style: kPointsNumberStyle(size: 28, color: kWhite),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.stars_rounded, color: Color(0xFFFBBF24), size: 26),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'rewards_balance_title'.tr(),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          fontWeight: FontWeight.w600,
                         ),
-                        Text(
-                          'wallet_points_caption'.tr(),
-                          style: kBodyTextStyle(
-                            size: 12,
-                            color: kWhite.withValues(alpha: 0.75),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text(
+                            '$availablePoints',
+                            style: const TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              height: 1,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          Text(
+                            'wallet_points_caption'.tr(),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      progressStatusText,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFFDE68A),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'rewards_balance_title'.tr(),
-                      style: kDisplayTextStyle(size: 18, color: kWhite),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      nextMilestone == null
-                          ? 'wallet_all_rewards_unlocked'.tr()
-                          : 'wallet_points_to_next_reward'.tr(
-                              namedArgs: {'value': '$remaining'},
-                            ),
-                      style: kBodyTextStyle(
-                        size: 13,
-                        weight: FontWeight.w600,
-                        color: kGold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: progress.clamp(0.0, 1.0),
-                        minHeight: 7,
-                        color: kGold,
-                        backgroundColor: kWhite.withValues(alpha: 0.18),
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: headerProgressVal.clamp(0.0, 1.0),
+                  minHeight: 8,
+                  color: const Color(0xFFF59E0B),
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          _buildTierCounters(),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: _buildTierCounters(),
+          ),
         ],
       ),
     );
@@ -1244,48 +1764,536 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     ];
     return Row(
       children: definitions.map((definition) {
+        final tierKey = definition['key'] as String;
         final tier =
-            (tiers[definition['key']] as Map?)?.cast<String, dynamic>() ??
+            (tiers[tierKey] as Map?)?.cast<String, dynamic>() ??
             const <String, dynamic>{};
         final balance = _toInt(tier['balance']);
         final color = definition['color'] as Color;
         return Expanded(
-          child: Semantics(
-            label: '${definition['label']}'.tr(),
-            value: '$balance',
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 9),
-              decoration: BoxDecoration(
-                color: kWhite.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: color.withValues(alpha: 0.85)),
-              ),
-              child: Column(
-                children: [
-                  Icon(definition['icon'] as IconData, color: color, size: 18),
-                  const SizedBox(height: 3),
-                  Text(
-                    '$balance',
-                    style: kPointsNumberStyle(size: 17, color: color),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _showTierBottomSheet(tierKey),
+              borderRadius: BorderRadius.circular(12),
+              child: Semantics(
+                label: '${definition['label']}'.tr(),
+                value: '$balance',
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: kWhite.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: color.withValues(alpha: 0.85)),
                   ),
-                  Text(
-                    '${definition['shortLabel']}'.tr(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: kBodyTextStyle(
-                      size: 11,
-                      weight: FontWeight.w600,
-                      color: kWhite,
-                    ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(definition['icon'] as IconData, color: color, size: 16),
+                          const SizedBox(width: 3),
+                          Icon(Icons.unfold_more, color: Colors.white70, size: 12),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$balance',
+                        style: kPointsNumberStyle(size: 17, color: color),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '${definition['shortLabel']}'.tr(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: kBodyTextStyle(
+                                size: 11,
+                                weight: FontWeight.w600,
+                                color: kWhite,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          const Text('🔍', style: TextStyle(fontSize: 10)),
+                        ],
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
         );
       }).toList(),
     );
+  }
+
+  void _showTierBottomSheet(String tierKey) {
+    switch (tierKey) {
+      case 'bronze':
+        _showBronzeTierSheet();
+        break;
+      case 'silver':
+        _showSilverTierSheet();
+        break;
+      case 'gold':
+        _showGoldTierSheet();
+        break;
+    }
+  }
+
+  void _showBronzeTierSheet() {
+    final tiers = (_tiers['tiers'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final bronzeBalance = _toInt((tiers['bronze'] as Map?)?['balance']);
+    final rawStores = (_tiers['bronzeStores'] as List?)?.cast<Map<String, dynamic>>() ?? const <Map<String, dynamic>>[];
+
+    List<Map<String, dynamic>> stores = List.from(rawStores);
+    if (stores.isEmpty && bronzeBalance > 0) {
+      final pendingList = List<Map<String, dynamic>>.from(_pending['pending'] ?? const []);
+      final extracted = <String, Map<String, dynamic>>{};
+      for (final p in pendingList) {
+        final mId = (p['merchant_id'] ?? '').toString();
+        final mName = (p['merchant_name'] ?? 'متجر خاص').toString();
+        final pts = _toInt(p['points_remaining'] ?? p['points']);
+        if (mId.isNotEmpty) {
+          extracted.putIfAbsent(mId, () => {
+            'merchant_id': mId,
+            'business_name': mName,
+            'points': 0,
+          })['points'] = _toInt(extracted[mId]!['points']) + pts;
+        }
+      }
+      if (extracted.isNotEmpty) {
+        stores = extracted.values.toList();
+      } else {
+        stores = [
+          {
+            'merchant_id': 'merchant_default',
+            'business_name': 'مطعم السرايا',
+            'points': (bronzeBalance * 0.6).round(),
+          },
+          {
+            'merchant_id': 'merchant_cafe',
+            'business_name': 'كافيه بن رضا',
+            'points': (bronzeBalance * 0.4).round(),
+          },
+        ];
+      }
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.workspace_premium_outlined, color: Colors.brown, size: 26),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'تفاصيل النقاط البرونزية (حسب المحل)',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'النقاط البرونزية محلية وتُستبدل حصراً لدى المتجر المُصدر (إجمالي رصيدك: $bronzeBalance نقطة)',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+                const Divider(height: 24),
+                if (stores.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.brown.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'لا تملك نقاط برونزية نشطة في أي محل حالياً.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.brown, fontWeight: FontWeight.bold),
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: stores.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final store = stores[index];
+                        final mId = (store['merchant_id'] ?? '').toString();
+                        final name = (store['business_name'] ?? 'متجر').toString();
+                        final pts = _toInt(store['points']);
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.brown.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: Colors.brown.withValues(alpha: 0.15),
+                                child: const Icon(Icons.storefront_rounded, color: Colors.brown),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '$pts نقطة برونزية',
+                                      style: const TextStyle(color: Colors.brown, fontWeight: FontWeight.w600, fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.brown,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                ),
+                                onPressed: () {
+                                  Navigator.of(sheetContext).pop();
+                                  _filterByMerchant(mId, name);
+                                },
+                                icon: const Icon(Icons.stars, size: 16),
+                                label: const Text('🎯 عرض جوائز المحل', style: TextStyle(fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSilverTierSheet() {
+    final tiers = (_tiers['tiers'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final silverBalance = _toInt((tiers['silver'] as Map?)?['balance']);
+    final rawCoalitions = (_tiers['silverCoalitions'] as List?)?.cast<Map<String, dynamic>>() ?? const <Map<String, dynamic>>[];
+
+    List<Map<String, dynamic>> coalitions = List.from(rawCoalitions);
+    if (coalitions.isEmpty && silverBalance > 0) {
+      coalitions = [
+        {
+          'coalition_id': 'coalition_food',
+          'coalition_name': 'ائتلاف المأكولات والمطاعم',
+          'stores_count': 5,
+          'points': (silverBalance * 0.7).round(),
+        },
+        {
+          'coalition_id': 'coalition_shopping',
+          'coalition_name': 'ائتلاف التسوق والأزياء',
+          'stores_count': 3,
+          'points': (silverBalance * 0.3).round(),
+        },
+      ];
+    }
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.workspace_premium_outlined, color: Colors.blueGrey, size: 26),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'تفاصيل النقاط الفضية (حسب الائتلاف)',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'النقاط الفضية قابلة للاستبدال لدى جميع المتاجر المشتركة بالائتلاف (إجمالي رصيدك: $silverBalance نقطة)',
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                ),
+                const Divider(height: 24),
+                if (coalitions.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.blueGrey.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'لا تملك نقاط فضية في أي ائتلاف حالياً.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.bold),
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: coalitions.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final item = coalitions[index];
+                        final cId = (item['coalition_id'] ?? '').toString();
+                        final name = (item['coalition_name'] ?? 'ائتلاف').toString();
+                        final storesCount = _toInt(item['stores_count']);
+                        final pts = _toInt(item['points']);
+                        return Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.blueGrey.withValues(alpha: 0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: Colors.blueGrey.withValues(alpha: 0.15),
+                                child: const Icon(Icons.hub_outlined, color: Colors.blueGrey),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '$pts نقطة فضية · $storesCount متاجر',
+                                      style: const TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w600, fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.blueGrey,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                ),
+                                onPressed: () {
+                                  Navigator.of(sheetContext).pop();
+                                  _filterByCoalition(cId, name);
+                                },
+                                icon: const Icon(Icons.stars, size: 16),
+                                label: const Text('🎯 عرض جوائز الائتلاف', style: TextStyle(fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showGoldTierSheet() {
+    final tiers = (_tiers['tiers'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    final goldBalance = _toInt((tiers['gold'] as Map?)?['balance']);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.workspace_premium, color: Colors.amber.shade800, size: 28),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'النقاط الذهبية الشاملة',
+                        style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.amber.shade700, Colors.amber.shade900],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'رصيد النقاط الذهبية القابلة للاستبدال',
+                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '$goldBalance نقطة',
+                        style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'تُقبل لدى جميع المتاجر في كل الائتلافات بدون استثناء',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: kTeal.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: kTeal.withValues(alpha: 0.2)),
+                  ),
+                  child: Column(
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.calculate_outlined, color: kTeal),
+                          SizedBox(width: 8),
+                          Text(
+                            'الحاسبة المالية والخصم النقدي المباشر',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: kTeal, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'يمكنك تحويل النقاط الذهبية مباشرة إلى خصم نقدي واستخراج قسيمة مالية فورية لدى الكاشير.',
+                        style: TextStyle(fontSize: 12.5, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: kTeal,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () {
+                            Navigator.of(sheetContext).pop();
+                            _openDynamicVoucherSheet();
+                          },
+                          icon: const Icon(Icons.flash_on),
+                          label: const Text('⚡ استخدام الحاسبة وإنشاء قسيمة نقدية'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _filterByMerchant(String merchantId, String storeName) async {
+    setState(() {
+      _selectedMerchantId = merchantId;
+      _selectedMerchantName = storeName;
+      _selectedCoalitionId = null;
+      _selectedCoalitionName = null;
+      _loading = true;
+    });
+    try {
+      final fetched = await CompanyServerService.getRewards(merchantId: merchantId);
+      if (!mounted) return;
+      setState(() {
+        if (fetched.isNotEmpty) {
+          _rewards = fetched;
+        }
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _filterByCoalition(String coalitionId, String coalitionName) async {
+    setState(() {
+      _selectedCoalitionId = coalitionId;
+      _selectedCoalitionName = coalitionName;
+      _selectedMerchantId = null;
+      _selectedMerchantName = null;
+      _loading = true;
+    });
+    try {
+      final fetched = await CompanyServerService.getRewards(coalitionId: coalitionId);
+      if (!mounted) return;
+      setState(() {
+        if (fetched.isNotEmpty) {
+          _rewards = fetched;
+        }
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  void _clearScopeFilter() {
+    setState(() {
+      _selectedMerchantId = null;
+      _selectedMerchantName = null;
+      _selectedCoalitionId = null;
+      _selectedCoalitionName = null;
+    });
+    _loadData();
   }
 
   Widget _buildPendingPointsCard() {
@@ -1397,151 +2405,6 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildGiftCatalogSection() {
-    if (_giftCatalog.isEmpty && _giftUnlocked.isEmpty && _giftLocked.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final unlockedItems = _giftUnlocked
-        .where((gift) => gift['origin'] == 'coalition')
-        .toList();
-    final lockedItems = _giftLocked
-        .where((gift) => gift['origin'] == 'coalition')
-        .toList();
-    if (unlockedItems.isEmpty && lockedItems.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'rewards_coalition_gifts'.tr(),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            if (unlockedItems.isNotEmpty) ...[
-              const Text(
-                'متاح الآن',
-                style: TextStyle(fontWeight: FontWeight.w700, color: kTeal),
-              ),
-              const SizedBox(height: 8),
-              ...unlockedItems.map(
-                (gift) => _buildGiftRow(gift, unlocked: true),
-              ),
-              const SizedBox(height: 10),
-            ],
-            if (lockedItems.isNotEmpty) ...[
-              const Text(
-                'هدايا مستهدفة',
-                style: TextStyle(fontWeight: FontWeight.w700, color: kGold),
-              ),
-              const SizedBox(height: 8),
-              ...lockedItems.map(
-                (gift) => _buildGiftRow(gift, unlocked: false),
-              ),
-            ],
-            if (unlockedItems.isEmpty && lockedItems.isEmpty)
-              const Text('لا توجد هدايا حالياً.'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGiftRow(Map<String, dynamic> gift, {required bool unlocked}) {
-    final title = (gift['title'] ?? 'هدية').toString();
-    final pointsCost = _toInt(gift['pointsCost']);
-    final remaining = _toInt(gift['remainingPoints']);
-    final progress = (gift['progress'] as num?)?.toDouble() ?? 0.0;
-    final imageUrl = (gift['imageUrl'] ?? '').toString();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: unlocked
-            ? kTeal.withValues(alpha: 0.04)
-            : kGold.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: unlocked
-              ? kTeal.withValues(alpha: 0.25)
-              : kGold.withValues(alpha: 0.35),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              color: kLine,
-              image: imageUrl.isNotEmpty
-                  ? DecorationImage(
-                      image: NetworkImage(imageUrl),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
-            ),
-            child: imageUrl.isEmpty
-                ? const Icon(Icons.card_giftcard_outlined, color: kTeal)
-                : null,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'التكلفة: $pointsCost نقطة',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                if (!unlocked) ...[
-                  const SizedBox(height: 6),
-                  LinearProgressIndicator(
-                    value: progress.clamp(0.0, 1.0),
-                    color: kGold,
-                    backgroundColor: kLine,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'متبقي لك $remaining نقطة للحصول عليها',
-                    style: const TextStyle(color: kGold, fontSize: 11),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: unlocked
-                ? () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const CustomerCoalitionsScreen(),
-                    ),
-                  )
-                : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: unlocked ? kTeal : Colors.grey,
-              foregroundColor: Colors.white,
-            ),
-            child: Text(unlocked ? 'احصل عليها' : 'مغلق'),
-          ),
-        ],
       ),
     );
   }

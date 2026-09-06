@@ -17,6 +17,14 @@ const Color kViolet = Color(0xFF6C3FA8);
 const Color kLine = Color.fromRGBO(22, 36, 31, 0.12);
 const Color kLineDark = Color.fromRGBO(255, 255, 255, 0.12);
 
+// Merchant Dashboard V2 tokens
+const Color kMerchantBg = Color(0xFFF8F9FA);
+const Color kMerchantCardBg = Color(0xFFFFFFFF);
+const Color kMerchantBrandGreen = Color(0xFF0A5C43);
+const Color kMerchantDarkCharcoal = Color(0xFF1A202C);
+const Color kMerchantMuted = Color(0xFF64748B);
+const Color kMerchantBorder = Color(0xFFE2E8F0);
+
 // Radius and spacing tokens (section 18-a.4)
 const double kRadiusCard = 16;
 const double kRadiusCardCompact = 14;

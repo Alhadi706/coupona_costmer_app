@@ -105,6 +105,24 @@ class CompanyServerService {
     return _decode(response);
   }
 
+  static Future<dynamic> put(
+    String path,
+    Map<String, dynamic> payload, {
+    bool auth = false,
+  }) async {
+    final response = await http.put(
+      _uri(path),
+      headers: await _headers(auth: auth),
+      body: jsonEncode(payload),
+    );
+    if (response.statusCode >= 400) {
+      throw StateError(
+        'PUT $path failed (${response.statusCode}): ${response.body}',
+      );
+    }
+    return _decode(response);
+  }
+
   static Future<dynamic> patch(
     String path,
     Map<String, dynamic> payload, {
@@ -808,6 +826,17 @@ class CompanyServerService {
         .toList();
   }
 
+  static Future<List<Map<String, dynamic>>> getCustomerBanners() async {
+    try {
+      final data = await get('/customer/banners', auth: true);
+      return (data as List)
+          .map((row) => (row as Map).cast<String, dynamic>())
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> getApprovedBillboardAds() async {
     final offers = await getOffers();
     return offers
@@ -1481,8 +1510,21 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
-  static Future<List<Map<String, dynamic>>> getRewards() async {
-    final data = await get('/rewards', auth: true);
+  static Future<List<Map<String, dynamic>>> getRewards({
+    String? merchantId,
+    String? coalitionId,
+  }) async {
+    final queryParams = <String>[];
+    if (merchantId != null && merchantId.isNotEmpty) {
+      queryParams.add('merchant_id=${Uri.encodeComponent(merchantId)}');
+    }
+    if (coalitionId != null && coalitionId.isNotEmpty) {
+      queryParams.add('coalition_id=${Uri.encodeComponent(coalitionId)}');
+    }
+    final path = queryParams.isEmpty
+        ? '/rewards'
+        : '/rewards?${queryParams.join('&')}';
+    final data = await get(path, auth: true);
     return (data as List)
         .map((e) => (e as Map).cast<String, dynamic>())
         .toList();
@@ -2216,6 +2258,96 @@ class CompanyServerService {
       'price': price,
       'description': description,
       'isActive': isActive,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> updateMerchantCashbackPercentage({
+    required double cashbackPercentage,
+  }) async {
+    final data = await put('/merchant/settings', {
+      'cashback_percentage': cashbackPercentage,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> getMerchantSettings() async {
+    final data = await get('/merchant/settings', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> setMerchantPointValue({
+    required double pointValue,
+  }) async {
+    final data = await patch('/merchant/settings/point-value', {
+      'pointValue': pointValue,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getMerchantCustomerOffers() async {
+    try {
+      final data = await get('/merchant/customer-offers', auth: true);
+      if (data is Map && data['offers'] is List) {
+        return (data['offers'] as List)
+            .map((offer) => (offer as Map).cast<String, dynamic>())
+            .toList();
+      }
+      if (data is List) {
+        return data
+            .map((offer) => (offer as Map).cast<String, dynamic>())
+            .toList();
+      }
+      return [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getMerchantCashiers() async {
+    try {
+      final data = await get('/merchant/cashiers', auth: true);
+      return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getUnassignedCashiers() async {
+    try {
+      final data = await get('/merchant/cashiers/unassigned', auth: true);
+      return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>> updateMerchantProfile({
+    String? businessName,
+    String? category,
+    String? phone,
+    String? logoUrl,
+    String? commercialRegistration,
+    String? taxNumber,
+  }) async {
+    final data = await patch('/merchant/profile', {
+      if (businessName != null) 'businessName': businessName,
+      if (category != null) 'category': category,
+      if (phone != null) 'phone': phone,
+      if (logoUrl != null) 'logoUrl': logoUrl,
+      if (commercialRegistration != null) 'commercialRegistration': commercialRegistration,
+      if (taxNumber != null) 'taxNumber': taxNumber,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> assignCashierToBranch({
+    required String branchId,
+    required String cashierUserId,
+  }) async {
+    final data = await post('/merchant/cashiers/assign', {
+      'branchId': branchId,
+      'cashierUserId': cashierUserId,
     }, auth: true);
     return (data as Map).cast<String, dynamic>();
   }

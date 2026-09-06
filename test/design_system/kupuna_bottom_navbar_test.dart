@@ -21,4 +21,24 @@ void main() {
     expect(style.color, kTeal);
     expect(style.fontWeight, FontWeight.w700);
   });
+
+  testWidgets('bottom navbar renders red badge overlays when count > 0', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: KupunaBottomNavbar(
+            activeItem: KupunaNavItem.home,
+            onTap: (_) {},
+            badgeCounts: const {
+              KupunaNavItem.communities: 5,
+              KupunaNavItem.wallet: 12,
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('5'), findsOneWidget);
+    expect(find.text('12'), findsOneWidget);
+  });
 }

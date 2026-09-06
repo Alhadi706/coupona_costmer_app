@@ -323,6 +323,7 @@ async function createCoreTables() {
   await pool.query('ALTER TABLE invoice_scans ADD COLUMN IF NOT EXISTS order_number TEXT');
   await pool.query('ALTER TABLE invoice_scans ADD COLUMN IF NOT EXISTS invoice_fingerprint TEXT');
   await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS phone TEXT');
+  await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS cashback_percentage NUMERIC DEFAULT 5.0');
   await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS location_lat DOUBLE PRECISION');
   await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS location_lng DOUBLE PRECISION');
   await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS location_address TEXT');

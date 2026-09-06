@@ -13,11 +13,13 @@ enum KupunaNavItem {
 class KupunaBottomNavbar extends StatelessWidget {
   final KupunaNavItem activeItem;
   final ValueChanged<KupunaNavItem> onTap;
+  final Map<KupunaNavItem, int>? badgeCounts;
 
   const KupunaBottomNavbar({
     super.key,
     required this.activeItem,
     required this.onTap,
+    this.badgeCounts,
   });
 
   static const List<_NavMeta> _items = <_NavMeta>[
@@ -42,6 +44,39 @@ class KupunaBottomNavbar extends StatelessWidget {
             final bool isActive = activeItem == item.item;
             final Color color = isActive ? kTeal : kInk.withValues(alpha: kBottomNavInactiveAlpha);
             final FontWeight weight = isActive ? FontWeight.w700 : FontWeight.w500;
+            final int count = badgeCounts?[item.item] ?? 0;
+
+            Widget iconWidget = Icon(item.icon, color: color);
+            if (count > 0) {
+              iconWidget = Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(item.icon, color: color),
+                  Positioned(
+                    right: -8,
+                    top: -5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE53935),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      alignment: Alignment.center,
+                      child: Text(
+                        count > 99 ? '99+' : '$count',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
             return Expanded(
               child: InkWell(
                 onTap: () => onTap(item.item),
@@ -50,7 +85,7 @@ class KupunaBottomNavbar extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(item.icon, color: color),
+                      iconWidget,
                       const SizedBox(height: 2),
                       Text(
                         item.label,

@@ -10,7 +10,7 @@ void main() {
         <Map<String, dynamic>>[],
         <String, dynamic>{'score': 70, 'trend': 'stable'},
         <Map<String, dynamic>>[],
-        <String, dynamic>{'id': 'merchant-1', 'pointValue': 1},
+        <String, dynamic>{'id': 'merchant-1', 'cashbackPercentage': 5.0},
         <Map<String, dynamic>>[],
         <Map<String, dynamic>>[],
         <String, dynamic>{
@@ -111,6 +111,48 @@ void main() {
     expect(find.byKey(const Key('merchant-pos-entry-enabled')), findsOneWidget);
   });
 
+  testWidgets('merchant command center shows digital identity and branch POS tabs', (tester) async {
+    final data = dashboardData(cashierActive: false);
+    data[0] = <Map<String, dynamic>>[
+      <String, dynamic>{
+        'id': 'branch-1',
+        'name': 'فرع طرابلس',
+        'address': 'طرابلس',
+        'status': 'active',
+        'workingHours': '09:00 - 23:00',
+      },
+    ];
+    data[3] = <String, dynamic>{
+      'id': 'merchant-1',
+      'businessName': 'متجر الاختبار',
+      'cashbackPercentage': 2.0,
+      'status': 'active',
+    };
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MerchantDashboardScreen(
+          initialTab: 5,
+          dashboardLoader: ({required range, branchId}) async => data,
+          pendingPointsLoader: () async => <String, dynamic>{},
+          rewardFundingLoader: (_) async => <String, dynamic>{'walletBalance': 0, 'escrowBalance': 0},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('متجر الاختبار'), findsOneWidget);
+    expect(find.text('الهوية الرقمية والسياسة المالية'), findsOneWidget);
+    expect(find.text('فاتورة بقيمة 100 دينار'), findsOneWidget);
+
+    await tester.tap(find.text('الفروع ونقاط البيع POS'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('بطاقات الفروع الذكية'), findsOneWidget);
+    expect(find.text('فرع طرابلس'), findsOneWidget);
+    expect(find.text('كود ربط POS'), findsOneWidget);
+  });
+
   testWidgets('merchant dashboard uses five destinations on a narrow screen', (tester) async {
     tester.view.physicalSize = const Size(375, 812);
     tester.view.devicePixelRatio = 1;
@@ -138,12 +180,12 @@ void main() {
 
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
-    expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('Rewards'), findsOneWidget);
-    expect(find.text('Ads'), findsOneWidget);
-    expect(find.text('Community'), findsOneWidget);
-    expect(find.text('Store'), findsOneWidget);
-    expect(find.text('Networks'), findsOneWidget);
+    expect(find.textContaining('merchant_nav_overview'), findsOneWidget);
+    expect(find.textContaining('merchant_nav_rewards'), findsOneWidget);
+    expect(find.textContaining('merchant_nav_ads'), findsOneWidget);
+    expect(find.textContaining('merchant_nav_community'), findsOneWidget);
+    expect(find.textContaining('merchant_nav_store'), findsOneWidget);
+    expect(find.textContaining('merchant_nav_networks'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

@@ -13,14 +13,9 @@ import '../widgets/design_system/kupuna_status_pill.dart';
 class MerchantSettingsScreen extends StatefulWidget {
   final bool embedded;
 
-  const MerchantSettingsScreen({
-    super.key,
-    this.embedded = false,
-  });
+  const MerchantSettingsScreen({super.key, this.embedded = false});
 
-  const MerchantSettingsScreen.embedded({
-    super.key,
-  }) : embedded = true;
+  const MerchantSettingsScreen.embedded({super.key}) : embedded = true;
 
   @override
   State<MerchantSettingsScreen> createState() => _MerchantSettingsScreenState();
@@ -42,7 +37,6 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
   final TextEditingController _categoryController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _logoUrlController = TextEditingController();
-  final TextEditingController _crController = TextEditingController();
 
   // Data
   Map<String, dynamic> _merchantProfile = <String, dynamic>{};
@@ -71,7 +65,6 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
     _categoryController.dispose();
     _phoneController.dispose();
     _logoUrlController.dispose();
-    _crController.dispose();
     super.dispose();
   }
 
@@ -83,10 +76,18 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
 
     try {
       final results = await Future.wait<dynamic>([
-        CompanyServerService.getMerchantProfile().catchError((_) => <String, dynamic>{}),
-        CompanyServerService.getMerchantBranches().catchError((_) => <Map<String, dynamic>>[]),
-        CompanyServerService.getMerchantCashiers().catchError((_) => <Map<String, dynamic>>[]),
-        CompanyServerService.getUnassignedCashiers().catchError((_) => <Map<String, dynamic>>[]),
+        CompanyServerService.getMerchantProfile().catchError(
+          (_) => <String, dynamic>{},
+        ),
+        CompanyServerService.getMerchantBranches().catchError(
+          (_) => <Map<String, dynamic>>[],
+        ),
+        CompanyServerService.getMerchantCashiers().catchError(
+          (_) => <Map<String, dynamic>>[],
+        ),
+        CompanyServerService.getUnassignedCashiers().catchError(
+          (_) => <Map<String, dynamic>>[],
+        ),
       ]);
 
       if (!mounted) return;
@@ -94,14 +95,15 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
       final profile = Map<String, dynamic>.from(results[0] as Map);
       final branchesList = List<Map<String, dynamic>>.from(results[1] as List);
       final cashiersList = List<Map<String, dynamic>>.from(results[2] as List);
-      final unassignedList = List<Map<String, dynamic>>.from(results[3] as List);
+      final unassignedList = List<Map<String, dynamic>>.from(
+        results[3] as List,
+      );
 
       _merchantProfile = profile;
       _businessNameController.text = (profile['businessName'] ?? '').toString();
       _categoryController.text = (profile['category'] ?? '').toString();
       _phoneController.text = (profile['phone'] ?? '').toString();
       _logoUrlController.text = (profile['logoUrl'] ?? '').toString();
-      _crController.text = (profile['commercialRegistration'] ?? '').toString();
 
       _branches = branchesList;
       _cashiers = cashiersList;
@@ -113,7 +115,8 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
       }
 
       if (_unassignedCashiers.isNotEmpty) {
-        _selectedCashierUserId ??= _unassignedCashiers.first['userId']?.toString() ??
+        _selectedCashierUserId ??=
+            _unassignedCashiers.first['userId']?.toString() ??
             _unassignedCashiers.first['id']?.toString();
       }
     } catch (e) {
@@ -142,7 +145,6 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
         category: _categoryController.text.trim(),
         phone: _phoneController.text.trim(),
         logoUrl: _logoUrlController.text.trim(),
-        commercialRegistration: _crController.text.trim(),
       );
 
       if (!mounted) return;
@@ -158,10 +160,7 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_successMessage!),
-          backgroundColor: kTeal,
-        ),
+        SnackBar(content: Text(_successMessage!), backgroundColor: kTeal),
       );
     } catch (e) {
       if (!mounted) return;
@@ -185,9 +184,9 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
 
   Future<void> _bindCashier() async {
     if (_selectedBranchId == null || _selectedBranchId!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار الفرع أولاً')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('يرجى اختيار الفرع أولاً')));
       return;
     }
 
@@ -246,13 +245,15 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
 
     try {
       final merchantId = (_merchantProfile['id'] ?? '').toString();
-      final businessName = (_merchantProfile['businessName'] ?? 'متجري').toString();
-      
+      final businessName = (_merchantProfile['businessName'] ?? 'متجري')
+          .toString();
+
       Map<String, dynamic>? branch;
       if (_selectedQrBranchId != null && _selectedQrBranchId!.isNotEmpty) {
         branch = _branches.firstWhere(
           (b) => (b['id'] ?? '').toString() == _selectedQrBranchId,
-          orElse: () => _branches.isNotEmpty ? _branches.first : <String, dynamic>{},
+          orElse: () =>
+              _branches.isNotEmpty ? _branches.first : <String, dynamic>{},
         );
       } else if (_branches.isNotEmpty) {
         branch = _branches.first;
@@ -260,7 +261,8 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
 
       final branchName = (branch?['name'] ?? 'جميع الفروع').toString();
       final branchId = (branch?['id'] ?? '').toString();
-      final qrData = 'kupuna://store/$merchantId${branchId.isEmpty ? '' : '?branch=$branchId'}';
+      final qrData =
+          'kupuna://store/$merchantId${branchId.isEmpty ? '' : '?branch=$branchId'}';
 
       final pdf = pw.Document();
       pdf.addPage(
@@ -271,7 +273,10 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
               child: pw.Container(
                 padding: const pw.EdgeInsets.all(32),
                 decoration: pw.BoxDecoration(
-                  border: pw.Border.all(color: pdf_color.PdfColors.teal, width: 3),
+                  border: pw.Border.all(
+                    color: pdf_color.PdfColors.teal,
+                    width: 3,
+                  ),
                   borderRadius: pw.BorderRadius.circular(16),
                 ),
                 child: pw.Column(
@@ -375,7 +380,8 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
   }
 
   Widget _buildHeaderCard() {
-    final businessName = (_merchantProfile['businessName'] ?? 'إعدادات المتجر').toString();
+    final businessName = (_merchantProfile['businessName'] ?? 'إعدادات المتجر')
+        .toString();
     final category = (_merchantProfile['category'] ?? 'نشاط تجاري').toString();
     final logoUrl = (_merchantProfile['logoUrl'] ?? '').toString();
 
@@ -408,11 +414,10 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  category.isEmpty ? 'الفروع، الكاشير، وبينات المتجر' : category,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                  ),
+                  category.isEmpty
+                      ? 'الفروع، الكاشير، وبينات المتجر'
+                      : category,
+                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                 ),
               ],
             ),
@@ -440,7 +445,11 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.storefront_outlined, color: kTeal, size: 24),
+                    const Icon(
+                      Icons.storefront_outlined,
+                      color: kTeal,
+                      size: 24,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'بيانات المتجر الأساسية',
@@ -476,7 +485,10 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                   decoration: InputDecoration(
                     labelText: 'نوع النشاط',
                     hintText: 'مثال: غذائية، مطاعم، ملابس...',
-                    prefixIcon: const Icon(Icons.category_outlined, color: kTeal),
+                    prefixIcon: const Icon(
+                      Icons.category_outlined,
+                      color: kTeal,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -494,22 +506,6 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                     labelText: 'رقم التواصل',
                     hintText: '05xxxxxxxx',
                     prefixIcon: const Icon(Icons.phone_outlined, color: kTeal),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Commercial Registration
-                TextFormField(
-                  controller: _crController,
-                  decoration: InputDecoration(
-                    labelText: 'رقم السجل التجاري',
-                    hintText: '1010xxxxxx',
-                    prefixIcon: const Icon(Icons.badge_outlined, color: kTeal),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -553,12 +549,18 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
                           )
                         : const Icon(Icons.save_outlined),
                     label: Text(
                       _savingProfile ? 'جاري الحفظ...' : 'حفظ التغييرات',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -585,7 +587,11 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.person_add_alt_1_outlined, color: kTeal, size: 24),
+                    const Icon(
+                      Icons.person_add_alt_1_outlined,
+                      color: kTeal,
+                      size: 24,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'ربط كاشير بفرع',
@@ -615,7 +621,10 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: _branches.any((b) => (b['id'] ?? '').toString() == _selectedBranchId)
+                  value:
+                      _branches.any(
+                        (b) => (b['id'] ?? '').toString() == _selectedBranchId,
+                      )
                       ? _selectedBranchId
                       : null,
                   decoration: InputDecoration(
@@ -658,7 +667,12 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: _unassignedCashiers.any((c) => (c['userId'] ?? c['id'] ?? '').toString() == _selectedCashierUserId)
+                  value:
+                      _unassignedCashiers.any(
+                        (c) =>
+                            (c['userId'] ?? c['id'] ?? '').toString() ==
+                            _selectedCashierUserId,
+                      )
                       ? _selectedCashierUserId
                       : null,
                   decoration: InputDecoration(
@@ -673,9 +687,14 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                         : 'اختر الكاشير من القائمة',
                   ),
                   items: _unassignedCashiers.map((cashier) {
-                    final cId = (cashier['userId'] ?? cashier['id'] ?? '').toString();
-                    final cName = (cashier['name'] ?? cashier['cashierName'] ?? 'كاشير').toString();
-                    final cPhone = (cashier['phone'] ?? cashier['cashierPhone'] ?? '').toString();
+                    final cId = (cashier['userId'] ?? cashier['id'] ?? '')
+                        .toString();
+                    final cName =
+                        (cashier['name'] ?? cashier['cashierName'] ?? 'كاشير')
+                            .toString();
+                    final cPhone =
+                        (cashier['phone'] ?? cashier['cashierPhone'] ?? '')
+                            .toString();
                     return DropdownMenuItem<String>(
                       value: cId,
                       child: Text(
@@ -710,12 +729,18 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
                           )
                         : const Icon(Icons.link),
                     label: Text(
                       _bindingCashier ? 'جاري التأكيد...' : 'تأكيد الربط',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -765,11 +790,15 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                     itemBuilder: (context, index) {
                       final branch = _branches[index];
                       final bId = (branch['id'] ?? '').toString();
-                      final bName = (branch['name'] ?? 'فرع غير مسمى').toString();
-                      final bAddress = (branch['address'] ?? 'بدون عنوان').toString();
+                      final bName = (branch['name'] ?? 'فرع غير مسمى')
+                          .toString();
+                      final bAddress = (branch['address'] ?? 'بدون عنوان')
+                          .toString();
 
                       // Find cashiers linked to this branch
-                      final branchCashiers = _cashiers.where((c) => (c['branchId'] ?? '').toString() == bId).toList();
+                      final branchCashiers = _cashiers
+                          .where((c) => (c['branchId'] ?? '').toString() == bId)
+                          .toList();
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -782,7 +811,11 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                                   color: kTeal.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: const Icon(Icons.store, color: kTeal, size: 20),
+                                child: const Icon(
+                                  Icons.store,
+                                  color: kTeal,
+                                  size: 20,
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -808,7 +841,9 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                                 ),
                               ),
                               KupunaStatusPill(
-                                labelOverride: branchCashiers.isNotEmpty ? 'نشط ومربوط' : 'غير مربوط',
+                                labelOverride: branchCashiers.isNotEmpty
+                                    ? 'نشط ومربوط'
+                                    : 'غير مربوط',
                                 kind: branchCashiers.isNotEmpty
                                     ? StatusPillKind.approvedMint
                                     : StatusPillKind.pending,
@@ -822,13 +857,21 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: branchCashiers.map((c) {
-                                  final name = (c['cashierName'] ?? 'كاشير').toString();
-                                  final phone = (c['cashierPhone'] ?? '').toString();
+                                  final name = (c['cashierName'] ?? 'كاشير')
+                                      .toString();
+                                  final phone = (c['cashierPhone'] ?? '')
+                                      .toString();
                                   return Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 3),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 3,
+                                    ),
                                     child: Row(
                                       children: [
-                                        const Icon(Icons.badge_outlined, size: 16, color: Colors.grey),
+                                        const Icon(
+                                          Icons.badge_outlined,
+                                          size: 16,
+                                          color: Colors.grey,
+                                        ),
                                         const SizedBox(width: 6),
                                         Text(
                                           name,
@@ -868,13 +911,15 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
 
   Widget _buildPosAssetsTab() {
     final merchantId = (_merchantProfile['id'] ?? '').toString();
-    final businessName = (_merchantProfile['businessName'] ?? 'تجربة تاجر').toString();
+    final businessName = (_merchantProfile['businessName'] ?? 'تجربة تاجر')
+        .toString();
 
     Map<String, dynamic>? selectedBranch;
     if (_selectedQrBranchId != null && _selectedQrBranchId!.isNotEmpty) {
       selectedBranch = _branches.firstWhere(
         (b) => (b['id'] ?? '').toString() == _selectedQrBranchId,
-        orElse: () => _branches.isNotEmpty ? _branches.first : <String, dynamic>{},
+        orElse: () =>
+            _branches.isNotEmpty ? _branches.first : <String, dynamic>{},
       );
     } else if (_branches.isNotEmpty) {
       selectedBranch = _branches.first;
@@ -883,7 +928,8 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
     final branchId = (selectedBranch?['id'] ?? '').toString();
     final branchName = (selectedBranch?['name'] ?? 'جميع الفروع').toString();
 
-    final qrData = 'kupuna://store/$merchantId${branchId.isEmpty ? '' : '?branch=$branchId'}';
+    final qrData =
+        'kupuna://store/$merchantId${branchId.isEmpty ? '' : '?branch=$branchId'}';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -898,7 +944,11 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.qr_code_2_outlined, color: kTeal, size: 26),
+                    const Icon(
+                      Icons.qr_code_2_outlined,
+                      color: kTeal,
+                      size: 26,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'كود QR الخاص بالمتجر',
@@ -923,16 +973,27 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                   SizedBox(
                     width: 300,
                     child: DropdownButtonFormField<String>(
-                      value: _branches.any((b) => (b['id'] ?? '').toString() == _selectedQrBranchId)
+                      value:
+                          _branches.any(
+                            (b) =>
+                                (b['id'] ?? '').toString() ==
+                                _selectedQrBranchId,
+                          )
                           ? _selectedQrBranchId
                           : _branches.first['id']?.toString(),
                       decoration: InputDecoration(
                         labelText: 'اختر الفرع لعرض الكود',
-                        prefixIcon: const Icon(Icons.storefront_outlined, color: kTeal),
+                        prefixIcon: const Icon(
+                          Icons.storefront_outlined,
+                          color: kTeal,
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                       ),
                       items: _branches.map((b) {
                         return DropdownMenuItem<String>(
@@ -982,7 +1043,10 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                         ),
                       const SizedBox(height: 12),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: kTeal.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
@@ -1019,12 +1083,20 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
                           )
                         : const Icon(Icons.picture_as_pdf_outlined),
                     label: Text(
-                      _generatingPdf ? 'جاري إنشاء PDF...' : 'تحميل PDF للطباعة',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      _generatingPdf
+                          ? 'جاري إنشاء PDF...'
+                          : 'تحميل PDF للطباعة',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -1085,7 +1157,10 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
             unselectedLabelColor: Colors.grey.shade600,
             indicatorColor: kTeal,
             indicatorWeight: 3,
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
             tabs: const [
               Tab(
                 icon: Icon(Icons.storefront_outlined, size: 20),
@@ -1121,10 +1196,7 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
   @override
   Widget build(BuildContext context) {
     if (widget.embedded) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
-        child: _buildBody(),
-      );
+      return Padding(padding: const EdgeInsets.all(16), child: _buildBody());
     }
 
     return Scaffold(
@@ -1139,10 +1211,7 @@ class _MerchantSettingsScreenState extends State<MerchantSettingsScreen>
         elevation: 1,
         iconTheme: const IconThemeData(color: kInk),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: _buildBody(),
-      ),
+      body: Padding(padding: const EdgeInsets.all(16), child: _buildBody()),
     );
   }
 }

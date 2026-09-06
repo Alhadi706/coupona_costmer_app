@@ -54,6 +54,7 @@ const { getIntSetting } = accessControl;
   './src/routes/public-coalition-membership',
   './src/routes/coalition',
   './src/routes/campaigns',
+  './src/routes/community-marketplace',
 ].forEach((modulePath) => require(modulePath)(app, deps));
 
 async function initSchema() {

@@ -15,9 +15,9 @@ void main() {
       ),
     );
 
-    // Pump past timeouts
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 500));
+    // Give time for network call errors to settle
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(seconds: 1));
 
     // Verify presence of Dynamic Cash Calculator banner text
     expect(find.text('تحويل النقاط إلى خصم مالي مباشر'), findsOneWidget);

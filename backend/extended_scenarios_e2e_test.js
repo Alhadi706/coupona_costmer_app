@@ -343,16 +343,18 @@ test('Scenario F & G: Expiration & Inventory Out-of-Stock checks', async () => {
   });
   assert.equal(redeem1.statusCode, 200);
 
-  // Expiration check: create a 2nd claim and set token expires_at in past
+  // Expiration check: create a 2nd claim for a 2nd customer and set token expires_at in past
+  const customer2Id = crypto.randomUUID();
+  await pool.query(`INSERT INTO users (id, email, password_hash, role) VALUES ($1,$2,'hash','customer')`, [customer2Id, `${customer2Id}@example.com`]);
   const assignment2Id = crypto.randomUUID();
   await pool.query(
     `INSERT INTO campaign_assignments (id, campaign_id, customer_id, assignment_kind, status)
      VALUES ($1,$2,$3,'gift','NOTIFIED')`,
-    [assignment2Id, campaignId, customerId]
+    [assignment2Id, campaignId, customer2Id]
   );
   const claim2Res = await call(handlers.get('POST /api/customer/gifts/assignments/:id/claim'), {
     params: { id: assignment2Id },
-    user: { userId: customerId, role: 'customer' },
+    user: { userId: customer2Id, role: 'customer' },
   });
   const qrToken2 = claim2Res.body.redemptionToken;
   await pool.query(
@@ -365,6 +367,7 @@ test('Scenario F & G: Expiration & Inventory Out-of-Stock checks', async () => {
   const expiredVerify = await call(handlers.get('POST /api/cashier/gifts/verify'), {
     user: { userId: cashierUserId, role: 'cashier' },
     body: { redemptionToken: qrToken2 },
+  });
   assert.equal(expiredVerify.statusCode, 410);
   assert.equal(expiredVerify.body.error, 'gift_token_expired');
 });

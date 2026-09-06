@@ -63,7 +63,7 @@ void main() {
     expect(find.byType(FloatingActionButton), findsNothing);
   });
 
-  testWidgets('customer home has a rotating banner carousel, quick shortcuts, and three required tabs', (
+  testWidgets('customer home has a rotating banner and three required tabs', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -81,7 +81,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byType(AdsBannerSlider), findsOneWidget);
+    expect(find.text('1/3'), findsOneWidget);
     final tabs = tester.widget<KupunaTopTabs>(find.byType(KupunaTopTabs));
     expect(tabs.tabs, <String>[
       'home_tab_discover',
@@ -90,10 +90,13 @@ void main() {
     ]);
     expect(find.text('home_view_rewards'), findsOneWidget);
     expect(find.text('home_coalition_network'), findsOneWidget);
-    expect(find.text('حاسبة الخصم'), findsOneWidget);
-    expect(find.text('مسح فاتورة'), findsOneWidget);
-    expect(find.text('هداياي الخاصة'), findsOneWidget);
-    expect(find.text('سوق المجتمع'), findsOneWidget);
+    expect(find.text('home_quick_scan'), findsNothing);
+    expect(find.text('home_quick_map'), findsNothing);
+    expect(find.text('home_quick_community'), findsNothing);
+
+    await tester.tap(find.text('home_banner_next'));
+    await tester.pump();
+    expect(find.text('2/3'), findsOneWidget);
   });
 
   testWidgets('approved billboard ad replaces the default customer banner', (

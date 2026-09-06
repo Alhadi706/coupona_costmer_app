@@ -182,6 +182,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   labelText: _tx('full_name', 'Name'),
                   prefixIcon: const Icon(Icons.person),
                   border: const OutlineInputBorder(),
+                  helperText: _tx('full_name_rationale_explanation', 'Just your name/nickname to simplify registration; no need for full official name.'),
+                  helperMaxLines: 2,
                 ),
                 validator: (value) {
                   if ((value ?? '').trim().isEmpty) {
@@ -198,7 +200,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   labelText: _tx('email_or_phone', 'Email or Phone Number'),
                   prefixIcon: const Icon(Icons.mail_outline),
                   border: const OutlineInputBorder(),
-                  helperText: _tx('email_or_phone_explanation', 'Your email or phone number will be used to send your password in case you lose or forget it.'),
+                  helperText: _tx('email_or_phone_rationale_explanation', 'Your email or phone number is required to securely send/reset your account password if found lost or forgotten.'),
                   helperMaxLines: 3,
                 ),
                 validator: (value) {
@@ -244,9 +246,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ? _tx('birth_date', 'Birth date')
                       : '${_tx('birth_date', 'Birth date')}: ${_selectedBirthDate!.toIso8601String().split('T').first}',
                 ),
-                subtitle: _calculatedAge == null
-                    ? null
-                    : Text(_tx('calculated_age', 'Age: {age}').replaceAll('{age}', '$_calculatedAge')),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Text(
+                    _calculatedAge == null
+                        ? _tx('birth_date_rationale_explanation', 'We request birth date to provide appropriate gifts and services for each age group (such as toys for children and maturity-specific services for adults).')
+                        : '${_tx('calculated_age', 'Age: {age}').replaceAll('{age}', '$_calculatedAge')}\n\n${_tx('birth_date_rationale_explanation', 'We request birth date to provide appropriate gifts and services for each age group (such as toys for children and maturity-specific services for adults).')}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: () async {
                   final now = DateTime.now();
@@ -274,6 +282,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 decoration: InputDecoration(
                   labelText: _tx('gender', 'Gender'),
                   border: const OutlineInputBorder(),
+                  helperText: _tx('gender_rationale_explanation', 'We request gender to target tailored offers and gifts (e.g., male perfumes and clothing for men, cosmetics and styling items for women).'),
+                  helperMaxLines: 4,
                 ),
                 items: [
                   DropdownMenuItem(
@@ -314,7 +324,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 child: Text(
-                  _tx('location_rationale_body', 'We request approximate location access solely to show nearby merchants and offers, helping you find localized deals easily.'),
+                  '${_tx('location_rationale_body', 'We request approximate location access solely to show nearby merchants and offers, helping you find localized deals easily.')}\n${_tx('location_rationale_explanation_hint', 'Specifying your approximate location makes it easier to automatically-search and show you closest businesses directly.')}',
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   textAlign: TextAlign.start,
                 ),

@@ -10,6 +10,7 @@ import 'foundation/app_logger.dart';
 import 'screens/login_screen.dart'; // استيراد شاشة تسجيل الدخول
 import 'screens/onboarding_screen.dart';
 import 'screens/home_screen.dart'; // استيراد الشاشة الرئيسية
+import 'screens/merchant_analytics_screen.dart';
 import 'services/app_session.dart';
 import 'theme/app_themes.dart';
 
@@ -104,6 +105,9 @@ class _MyAppState extends State<MyApp> {
       theme: customerTheme,
       darkTheme: adminTheme,
       themeMode: ThemeMode.light,
+      routes: {
+        '/merchant/analytics': (context) => const MerchantAnalyticsScreen(),
+      },
       home: FutureBuilder<Map<String, dynamic>>(
         future: _resolveLaunchState(),
         builder: (context, snapshot) {

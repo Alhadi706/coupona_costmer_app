@@ -211,7 +211,9 @@ app.post('/api/reward-claims/create', auth, async (req, res) => {
         if (existingDrawClaim) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'draw_entry_already_exists' }); }
       }
       if (reward.quantity_limit != null && Number(reward.quantity_redeemed || 0) >= Number(reward.quantity_limit)) { await client.query('ROLLBACK'); return res.status(409).json({ error: 'reward_sold_out' }); }
-      await client.query('UPDATE rewards SET quantity_redeemed = quantity_redeemed + 1 WHERE id = $1', [rewardId]);
+      if (claimRewardKind === 'digital') {
+        await client.query('UPDATE rewards SET quantity_redeemed = quantity_redeemed + 1 WHERE id = $1', [rewardId]);
+      }
     }
     const pointAccount = (await client.query(
       'SELECT available_points FROM point_accounts WHERE owner_id = $1 FOR UPDATE',
@@ -280,12 +282,14 @@ app.post('/api/reward-claims/create', auth, async (req, res) => {
       claimSettlementId,
     ]
   );
-  await client.query('UPDATE point_accounts SET available_points = available_points - $2, updated_at = NOW() WHERE owner_id = $1', [req.user.userId, pointsCost]);
-  await client.query(
-    `INSERT INTO ledger_entries (id, owner_id, type, amount, points, reference)
-     VALUES ($1, $2, 'rewardClaimCreated', 0, $3, $4)`,
-    [id(), req.user.userId, -pointsCost, `reward_claim:${claimId}`]
-  );
+  if (claimRewardKind === 'digital') {
+    await client.query('UPDATE point_accounts SET available_points = available_points - $2, updated_at = NOW() WHERE owner_id = $1', [req.user.userId, pointsCost]);
+    await client.query(
+      `INSERT INTO ledger_entries (id, owner_id, type, amount, points, reference)
+       VALUES ($1, $2, 'rewardClaimCreated', 0, $3, $4)`,
+      [id(), req.user.userId, -pointsCost, `reward_claim:${claimId}`]
+    );
+  }
   await client.query('COMMIT');
   return res.json({
     ok: true,
@@ -377,6 +381,34 @@ app.post('/api/cashier/redeem-claim', auth, async (req, res) => {
     if (!(await canRedeemClaim(client, req.user, row))) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'cashier_not_authorized' });
+    }
+
+    if (row.reward_kind === 'physical' && !row.points_deducted_at && Number(row.points_cost || 0) > 0) {
+      const pointsCost = Number(row.points_cost);
+      await client.query(
+        'INSERT INTO point_accounts (owner_id, available_points, lifetime_points, updated_at) VALUES ($1,0,0,NOW()) ON CONFLICT (owner_id) DO NOTHING',
+        [row.owner_id]
+      );
+      const pointAccount = (await client.query(
+        'SELECT available_points FROM point_accounts WHERE owner_id = $1 FOR UPDATE',
+        [row.owner_id]
+      )).rows[0];
+      if (!pointAccount || Number(pointAccount.available_points || 0) < pointsCost) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'insufficient_points' });
+      }
+      await client.query(
+        'UPDATE point_accounts SET available_points = available_points - $2, updated_at = NOW() WHERE owner_id = $1',
+        [row.owner_id, pointsCost]
+      );
+      await client.query(
+        `INSERT INTO ledger_entries (id, owner_id, type, amount, points, reference)
+         VALUES ($1, $2, 'rewardRedeemed', 0, $3, $4)`,
+        [id(), row.owner_id, -pointsCost, `reward_claim:${row.id}`]
+      );
+      if (row.reward_id) {
+        await client.query('UPDATE rewards SET quantity_redeemed = quantity_redeemed + 1 WHERE id = $1', [row.reward_id]);
+      }
     }
 
     let settlementId = null;
