@@ -7,7 +7,6 @@ import 'package:coupona_app/screens/customer_gifts_screen.dart';
 import 'package:coupona_app/screens/customer_reports_screen.dart';
 import 'package:coupona_app/screens/my_rewards_screen.dart';
 import 'package:coupona_app/screens/offers_list_screen.dart';
-import 'package:coupona_app/screens/wallet_engine_screen.dart';
 
 import 'settings_screen_sections.dart';
 
@@ -73,11 +72,7 @@ class AppDrawer extends StatelessWidget {
   final ValueChanged<int>? onSelectHomeTab;
   final String? currentRole;
 
-  const AppDrawer({
-    super.key,
-    this.onSelectHomeTab,
-    this.currentRole,
-  });
+  const AppDrawer({super.key, this.onSelectHomeTab, this.currentRole});
 
   void _selectHomeTabOrNavigate(
     BuildContext context, {
@@ -85,6 +80,10 @@ class AppDrawer extends StatelessWidget {
     required VoidCallback fallback,
   }) {
     Navigator.of(context).pop();
+    if (onSelectHomeTab != null) {
+      onSelectHomeTab!(tabIndex);
+      return;
+    }
     fallback();
   }
 
@@ -106,9 +105,7 @@ class AppDrawer extends StatelessWidget {
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
-            decoration: BoxDecoration(
-              color: Theme.of(context).primaryColor,
-            ),
+            decoration: BoxDecoration(color: Theme.of(context).primaryColor),
             child: Column(
               children: [
                 const CircleAvatar(
@@ -127,10 +124,7 @@ class AppDrawer extends StatelessWidget {
                 ),
                 Text(
                   'drawer_email'.tr(),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
@@ -157,8 +151,14 @@ class AppDrawer extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.account_balance_wallet),
-            title: Text('wallet_ledger'.tr()),
-            onTap: () => _pushScreen(context, const WalletEngineScreen()),
+            title: Text('home_bottom_wallet'.tr()),
+            onTap: () => _selectHomeTabOrNavigate(
+              context,
+              tabIndex: 3,
+              fallback: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MyRewardsScreen()),
+              ),
+            ),
           ),
           ListTile(
             leading: const Icon(Icons.groups),

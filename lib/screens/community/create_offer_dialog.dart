@@ -1,16 +1,30 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import '../services/company_server_service.dart';
-import '../theme/design_tokens.dart';
+import '../../services/app_session.dart';
+import '../../services/company_server_service.dart';
+import '../../theme/design_tokens.dart';
+import 'community_marketplace_errors.dart';
+import 'marketplace_categories.dart';
 
-class CreateCustomerOfferSheet extends StatefulWidget {
-  const CreateCustomerOfferSheet({super.key});
+/// Bottom-sheet form used to publish a customer marketplace offer/request.
+class CreateOfferDialog extends StatefulWidget {
+  const CreateOfferDialog({super.key});
+
+  static Future<bool> show(BuildContext context) async {
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const CreateOfferDialog(),
+    );
+    return created == true;
+  }
 
   @override
-  State<CreateCustomerOfferSheet> createState() => _CreateCustomerOfferSheetState();
+  State<CreateOfferDialog> createState() => _CreateOfferDialogState();
 }
 
-class _CreateCustomerOfferSheetState extends State<CreateCustomerOfferSheet> {
+class _CreateOfferDialogState extends State<CreateOfferDialog> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -28,10 +42,20 @@ class _CreateCustomerOfferSheetState extends State<CreateCustomerOfferSheet> {
     super.dispose();
   }
 
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     try {
+      final token = await AppSession.token();
+      if (token == null || token.isEmpty) {
+        if (!mounted) return;
+        _showMessage('marketplace_session_expired'.tr());
+        return;
+      }
       await CompanyServerService.createCustomerCommunityOffer(
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
@@ -43,9 +67,7 @@ class _CreateCustomerOfferSheetState extends State<CreateCustomerOfferSheet> {
       if (mounted) Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تعذر نشر العرض: $error')),
-      );
+      _showMessage(marketplaceErrorMessage(error, fallbackKey: 'marketplace_publish_failed'));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -63,52 +85,58 @@ class _CreateCustomerOfferSheetState extends State<CreateCustomerOfferSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('إضافة عرض أو طلب', style: kDisplayTextStyle(size: 20, weight: FontWeight.w800)),
+                Text(
+                  'marketplace_create_title'.tr(),
+                  style: kDisplayTextStyle(size: 20, weight: FontWeight.w800),
+                ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _titleController,
-                  decoration: const InputDecoration(labelText: 'العنوان'),
-                  validator: (value) => value == null || value.trim().isEmpty ? 'العنوان مطلوب' : null,
+                  decoration: InputDecoration(labelText: 'offer_title_label'.tr()),
+                  validator: (value) =>
+                      value == null || value.trim().isEmpty ? 'field_required'.tr() : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _descriptionController,
                   maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'الوصف'),
-                  validator: (value) => value == null || value.trim().isEmpty ? 'الوصف مطلوب' : null,
+                  decoration: InputDecoration(labelText: 'offer_description_label'.tr()),
+                  validator: (value) =>
+                      value == null || value.trim().isEmpty ? 'field_required'.tr() : null,
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _category,
-                  decoration: const InputDecoration(labelText: 'الفئة'),
-                  items: const [
-                    DropdownMenuItem(value: 'FOOD', child: Text('طعام')),
-                    DropdownMenuItem(value: 'REAL_ESTATE', child: Text('عقارات')),
-                    DropdownMenuItem(value: 'SERVICES', child: Text('خدمات')),
-                    DropdownMenuItem(value: 'RENTALS', child: Text('إيجارات')),
-                  ],
+                  decoration: InputDecoration(labelText: 'offer_category_label'.tr()),
+                  items: kMarketplaceCategories
+                      .map((value) => DropdownMenuItem(
+                            value: value,
+                            child: Text(marketplaceCategoryLabel(value)),
+                          ))
+                      .toList(),
                   onChanged: (value) => setState(() => _category = value ?? _category),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _priceController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'القيمة بالدينار الليبي (اختياري)'),
-                  validator: (value) => value != null && value.trim().isNotEmpty && double.tryParse(value.trim()) == null
-                      ? 'أدخل قيمة صحيحة'
-                      : null,
+                  decoration: InputDecoration(labelText: 'offer_price_label'.tr()),
+                  validator: (value) =>
+                      value != null && value.trim().isNotEmpty && double.tryParse(value.trim()) == null
+                          ? 'invalid_amount'.tr()
+                          : null,
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   value: _acceptsPointsTrade,
                   onChanged: (value) => setState(() => _acceptsPointsTrade = value),
-                  title: const Text('قبول التبادل بالنقاط'),
+                  title: Text('offer_accepts_points_label'.tr()),
                 ),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   value: _merchantOnly,
                   onChanged: (value) => setState(() => _merchantOnly = value),
-                  title: const Text('إظهاره للتجار الذين تعاملت معهم فقط'),
+                  title: Text('offer_merchants_only_label'.tr()),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -118,7 +146,7 @@ class _CreateCustomerOfferSheetState extends State<CreateCustomerOfferSheet> {
                     icon: _submitting
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                         : const Icon(Icons.publish_outlined),
-                    label: const Text('نشر العرض'),
+                    label: Text('publish_offer'.tr()),
                   ),
                 ),
               ],

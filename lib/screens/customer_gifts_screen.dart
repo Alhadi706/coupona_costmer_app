@@ -55,7 +55,7 @@ class _CustomerGiftsScreenState extends State<CustomerGiftsScreen> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر استخدام الهدية: $error')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('gift_claim_error'.tr())));
     }
   }
 

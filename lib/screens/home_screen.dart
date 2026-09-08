@@ -7,10 +7,10 @@ import '../theme/design_tokens.dart';
 import 'admin_dashboard_screen.dart';
 import 'brand_dashboard_screen.dart';
 import 'cashier_dashboard_screen.dart';
+import 'community/community_tab_request.dart';
 import 'community_screen.dart';
 import 'customer_coalitions_screen.dart';
 import 'customer_invoices_screen.dart';
-import 'customer_offers_screen.dart';
 import 'customer_reports_screen.dart';
 import 'home_content_screen.dart';
 import 'full_map_screen.dart';
@@ -24,12 +24,16 @@ import 'merchant_team_screen.dart';
 import 'team_invitations_screen.dart';
 import '../widgets/admin_drawer.dart';
 
+part 'home_customer_navigation.dart';
+
 String? publicCoalitionApplicantType(
   Map<String, dynamic> notification,
   String activeRole,
 ) {
   final payload = notification['payload'];
-  final payloadType = payload is Map ? payload['applicantType']?.toString() : null;
+  final payloadType = payload is Map
+      ? payload['applicantType']?.toString()
+      : null;
   final candidate = (payloadType ?? activeRole).toLowerCase();
   return const {'merchant', 'brand'}.contains(candidate) ? candidate : null;
 }
@@ -63,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _communityBadgeCount = 0;
   int _rewardsBadgeCount = 0;
   int _mapBadgeCount = 0;
+  final CommunityTabRequest _communityTabRequest = CommunityTabRequest();
 
   @override
   void initState() {
@@ -72,6 +77,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (widget.initialRoleOverride == null) {
       _loadActiveRole();
     }
+  }
+
+  @override
+  void dispose() {
+    _communityTabRequest.dispose();
+    super.dispose();
   }
 
   Future<void> _loadNotifications() async {
@@ -101,20 +112,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadTabBadges() async {
     try {
-      final pointsAccount = await CompanyServerService.getPointAccount().catchError(
-        (_) => <String, dynamic>{},
-      );
+      final pointsAccount = await CompanyServerService.getPointAccount()
+          .catchError((_) => <String, dynamic>{});
       final rewards = await CompanyServerService.getRewards().catchError(
         (_) => <Map<String, dynamic>>[],
       );
-      final giftCatalog = await CompanyServerService.getCustomerGiftCatalog().catchError(
-        (_) => <String, dynamic>{},
-      );
+      final giftCatalog = await CompanyServerService.getCustomerGiftCatalog()
+          .catchError((_) => <String, dynamic>{});
       final stores = await CompanyServerService.getStores().catchError(
         (_) => <Map<String, dynamic>>[],
       );
 
-      final availablePoints = (pointsAccount['availablePoints'] as num?)?.toInt() ?? 0;
+      final availablePoints =
+          (pointsAccount['availablePoints'] as num?)?.toInt() ?? 0;
       int unlockedRewards = 0;
       for (final r in rewards) {
         final val = (r['value'] ?? r['pointsCost'] as num?)?.toInt() ?? 0;
@@ -145,8 +155,12 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
   }
 
-  Future<void> _openNotificationTarget(Map<String, dynamic> notification) async {
-    final targetScreen = (notification['targetScreen'] ?? '').toString().toLowerCase();
+  Future<void> _openNotificationTarget(
+    Map<String, dynamic> notification,
+  ) async {
+    final targetScreen = (notification['targetScreen'] ?? '')
+        .toString()
+        .toLowerCase();
     final type = (notification['type'] ?? '').toString().toLowerCase();
     final target = targetScreen.isNotEmpty
         ? targetScreen
@@ -154,40 +168,44 @@ class _HomeScreenState extends State<HomeScreen> {
               ? 'community'
               : (type.contains('report')
                     ? 'reports'
-                      : (type.contains('invoice')
-                        ? 'invoices'
-                        : (type.contains('point') ? 'wallet' : ''))));
+                    : (type.contains('invoice')
+                          ? 'invoices'
+                          : (type.contains('point') ? 'wallet' : ''))));
 
     if (target == 'wallet' || target == 'rewards' || target == 'points') {
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const MyRewardsScreen()),
-      );
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const MyRewardsScreen()));
       return;
     }
 
     if (target == 'invoices' || target == 'invoice') {
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const CustomerInvoicesScreen()),
-      );
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const CustomerInvoicesScreen()));
       return;
     }
 
     if (target == 'reports' || target == 'report') {
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const CustomerReportsScreen()),
-      );
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const CustomerReportsScreen()));
       return;
     }
 
     if (target == 'public_coalition_membership') {
-      final applicantType = publicCoalitionApplicantType(notification, _activeRole);
+      final applicantType = publicCoalitionApplicantType(
+        notification,
+        _activeRole,
+      );
       if (!mounted || applicantType == null) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => PublicCoalitionMembershipScreen(applicantType: applicantType),
+          builder: (_) =>
+              PublicCoalitionMembershipScreen(applicantType: applicantType),
         ),
       );
       return;
@@ -195,16 +213,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (target == 'team_invitations') {
       if (!mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const TeamInvitationsScreen()),
-      );
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const TeamInvitationsScreen()));
       return;
     }
 
     if (target == 'merchant_team' && _activeRole == 'merchant') {
       if (!mounted) return;
       await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const MerchantTeamScreen(branches: [])),
+        MaterialPageRoute(
+          builder: (_) => const MerchantTeamScreen(branches: []),
+        ),
       );
       return;
     }
@@ -240,14 +260,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       final type = (n['type'] ?? '').toString();
                       String title = (n['title'] ?? '').toString();
                       String body = (n['body'] ?? '').toString();
-                      
+
                       final trTitle = 'notif_title_$type'.tr();
                       if (trTitle != 'notif_title_$type') {
                         title = trTitle;
                       } else if (title.isEmpty) {
                         title = 'notifications_default_title'.tr();
                       }
-                      
+
                       final trBody = 'notif_body_$type'.tr();
                       if (trBody != 'notif_body_$type') {
                         body = trBody;
@@ -255,17 +275,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       return ListTile(
                         leading: Icon(
-                          isRead ? Icons.notifications_none : Icons.notifications_active,
-                          color: isRead ? kInk.withValues(alpha: 0.6) : Colors.red,
+                          isRead
+                              ? Icons.notifications_none
+                              : Icons.notifications_active,
+                          color: isRead
+                              ? kInk.withValues(alpha: 0.6)
+                              : Colors.red,
                         ),
                         title: Text(title),
                         subtitle: Text(body),
-                        trailing: isRead ? null : const Icon(Icons.fiber_manual_record, color: Colors.red, size: 10),
+                        trailing: isRead
+                            ? null
+                            : const Icon(
+                                Icons.fiber_manual_record,
+                                color: Colors.red,
+                                size: 10,
+                              ),
                         onTap: () async {
                           final id = (n['id'] ?? '').toString();
                           if (id.isNotEmpty && !isRead) {
                             try {
-                              await CompanyServerService.markNotificationRead(id);
+                              await CompanyServerService.markNotificationRead(
+                                id,
+                              );
                             } catch (_) {
                               // Navigation should still work if read-state sync fails.
                             }
@@ -300,13 +332,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadNotifications();
   }
 
-  Color _roleColor() {
-    switch (_activeRole) {
-      case 'admin':
-        return kInk;
-      default:
-        return kTealDark;
-    }
+  void _openCommunityTab(int tabIndex) {
+    _communityTabRequest.request(tabIndex);
+    _onItemTapped(2);
   }
 
   Future<void> _openRolesScreen() async {
@@ -328,95 +356,12 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Widget _buildRoleSurface() {
-    switch (_activeRole) {
-      case 'merchant':
-        return const KeyedSubtree(
-          key: ValueKey<String>('merchant_mode_surface'),
-          child: MerchantDashboardScreen.embedded(),
-        );
-      case 'brand':
-        return const KeyedSubtree(
-          key: ValueKey<String>('brand_mode_surface'),
-          child: BrandDashboardScreen.embedded(),
-        );
-      case 'cashier':
-        return const KeyedSubtree(
-          key: ValueKey<String>('cashier_mode_surface'),
-          child: CashierDashboardScreen.embedded(),
-        );
-      case 'admin':
-        return const KeyedSubtree(
-          key: ValueKey<String>('admin_mode_surface'),
-          child: AdminDashboardScreen.embedded(),
-        );
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
-  Widget _buildNavIconWithBadge(IconData icon, int count) {
-    if (count <= 0) {
-      return Icon(icon);
-    }
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Icon(icon),
-        Positioned(
-          right: -8,
-          top: -5,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE53935),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-            alignment: Alignment.center,
-            child: Text(
-              count > 99 ? '99+' : '$count',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final List<Widget> customerTabs = <Widget>[
-      HomeContentScreen(
-        onOpenOffersTab: () => _onItemTapped(0),
-        onOpenPeerAdsTab: () => _onItemTapped(2),
-        onOpenMap: () => _onItemTapped(1),
-        onOpenRewards: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const MyRewardsScreen()),
-        ),
-        onOpenCoalitions: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const CustomerCoalitionsScreen()),
-        ),
-        onOpenCommunity: () => _onItemTapped(2),
-        onOpenCustomerOffers: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const CustomerOffersScreen()),
-        ),
-        onScanReceipt: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ScanInvoiceScreen())),
-      ),
-      const FullMapScreen(embedded: true),
-      const CommunityScreen.embedded(),
-      const MyRewardsScreen.embedded(),
-      const SettingsScreen.embedded(),
-    ];
-
     return Scaffold(
       appBar: AppBar(
         title: Text('app_name'.tr(), style: const TextStyle(color: kWhite)),
-        backgroundColor: _roleColor(),
+        backgroundColor: _homeRoleColor(this),
         elevation: 0,
         leading: Builder(
           builder: (context) => IconButton(
@@ -439,7 +384,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Container(
                       width: 10,
                       height: 10,
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ),
               ],
@@ -452,89 +400,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      drawer: _activeRole == 'admin' 
-        ? AdminDrawer(
-            currentRole: _activeRole, 
-            onSwitchRole: _openRolesScreen,
-          ) 
-        : AppDrawer(
-            onSelectHomeTab: _onItemTapped,
-            currentRole: _activeRole,
-          ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: Stack(
-            children: [
-              _activeRole == 'customer'
-                  ? KeyedSubtree(
-                      key: const ValueKey<String>('customer_mode_surface'),
-                      child: customerTabs[_selectedIndex],
-                    )
-                  : _buildRoleSurface(),
-              if (_activeRole == 'customer' && _selectedIndex == 0)
-                Positioned(
-                  bottom: 16,
-                  right: context.locale.languageCode == 'ar' ? null : 16,
-                  left: context.locale.languageCode == 'ar' ? 16 : null,
-                  child: FloatingActionButton(
-                    heroTag: 'camera_scan_fab_unique_id',
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ScanInvoiceScreen()),
-                      );
-                    },
-                    backgroundColor: kTeal,
-                    child: const Icon(Icons.camera_alt, color: kWhite),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-      bottomNavigationBar: _activeRole != 'customer'
-          ? null
-          : BottomNavigationBar(
-              currentIndex: _selectedIndex,
-              onTap: _onItemTapped,
-              type: BottomNavigationBarType.fixed,
-              selectedItemColor: kTeal,
-              unselectedItemColor: kInk.withValues(alpha: 0.6),
-              backgroundColor: kWhite,
-              items: [
-                BottomNavigationBarItem(
-                  icon: const Icon(Icons.home_outlined),
-                  activeIcon: const Icon(Icons.home),
-                  label: 'الرئيسية',
-                ),
-                BottomNavigationBarItem(
-                  icon: _buildNavIconWithBadge(Icons.map_outlined, _mapBadgeCount),
-                  activeIcon: const Icon(Icons.map),
-                  label: 'الخريطة',
-                ),
-                BottomNavigationBarItem(
-                  icon: _buildNavIconWithBadge(
-                    Icons.groups_outlined,
-                    _communityBadgeCount > 0 ? _communityBadgeCount : _groupMessageUnread,
-                  ),
-                  activeIcon: const Icon(Icons.groups),
-                  label: 'المجتمعات والسوق',
-                ),
-                BottomNavigationBarItem(
-                  icon: _buildNavIconWithBadge(
-                    Icons.account_balance_wallet_outlined,
-                    _rewardsBadgeCount,
-                  ),
-                  activeIcon: const Icon(Icons.account_balance_wallet),
-                  label: 'الجوائز',
-                ),
-                BottomNavigationBarItem(
-                  icon: const Icon(Icons.person_outline),
-                  activeIcon: const Icon(Icons.person),
-                  label: 'حسابي',
-                ),
-              ],
-            ),
+      drawer: _activeRole == 'admin'
+          ? AdminDrawer(
+              currentRole: _activeRole,
+              onSwitchRole: _openRolesScreen,
+            )
+          : AppDrawer(onSelectHomeTab: _onItemTapped, currentRole: _activeRole),
+      body: _buildHomeBody(this),
+      bottomNavigationBar: _buildCustomerBottomNavigationBar(this),
     );
   }
 }

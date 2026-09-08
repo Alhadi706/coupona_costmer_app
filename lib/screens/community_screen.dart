@@ -2,15 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 
 import '../theme/design_tokens.dart';
+import 'community/community_marketplace_tab.dart';
+import 'community/community_tab_request.dart';
 import 'community_screen_widgets.dart';
 
+/// "Communities & Marketplace" hub: groups, private messages and the P2P
+/// customer marketplace.
 class CommunityScreen extends StatefulWidget {
   final bool embedded;
   final String? initialGroupId;
+  final int initialTabIndex;
+  final CommunityTabRequest? tabRequest;
 
-  const CommunityScreen({super.key, this.initialGroupId}) : embedded = false;
+  const CommunityScreen({
+    super.key,
+    this.initialGroupId,
+    this.initialTabIndex = CommunityHubTabs.groups,
+    this.tabRequest,
+  }) : embedded = false;
 
-  const CommunityScreen.embedded({super.key, this.initialGroupId}) : embedded = true;
+  const CommunityScreen.embedded({
+    super.key,
+    this.initialGroupId,
+    this.initialTabIndex = CommunityHubTabs.groups,
+    this.tabRequest,
+  }) : embedded = true;
 
   @override
   State<CommunityScreen> createState() => _CommunityScreenState();
@@ -23,13 +39,24 @@ class _CommunityScreenState extends State<CommunityScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
+    widget.tabRequest?.addListener(_handleTabRequest);
   }
 
   @override
   void dispose() {
+    widget.tabRequest?.removeListener(_handleTabRequest);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _handleTabRequest() {
+    final requested = widget.tabRequest?.index ?? _tabController.index;
+    _tabController.animateTo(requested.clamp(0, 2));
   }
 
   @override
@@ -41,6 +68,7 @@ class _CommunityScreenState extends State<CommunityScreen>
           children: [
             CommunityGroupsTab(initialGroupId: widget.initialGroupId),
             CommunityPrivateChatsTab(),
+            const CommunityMarketplaceTab(),
           ],
         ),
         Positioned(
@@ -63,6 +91,7 @@ class _CommunityScreenState extends State<CommunityScreen>
               tabs: [
                 Tab(text: 'groups_tab'.tr(), icon: const Icon(Icons.groups)),
                 Tab(text: 'private_messages_tab'.tr(), icon: const Icon(Icons.chat)),
+                Tab(text: 'marketplace_tab'.tr(), icon: const Icon(Icons.storefront_outlined)),
               ],
             ),
           ),

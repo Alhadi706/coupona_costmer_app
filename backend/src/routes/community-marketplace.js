@@ -11,7 +11,7 @@ module.exports = function registerCommunityMarketplaceRoutes(app, deps) {
   // 1. Create Customer Community Offer
   app.post('/api/customer/community-offers', auth, async (req, res) => {
     try {
-      const customerId = req.user && req.user.id;
+      const customerId = req.user && req.user.userId;
       if (!customerId) {
         return res.status(401).json({ ok: false, error: 'unauthorized' });
       }
@@ -76,14 +76,14 @@ module.exports = function registerCommunityMarketplaceRoutes(app, deps) {
   // 2. Get Customer Community Offers (Feed)
   app.get('/api/customer/community-offers', auth, async (req, res) => {
     try {
-      const customerId = req.user ? req.user.id : null;
+      const customerId = req.user ? req.user.userId : null;
       const { category, visibility_scope, status, search, my_only } = req.query || {};
 
       let sql = `
         SELECT 
           o.*,
           u.email as seller_email,
-          u.name as seller_name,
+          u.full_name as seller_name,
           u.phone as seller_phone
         FROM community_offers o
         LEFT JOIN users u ON u.id = o.customer_id
@@ -140,7 +140,7 @@ module.exports = function registerCommunityMarketplaceRoutes(app, deps) {
   // 3. Update Offer Status
   app.patch('/api/customer/community-offers/:id/status', auth, async (req, res) => {
     try {
-      const customerId = req.user && req.user.id;
+      const customerId = req.user && req.user.userId;
       const offerId = req.params.id;
       const { status } = req.body || {};
 
@@ -170,7 +170,7 @@ module.exports = function registerCommunityMarketplaceRoutes(app, deps) {
   // 4. Contact Offer Seller (Chat CTA)
   app.post('/api/customer/community-offers/:id/contact', auth, async (req, res) => {
     try {
-      const buyerId = req.user && req.user.id;
+      const buyerId = req.user && req.user.userId;
       const offerId = req.params.id;
 
       const offerRes = await pool.query('SELECT * FROM community_offers WHERE id = $1', [offerId]);
@@ -185,8 +185,8 @@ module.exports = function registerCommunityMarketplaceRoutes(app, deps) {
         return res.status(400).json({ ok: false, error: 'cannot_contact_self' });
       }
 
-      const chat = await ensurePrivateChatBetweenUsers(buyerId, sellerId, `استفسار حول: ${offer.title}`);
-      return res.json({ ok: true, chatId: chat.id, sellerId, offerTitle: offer.title });
+      const chatId = await ensurePrivateChatBetweenUsers(pool, buyerId, sellerId, `استفسار حول: ${offer.title}`);
+      return res.json({ ok: true, chatId, sellerId, offerTitle: offer.title });
     } catch (err) {
       console.error('[CommunityMarketplace] Error contacting seller:', err);
       return res.status(500).json({ ok: false, error: 'internal_server_error' });
@@ -196,11 +196,11 @@ module.exports = function registerCommunityMarketplaceRoutes(app, deps) {
   // 5. Merchant Dashboard View: Customer Offers ("عروض وزبائنك")
   app.get('/api/merchant/customer-offers', auth, async (req, res) => {
     try {
-      const userId = req.user && req.user.id;
+      const userId = req.user && req.user.userId;
       let merchantProfileId = null;
 
       if (typeof getMerchantProfileIdByUser === 'function') {
-        merchantProfileId = await getMerchantProfileIdByUser(userId);
+        merchantProfileId = await getMerchantProfileIdByUser(pool, userId);
       }
 
       // If not directly found, lookup merchant_profiles where owner_user_id = userId
@@ -221,7 +221,7 @@ module.exports = function registerCommunityMarketplaceRoutes(app, deps) {
       const querySql = `
         SELECT 
           o.*,
-          u.name as seller_name,
+          u.full_name as seller_name,
           u.email as seller_email,
           u.phone as seller_phone,
           COALESCE((

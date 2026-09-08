@@ -1,7 +1,8 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/design_tokens.dart';
+import '../../theme/design_tokens.dart';
+import 'marketplace_categories.dart';
 
 class CustomerOfferCard extends StatelessWidget {
   final Map<String, dynamic> offer;
@@ -18,7 +19,8 @@ class CustomerOfferCard extends StatelessWidget {
     final title = (offer['title'] ?? '').toString();
     final description = (offer['description'] ?? '').toString();
     final category = (offer['category'] ?? '').toString();
-    final seller = (offer['seller_name'] ?? 'زبون').toString();
+    final sellerRaw = (offer['seller_name'] ?? '').toString();
+    final seller = sellerRaw.isEmpty ? 'marketplace_seller_fallback'.tr() : sellerRaw;
     final price = (offer['price_lyd'] as num?)?.toDouble() ?? 0;
     final points = (offer['points_required'] as num?)?.toInt() ?? 0;
     final status = (offer['status'] ?? 'ACTIVE').toString();
@@ -48,7 +50,7 @@ class CustomerOfferCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 6,
               children: [
-                Chip(label: Text(category)),
+                Chip(label: Text(marketplaceCategoryLabel(category))),
                 Chip(label: Text('${price.toStringAsFixed(2)} ${'currency_lyd'.tr()}')),
                 if (offer['accepts_points_trade'] == true)
                   Chip(
@@ -70,7 +72,7 @@ class CustomerOfferCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   FilledButton(
                     onPressed: () => onStatusChanged(offer, 'SOLD'),
-                    child: const Text('تم التنفيذ'),
+                    child: Text('offer_status_sold'.tr()),
                   ),
                 ],
               ),
@@ -90,9 +92,9 @@ class CustomerOfferStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      'SOLD' => ('تم التنفيذ', Colors.green),
-      'ARCHIVED' => ('مؤرشف', Colors.grey),
-      _ => ('نشط', kTeal),
+      'SOLD' => ('offer_status_sold'.tr(), Colors.green),
+      'ARCHIVED' => ('offer_status_archived'.tr(), Colors.grey),
+      _ => ('offer_status_active'.tr(), kTeal),
     };
     return Chip(
       label: Text(label),
