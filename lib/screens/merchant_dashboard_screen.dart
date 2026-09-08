@@ -15,6 +15,7 @@ import '../widgets/design_system/kupuna_offer_card.dart';
 import '../widgets/design_system/kupuna_status_pill.dart';
 import '../widgets/reward_creation_dialog.dart';
 import '../widgets/reward_funding_card.dart';
+import '../features/merchant/rewards/merchant_rewards_screen.dart';
 import 'map_picker_screen.dart';
 import 'add_coupon_screen.dart';
 import 'community_screen.dart';
@@ -33,6 +34,8 @@ import 'gift_management_screen.dart';
 part 'merchant_dashboard/merchant_dashboard_helpers.dart';
 part 'merchant_dashboard/merchant_dashboard_analytics.dart';
 part 'merchant_dashboard/merchant_dashboard_overview.dart';
+part 'merchant_dashboard/merchant_store_management_forms.dart';
+part 'merchant_dashboard/merchant_kpi_cards.dart';
 
 typedef MerchantDashboardLoader = Future<List<dynamic>> Function({
   required String range,
@@ -107,7 +110,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   int _merchantTabIndex = 0;
   String _analyticsBranchId = '';
   bool _loadingAnalytics = false;
-  bool _showLegacyDashboard = false;
   List<Map<String, dynamic>> _branches = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _invoices = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _offers = <Map<String, dynamic>>[];
@@ -466,452 +468,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     }
   }
 
-  Widget _buildLegacyBody() {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade100,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.amber.shade400),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.account_tree_outlined, color: Colors.amber),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'الواجهة القديمة للتاجر (MerchantCommandCenter)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: () => setState(() => _showLegacyDashboard = false),
-                  icon: const Icon(Icons.swap_horiz, size: 16),
-                  label: const Text('اللوحة الحديثة'),
-                ),
-              ],
-            ),
-          ),
-          _buildSubscriptionNotice(),
-          Container(
-            decoration: BoxDecoration(
-              color: kIndigo,
-              borderRadius: BorderRadius.circular(kRadiusCardLarge),
-              border: Border.all(color: kLineDark, width: kBorderWidth),
-            ),
-            padding: const EdgeInsets.all(kPaddingCard),
-            child: Column(
-              children: [
-                const Center(
-                  child: KupunaLoyaltyHealthRing(scorePercent: 78),
-                ),
-                const SizedBox(height: kGapList),
-                Text(
-                  'merchant_loyalty_health'.tr(),
-                  style: kDisplayTextStyle(
-                    size: 18,
-                    weight: FontWeight.w700,
-                    color: kWhite,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'merchant_score_trend'.tr(namedArgs: {
-                    'score': _toDouble(_loyalty['score']).toStringAsFixed(0),
-                    'trend': '${_loyalty['trend'] ?? '-'}',
-                  }),
-                  style: kBodyTextStyle(
-                    size: 12,
-                    weight: FontWeight.w400,
-                    color: kWhite.withValues(alpha: 0.85),
-                  ),
-                ),
-                const SizedBox(height: kGapTight),
-                IconButton(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh, color: kGold),
-                ),
-              ],
-            ),
-          ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _error!,
-                style: kBodyTextStyle(
-                  size: 12,
-                  weight: FontWeight.w500,
-                  color: kGold,
-                ),
-              ),
-            ),
-          if (_result != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                _result!,
-                style: kBodyTextStyle(
-                  size: 12,
-                  weight: FontWeight.w500,
-                  color: kGold,
-                ),
-              ),
-            ),
-          const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.policy_outlined),
-              title: Text('system_point_value_title'.tr()),
-              subtitle: Text('system_point_value_description'.tr(namedArgs: const {'value': '0.1'})),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildIndigoSection(
-            title: 'merchant_branches'.tr(),
-            child: Column(
-              children: _branches
-                  .map((branch) => Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: kIndigo,
-                          borderRadius: BorderRadius.circular(kRadiusCardCompact),
-                          border: Border.all(color: kLineDark, width: kBorderWidth),
-                        ),
-                        child: ListTile(
-                          title: Text(
-                            (branch['name'] ?? 'merchant_unnamed_branch'.tr()).toString(),
-                            style: kBodyTextStyle(
-                              size: 14,
-                              weight: FontWeight.w600,
-                              color: kWhite,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'merchant_branch_identity'.tr(namedArgs: {
-                                  'id': '${branch['id'] ?? ''}',
-                                  'address': '${branch['address'] ?? ''}',
-                                }),
-                                style: kBodyTextStyle(
-                                  size: 12,
-                                  weight: FontWeight.w400,
-                                  color: kWhite.withValues(alpha: 0.86),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              KupunaStatusPill(
-                                kind: _branchStatusToPill(branch['status']),
-                                labelOverride: _localizeGenericStatus(branch['status'] ?? 'pending'),
-                              ),
-                            ],
-                          ),
-                          isThreeLine: true,
-                        ),
-                      ))
-                  .toList(growable: false),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _mutableSection(
-            ExpansionTile(
-              title: Text('merchant_create_branch'.tr()),
-              childrenPadding: const EdgeInsets.all(12),
-              children: [
-              TextField(
-                controller: _branchNameController,
-                decoration: InputDecoration(labelText: 'merchant_name'.tr()),
-              ),
-              TextField(
-                controller: _branchAddressController,
-                decoration: InputDecoration(labelText: 'merchant_address'.tr()),
-              ),
-              TextField(
-                controller: _branchLocationController,
-                decoration: InputDecoration(labelText: 'merchant_location'.tr()),
-                readOnly: true,
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _pickBranchLocation,
-                icon: const Icon(Icons.map_outlined),
-                label: Text('merchant_pick_branch_location'.tr()),
-              ),
-              if (_branchLatitude != null && _branchLongitude != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Text(
-                    'merchant_branch_geo_selected'.tr(namedArgs: {
-                      'lat': _branchLatitude!.toStringAsFixed(6),
-                      'lng': _branchLongitude!.toStringAsFixed(6),
-                    }),
-                  ),
-                ),
-              const SizedBox(height: 8),
-                ElevatedButton(onPressed: _createBranch, child: Text('create'.tr())),
-              ],
-            ),
-          ),
-          _mutableSection(
-            ExpansionTile(
-              title: Text('merchant_assign_manager_permissions'.tr()),
-              childrenPadding: const EdgeInsets.all(12),
-              children: [
-              DropdownButtonFormField<String>(
-                initialValue: () {
-                  final current = _managerBranchIdController.text.trim();
-                  if (current.isEmpty) return null;
-                  final exists = _branches.any((b) => (b['id'] ?? '').toString() == current);
-                  return exists ? current : null;
-                }(),
-                items: _branches
-                    .map(
-                      (branch) => DropdownMenuItem<String>(
-                        value: (branch['id'] ?? '').toString(),
-                        child: Text(
-                          '${branch['name'] ?? 'Branch'} (${branch['id'] ?? ''})',
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) {
-                  _managerBranchIdController.text = (value ?? '').trim();
-                  setState(() {});
-                },
-                decoration: InputDecoration(labelText: 'merchant_branch'.tr()),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _managerBranchIdController,
-                decoration: InputDecoration(labelText: 'merchant_branch_id'.tr()),
-              ),
-              TextField(
-                controller: _managerUserIdController,
-                decoration: InputDecoration(labelText: 'merchant_manager_user_id'.tr()),
-              ),
-              SwitchListTile(
-                value: _canReviewInvoices,
-                title: Text('merchant_can_review_invoices'.tr()),
-                onChanged: (value) => setState(() => _canReviewInvoices = value),
-              ),
-              SwitchListTile(
-                value: _canCreateOffers,
-                title: Text('merchant_can_create_offers'.tr()),
-                onChanged: (value) => setState(() => _canCreateOffers = value),
-              ),
-              SwitchListTile(
-                value: _canManageGroup,
-                title: Text('merchant_can_manage_group'.tr()),
-                onChanged: (value) => setState(() => _canManageGroup = value),
-              ),
-              SwitchListTile(
-                value: _canViewReports,
-                title: Text('merchant_can_view_reports'.tr()),
-                onChanged: (value) => setState(() => _canViewReports = value),
-              ),
-              SwitchListTile(
-                value: _canViewSettlements,
-                title: Text('merchant_can_view_settlements'.tr()),
-                onChanged: (value) => setState(() => _canViewSettlements = value),
-              ),
-              SwitchListTile(
-                value: _canAddCashiers,
-                title: Text('merchant_can_add_cashiers'.tr()),
-                onChanged: (value) => setState(() => _canAddCashiers = value),
-              ),
-              SwitchListTile(
-                value: _canReplyReports,
-                title: Text('merchant_can_reply_reports'.tr()),
-                onChanged: (value) => setState(() => _canReplyReports = value),
-              ),
-                ElevatedButton(onPressed: _addManager, child: Text('merchant_save_manager_permissions'.tr())),
-              ],
-            ),
-          ),
-          _mutableSection(
-            ExpansionTile(
-              title: Text('merchant_bind_cashier'.tr()),
-              childrenPadding: const EdgeInsets.all(12),
-              children: [
-              TextField(
-                controller: _cashierBranchIdController,
-                decoration: InputDecoration(labelText: 'merchant_branch_id'.tr()),
-              ),
-              TextField(
-                controller: _cashierUserIdController,
-                decoration: InputDecoration(labelText: 'merchant_cashier_user_id'.tr()),
-              ),
-                ElevatedButton(onPressed: _bindCashier, child: Text('merchant_bind_cashier_action'.tr())),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          _mutableSection(
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OutlinedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const PointsConversionScreen()),
-                    );
-                  },
-                  child: Text('merchant_points_conversion'.tr()),
-                ),
-                OutlinedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const RewardQrCodeScreen()),
-                    );
-                  },
-                  child: Text('merchant_create_reward_qr'.tr()),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AddCouponScreen()),
-                    );
-                  },
-                  icon: const Icon(Icons.campaign_outlined),
-                  label: Text('billboard_create_ad'.tr()),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const MerchantNetworksScreen()),
-                    );
-                  },
-                  icon: const Icon(Icons.hub_outlined),
-                  label: Text('merchant_nav_networks'.tr()),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          _buildIndigoSection(
-            title: 'merchant_latest_offers'.tr(),
-            child: Column(
-              children: _offers.take(6).map((offer) {
-                final String title = (offer['description'] ?? offer['title'] ?? 'offer'.tr()).toString();
-                final String category = (offer['category'] ?? '').toString();
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: KupunaOfferCard(
-                    offer: <String, dynamic>{
-                      ...offer,
-                      'title': title,
-                      'subtitle': category,
-                      'sourceType': 'merchant',
-                    },
-                  ),
-                );
-              }).toList(growable: false),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildIndigoSection(
-            title: 'merchant_recent_invoices'.tr(),
-            child: Column(
-              children: _invoices
-                  .map((invoice) => Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: kIndigo,
-                          borderRadius: BorderRadius.circular(kRadiusCardCompact),
-                          border: Border.all(color: kLineDark, width: kBorderWidth),
-                        ),
-                        child: ListTile(
-                          title: Text(
-                            (invoice['merchantName'] ?? 'merchant_unknown_merchant'.tr()).toString(),
-                            style: kBodyTextStyle(
-                              size: 14,
-                              weight: FontWeight.w600,
-                              color: kWhite,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'merchant_invoice_line'.tr(namedArgs: {
-                                  'invoice': '${invoice['invoiceNumber'] ?? '-'}',
-                                  'total': '${invoice['totalAmount'] ?? '-'}',
-                                }),
-                                style: kBodyTextStyle(
-                                  size: 12,
-                                  weight: FontWeight.w400,
-                                  color: kWhite.withValues(alpha: 0.86),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              KupunaStatusPill(
-                                kind: _invoiceStatusToPill(invoice['state'] ?? invoice['lifecycleStatus']),
-                                labelOverride: _localizeGenericStatus(invoice['state'] ?? invoice['lifecycleStatus'] ?? 'processing'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ))
-                  .toList(growable: false),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _buildAnalyticsSuite(),
-          const SizedBox(height: 8),
-          _buildIndigoSection(
-            title: 'merchant_reports_settlements_snapshot'.tr(),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Chip(
-                  label: Text(
-                    'merchant_count_invoices'.tr(namedArgs: {'count': '${_invoices.length}'}),
-                    style: kBodyTextStyle(size: 12, weight: FontWeight.w600, color: kWhite),
-                  ),
-                  backgroundColor: kIndigo,
-                  side: const BorderSide(color: kLineDark, width: kBorderWidth),
-                ),
-                Chip(
-                  label: Text(
-                    'merchant_count_branches'.tr(namedArgs: {'count': '${_branches.length}'}),
-                    style: kBodyTextStyle(size: 12, weight: FontWeight.w600, color: kWhite),
-                  ),
-                  backgroundColor: kIndigo,
-                  side: const BorderSide(color: kLineDark, width: kBorderWidth),
-                ),
-                Chip(
-                  label: Text(
-                    'merchant_count_offers'.tr(namedArgs: {'count': '${_offers.length}'}),
-                    style: kBodyTextStyle(size: 12, weight: FontWeight.w600, color: kWhite),
-                  ),
-                  backgroundColor: kIndigo,
-                  side: const BorderSide(color: kLineDark, width: kBorderWidth),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMerchantTabPlaceholder({required String title, required String subtitle, required Widget child}) {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -926,30 +482,12 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   }
 
   Widget _buildRewardsTab() {
-    final rewards = _merchantRewards.where((reward) {
-      final active = reward['isActive'] == true;
-      return _rewardFilter == 'all' || (_rewardFilter == 'active' && active) || (_rewardFilter == 'inactive' && !active);
-    }).toList(growable: false);
-    return _buildMerchantTabPlaceholder(
-      title: 'merchant_rewards_tab_title'.tr(),
-      subtitle: 'merchant_rewards_tab_subtitle'.tr(),
-      child: Column(
-        children: [
-          RewardFundingCard(
-            sourceType: 'merchant',
-            loader: widget.rewardFundingLoader,
-            funder: widget.rewardFunder,
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            children: [
-              ChoiceChip(label: Text('all'.tr()), selected: _rewardFilter == 'all', onSelected: (_) => setState(() => _rewardFilter = 'all')),
-              ChoiceChip(label: Text('active'.tr()), selected: _rewardFilter == 'active', onSelected: (_) => setState(() => _rewardFilter = 'active')),
-              ChoiceChip(label: Text('inactive'.tr()), selected: _rewardFilter == 'inactive', onSelected: (_) => setState(() => _rewardFilter = 'inactive')),
-              FilledButton.icon(onPressed: _showCreateRewardSheet, icon: const Icon(Icons.add), label: Text('merchant_create_reward'.tr())),
-            ],
-          ),
+    return const MerchantRewardsScreen(
+      sourceType: 'merchant',
+      rewardFundingLoader: widget.rewardFundingLoader,
+      rewardFunder: widget.rewardFunder,
+    );
+  }
           const SizedBox(height: 12),
           if (rewards.isEmpty)
             Card(child: ListTile(title: Text('merchant_no_rewards'.tr())))
@@ -1391,14 +929,15 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          _buildStoreManagementForms(),
         ],
       ),
     );
   }
 
   Widget _buildBody() {
-    if (_showLegacyDashboard) return _buildLegacyBody();
-    if (_loading) return _buildLegacyBody();
+    if (_loading) return const Center(child: CircularProgressIndicator());
     if (_sessionExpired) {
       return Center(
         child: Padding(
@@ -1637,23 +1176,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
-                  onPressed: () => setState(() => _showLegacyDashboard = !_showLegacyDashboard),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFEFF6FF),
-                    foregroundColor: kTealDark,
-                    side: const BorderSide(color: Color(0xFF93C5FD)),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    elevation: 0,
-                  ),
-                  icon: const Icon(Icons.alt_route_outlined, size: 16),
-                  label: const Text(
-                    '🏛️ اللوحة القديمة (CommandCenter)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => GiftManagementScreen(ownerLabel: 'merchant_owner_label'.tr()),
@@ -1706,113 +1228,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                     '🛒 تصفح عروض الزبائن',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTodayOperationalKpis(Map<String, dynamic> sales, Map<String, dynamic> customers) {
-    final salesTotal = _money(sales['total'] ?? sales['todaySales']);
-    final redemptions = _intValue(sales['redemptions']);
-    final pointsSpent = _intValue(sales['pointsSpent'] ?? sales['pointsAwarded']);
-    final activeCustomers = _intValue(customers['activeToday'] ?? customers['unique']);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final itemWidth = (constraints.maxWidth - 10) / 2;
-        return Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _kpiMetricCard(
-              width: itemWidth,
-              title: 'مبيعات اليوم (LYD)',
-              value: salesTotal,
-              icon: Icons.payments_outlined,
-              iconColor: kMerchantBrandGreen,
-              bgColor: const Color(0xFFECFDF5),
-            ),
-            _kpiMetricCard(
-              width: itemWidth,
-              title: 'عمليات المسح/الاستبدال',
-              value: '$redemptions',
-              icon: Icons.qr_code_2_outlined,
-              iconColor: const Color(0xFF0284C7),
-              bgColor: const Color(0xFFF0F9FF),
-            ),
-            _kpiMetricCard(
-              width: itemWidth,
-              title: 'النقاط الممنوحة',
-              value: '$pointsSpent',
-              icon: Icons.stars_outlined,
-              iconColor: const Color(0xFFD97706),
-              bgColor: const Color(0xFFFFFBEB),
-            ),
-            _kpiMetricCard(
-              width: itemWidth,
-              title: 'العملاء النشطون اليوم',
-              value: '$activeCustomers',
-              icon: Icons.people_alt_outlined,
-              iconColor: const Color(0xFF7C3AED),
-              bgColor: const Color(0xFFF5F3FF),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _kpiMetricCard({
-    required double width,
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color iconColor,
-    required Color bgColor,
-  }) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: kMerchantCardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kMerchantBorder),
-        boxShadow: const [
-          BoxShadow(color: Color(0x06000000), blurRadius: 8, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 22),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: kBodyTextStyle(size: 11, weight: FontWeight.w600, color: kMerchantMuted),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: kDisplayTextStyle(size: 17, weight: FontWeight.w800, color: kMerchantDarkCharcoal),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -2016,8 +1431,8 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
               ? Card(
                   child: ListTile(
                     leading: const Icon(Icons.account_balance_wallet_outlined, color: kMerchantBrandGreen),
-                    title: Text('merchant_escrow_summary'.tr()),
-                    subtitle: Text('${'merchant_escrow_balance'.tr()}: ${snapshot.data?['escrowAccount']?['balance'] ?? 0} • ${'merchant_settlements_count'.tr()}: ${(snapshot.data?['settlements'] as List?)?.length ?? 0}'),
+                    title: Text(_tx('merchant_escrow_summary', 'Escrow & settlements summary')),
+                    subtitle: Text('${_tx('merchant_escrow_balance', 'Escrow balance')}: ${snapshot.data?['escrowAccount']?['balance'] ?? 0} • ${_tx('merchant_settlements_count', 'Settlements count')}: ${(snapshot.data?['settlements'] as List?)?.length ?? 0}'),
                   ),
                 )
               : const SizedBox.shrink(),

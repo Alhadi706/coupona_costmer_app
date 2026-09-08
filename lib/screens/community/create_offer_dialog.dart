@@ -1,8 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import '../../services/app_session.dart';
-import '../../services/company_server_service.dart';
+import '../../services/marketplace_api_client.dart';
 import '../../theme/design_tokens.dart';
 import 'community_marketplace_errors.dart';
 import 'marketplace_categories.dart';
@@ -50,13 +49,7 @@ class _CreateOfferDialogState extends State<CreateOfferDialog> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     try {
-      final token = await AppSession.token();
-      if (token == null || token.isEmpty) {
-        if (!mounted) return;
-        _showMessage('marketplace_session_expired'.tr());
-        return;
-      }
-      await CompanyServerService.createCustomerCommunityOffer(
+      await MarketplaceApiClient.createOffer(
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         category: _category,
@@ -68,6 +61,11 @@ class _CreateOfferDialogState extends State<CreateOfferDialog> {
     } catch (error) {
       if (!mounted) return;
       _showMessage(marketplaceErrorMessage(error, fallbackKey: 'marketplace_publish_failed'));
+      if (error is MarketplaceSessionExpiredException && mounted) {
+        // Close the sheet; the hosting tab detects the cleared session and
+        // routes the user to login.
+        Navigator.of(context).pop(false);
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

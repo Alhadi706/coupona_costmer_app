@@ -159,10 +159,21 @@ module.exports = function registerCoalitionRoutes(app, deps) {
         }
         merchantName = merchant.business_name || null;
 
+        // Mirrors the GET /api/wallet/points/sources reconciliation so a store
+        // shown in the calculator (sourced from ledger, tiers, or coalition
+        // balances) never fails validation here with a false "insufficient" error.
         const { rows: [merchantBalance] } = await client.query(
-          `SELECT COALESCE(SUM(CASE WHEN status = 'active' THEN points_delta ELSE 0 END), 0)::int AS active_points
-             FROM points_ledger_merchant
-            WHERE customer_id = $1 AND merchant_id = $2`,
+          `SELECT GREATEST(
+                    COALESCE((SELECT SUM(CASE WHEN status = 'active' THEN points_delta ELSE 0 END)
+                                FROM points_ledger_merchant
+                               WHERE customer_id = $1 AND merchant_id = $2), 0),
+                    COALESCE((SELECT SUM(balance)
+                                FROM customer_point_tiers
+                               WHERE customer_id = $1 AND merchant_id = $2), 0),
+                    COALESCE((SELECT SUM(points_balance)
+                                FROM customer_merchant_point_balances
+                               WHERE customer_id = $1 AND merchant_id = $2), 0)
+                  )::int AS active_points`,
           [customerId, merchantId]
         );
         const merchantPoints = Number(merchantBalance?.active_points || 0);

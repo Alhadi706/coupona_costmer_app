@@ -2,12 +2,13 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/app_session.dart';
-import '../../services/company_server_service.dart';
+import '../../services/marketplace_api_client.dart';
 import '../../theme/design_tokens.dart';
 import 'community_marketplace_errors.dart';
 import 'community_marketplace_toolbar.dart';
 import 'create_offer_dialog.dart';
 import 'customer_offer_card.dart';
+import 'marketplace_session_guard.dart';
 
 /// P2P customer marketplace ("سوق الزبائن والعروض") shown as a tab of the
 /// Communities & Marketplace hub.
@@ -33,12 +34,8 @@ class _CommunityMarketplaceTabState extends State<CommunityMarketplaceTab> {
     _offersFuture = _fetchOffers();
   }
 
-  Future<List<Map<String, dynamic>>> _fetchOffers() async {
-    final token = await AppSession.token();
-    if (token == null || token.isEmpty) {
-      throw StateError('unauthorized');
-    }
-    return CompanyServerService.getCustomerCommunityOffers(
+  Future<List<Map<String, dynamic>>> _fetchOffers() {
+    return MarketplaceApiClient.fetchOffers(
       myOnly: _showMyOffers,
       category: _category == 'ALL' ? null : _category,
     );
@@ -59,8 +56,16 @@ class _CommunityMarketplaceTabState extends State<CommunityMarketplaceTab> {
 
   Future<void> _openCreateOffer() async {
     final created = await CreateOfferDialog.show(context);
-    if (created && mounted) {
+    if (!mounted) return;
+    if (created) {
       await _refreshOffers();
+      return;
+    }
+    // Publishing may have failed because the session expired; the API client
+    // clears the stored session in that case, so route to login gracefully.
+    final token = await AppSession.token();
+    if ((token == null || token.isEmpty) && mounted) {
+      await routeToLoginOnSessionExpired(context);
     }
   }
 
@@ -68,7 +73,7 @@ class _CommunityMarketplaceTabState extends State<CommunityMarketplaceTab> {
     final offerId = (offer['id'] ?? '').toString();
     if (offerId.isEmpty) return;
     try {
-      await CompanyServerService.updateCommunityOfferStatus(
+      await MarketplaceApiClient.updateOfferStatus(
         offerId: offerId,
         status: status,
       );
@@ -76,6 +81,10 @@ class _CommunityMarketplaceTabState extends State<CommunityMarketplaceTab> {
       await _refreshOffers();
     } catch (error) {
       if (!mounted) return;
+      if (error is MarketplaceSessionExpiredException) {
+        await routeToLoginOnSessionExpired(context);
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -105,12 +114,24 @@ class _CommunityMarketplaceTabState extends State<CommunityMarketplaceTab> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snapshot.hasError) {
+                final error = snapshot.error!;
+                if (error is MarketplaceSessionExpiredException) {
+                  return _MarketplaceMessage(
+                    message: marketplaceErrorMessage(
+                      error,
+                      fallbackKey: 'marketplace_load_failed',
+                    ),
+                    actionLabel: 'login_title'.tr(),
+                    actionIcon: Icons.login,
+                    onAction: () => routeToLoginOnSessionExpired(context),
+                  );
+                }
                 return _MarketplaceMessage(
                   message: marketplaceErrorMessage(
-                    snapshot.error!,
+                    error,
                     fallbackKey: 'marketplace_load_failed',
                   ),
-                  onRetry: _refreshOffers,
+                  onAction: _refreshOffers,
                 );
               }
               final offers = snapshot.data ?? const <Map<String, dynamic>>[];
@@ -119,7 +140,7 @@ class _CommunityMarketplaceTabState extends State<CommunityMarketplaceTab> {
                   message: _showMyOffers
                       ? 'marketplace_empty_mine'.tr()
                       : 'marketplace_empty_all'.tr(),
-                  onRetry: _refreshOffers,
+                  onAction: _refreshOffers,
                 );
               }
               return RefreshIndicator(
@@ -144,9 +165,16 @@ class _CommunityMarketplaceTabState extends State<CommunityMarketplaceTab> {
 
 class _MarketplaceMessage extends StatelessWidget {
   final String message;
-  final Future<void> Function() onRetry;
+  final void Function() onAction;
+  final String? actionLabel;
+  final IconData actionIcon;
 
-  const _MarketplaceMessage({required this.message, required this.onRetry});
+  const _MarketplaceMessage({
+    required this.message,
+    required this.onAction,
+    this.actionLabel,
+    this.actionIcon = Icons.refresh,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -163,9 +191,9 @@ class _MarketplaceMessage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: Text('refresh'.tr()),
+              onPressed: onAction,
+              icon: Icon(actionIcon),
+              label: Text(actionLabel ?? 'refresh'.tr()),
             ),
           ],
         ),

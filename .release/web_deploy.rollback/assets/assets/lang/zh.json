@@ -169,5 +169,14 @@
   "role_request_item_title": "Role: {role}",
   "role_request_item_status": "Status: {status}",
   "role_request_item_status_reason": "Status: {status} | Reason: {reason}",
-  "role_subscription_status": "Subscription status: {status}"
+  "role_subscription_status": "Subscription status: {status}",
+  "onboarding_p1_title": "发现身边的优质优惠",
+  "onboarding_p1_desc": "轻松浏览附近的优惠和折扣。",
+  "onboarding_p2_title": "每次购物都能赚取积分",
+  "onboarding_p2_desc": "扫描账单，收集积分和奖励。",
+  "onboarding_p3_title": "立即开始使用Coupona",
+  "onboarding_p3_desc": "享受更多优惠，为日常购物省钱。",
+  "onboarding_skip": "跳过",
+  "onboarding_next": "下一步",
+  "onboarding_start": "开始"
 }

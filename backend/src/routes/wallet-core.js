@@ -106,16 +106,59 @@ app.get('/api/wallet/points-breakdown', auth, async (req, res) => {
 app.get('/api/wallet/points/sources', auth, async (req, res) => {
   const userId = req.user.userId;
   const [merchantRows, brandRows] = await Promise.all([
+    // Reconciles three independent write paths that can each hold a merchant's
+    // active balance (OCR/POS ledger, tier classification, coalition balance
+    // table) so the calculator's store list always matches the rewards header.
     pool.query(
-      `SELECT m.id AS source_id,
+      `WITH ledger_balances AS (
+         SELECT plm.merchant_id,
+                COALESCE(SUM(CASE WHEN plm.status = 'active' THEN plm.points_delta ELSE 0 END), 0) AS active_points,
+                COALESCE(SUM(plm.points_delta), 0) AS lifetime_points
+           FROM points_ledger_merchant plm
+          WHERE plm.customer_id = $1
+          GROUP BY plm.merchant_id
+       ),
+       tier_balances AS (
+         SELECT cpt.merchant_id,
+                COALESCE(SUM(cpt.balance), 0) AS active_points,
+                COALESCE(SUM(cpt.lifetime_earned), 0) AS lifetime_points
+           FROM customer_point_tiers cpt
+          WHERE cpt.customer_id = $1 AND cpt.merchant_id IS NOT NULL
+          GROUP BY cpt.merchant_id
+       ),
+       coalition_balances AS (
+         SELECT cmb.merchant_id,
+                COALESCE(SUM(cmb.points_balance), 0) AS active_points,
+                COALESCE(SUM(cmb.points_balance), 0) AS lifetime_points
+           FROM customer_merchant_point_balances cmb
+          WHERE cmb.customer_id = $1
+          GROUP BY cmb.merchant_id
+       ),
+       merged AS (
+         SELECT merchant_id FROM ledger_balances
+         UNION
+         SELECT merchant_id FROM tier_balances
+         UNION
+         SELECT merchant_id FROM coalition_balances
+       )
+       SELECT m.id AS source_id,
               m.business_name AS source_name,
-              COALESCE(SUM(CASE WHEN plm.status = 'active' THEN plm.points_delta ELSE 0 END), 0) AS active_points,
-              COALESCE(SUM(plm.points_delta), 0) AS lifetime_points
-         FROM points_ledger_merchant plm
-         JOIN merchant_profiles m ON m.id = plm.merchant_id
-        WHERE plm.customer_id = $1
-        GROUP BY m.id, m.business_name
-        ORDER BY m.business_name ASC`,
+              GREATEST(
+                COALESCE(l.active_points, 0),
+                COALESCE(t.active_points, 0),
+                COALESCE(c.active_points, 0)
+              ) AS active_points,
+              GREATEST(
+                COALESCE(l.lifetime_points, 0),
+                COALESCE(t.lifetime_points, 0),
+                COALESCE(c.lifetime_points, 0)
+              ) AS lifetime_points
+         FROM merged mg
+         JOIN merchant_profiles m ON m.id = mg.merchant_id
+         LEFT JOIN ledger_balances l ON l.merchant_id = mg.merchant_id
+         LEFT JOIN tier_balances t ON t.merchant_id = mg.merchant_id
+         LEFT JOIN coalition_balances c ON c.merchant_id = mg.merchant_id
+        ORDER BY active_points DESC, m.business_name ASC`,
       [userId]
     ),
     pool.query(

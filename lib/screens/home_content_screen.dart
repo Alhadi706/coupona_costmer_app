@@ -6,11 +6,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
-import '../widgets/customer_campaign_coupons_section.dart';
+import '../widgets/compact_tier_card.dart';
+import '../widgets/home_rewards_path_widget.dart';
 import 'home_content_screen_banner.dart';
 import 'home_content_screen_offers.dart';
 import 'home_quick_shortcuts.dart';
-import 'home_content_screen_summary.dart';
 import 'home_store_discovery_section.dart';
 
 class HomeContentScreen extends StatefulWidget {
@@ -183,11 +183,11 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                 children: [
                   buildBanner(this),
                   const SizedBox(height: 12),
-                  buildWelcomeSummary(this),
+                  buildCompactTierCard(this),
                   const SizedBox(height: 12),
                   buildQuickShortcutActions(this),
                   const SizedBox(height: 12),
-                  const CustomerCampaignCouponsSection(),
+                  buildHomeRewardsPath(this),
                   const SizedBox(height: 16),
                   Text(
                     'home_explore_title'.tr(),

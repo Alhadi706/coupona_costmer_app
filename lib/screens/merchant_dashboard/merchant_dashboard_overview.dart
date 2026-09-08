@@ -60,20 +60,29 @@ extension _MerchantDashboardOverviewExt on _MerchantDashboardScreenState {
           ),
           const SizedBox(height: 16),
           SizedBox(
-            height: 180,
+            height: 200,
             child: LineChart(
               LineChartData(
+                minX: 0,
+                maxX: 6,
                 gridData: const FlGridData(show: true, drawVerticalLine: false),
                 titlesData: FlTitlesData(
                   topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
+                      reservedSize: 28,
+                      interval: 1,
                       getTitlesWidget: (val, meta) {
                         const days = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
-                        final idx = val.toInt() % days.length;
-                        return Text(days[idx], style: const TextStyle(fontSize: 10, color: kMerchantMuted));
+                        final idx = val.round();
+                        if (idx < 0 || idx >= days.length) return const SizedBox.shrink();
+                        return SideTitleWidget(
+                          axisSide: meta.axisSide,
+                          child: Text(days[idx], style: const TextStyle(fontSize: 9, color: kMerchantMuted)),
+                        );
                       },
                     ),
                   ),
