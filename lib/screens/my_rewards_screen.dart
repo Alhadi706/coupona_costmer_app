@@ -6,7 +6,14 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../modules/redemption/redemption_math.dart';
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
+import '../widgets/dynamic_voucher_sheet.dart';
 import 'customer_coalitions_screen.dart';
+
+part 'my_rewards_helpers.dart';
+part 'my_rewards_ui_helpers.dart';
+part 'my_rewards_cards.dart';
+part 'my_rewards_tier_helpers.dart';
+part 'my_rewards_coupon_ui.dart';
 
 bool shouldAddClaimTransaction(
   Map<String, dynamic> claim,
@@ -53,9 +60,6 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
   final Map<String, String> _rewardClaimRequestIds = <String, String>{};
   bool _loading = true;
   bool _redeeming = false;
-  bool _creatingDynamicVoucher = false;
-  final TextEditingController _dynamicVoucherController =
-      TextEditingController();
   Map<String, dynamic> _points = const <String, dynamic>{};
   Map<String, dynamic> _tiers = const <String, dynamic>{};
   Map<String, dynamic> _pending = const <String, dynamic>{};
@@ -180,165 +184,27 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  String _formatLedgerType(String type) {
-    switch (type) {
-      case 'cashbackEarned':
-        return 'ledger_cashback_earned'.tr();
-      case 'pointsEarned':
-        return 'ledger_points_earned'.tr();
-      case 'pointsRedeemed':
-        return 'ledger_points_redeemed'.tr();
-      default:
-        return type;
-    }
-  }
-
-  /// Returns the next target locked reward item requiring more points than [availablePoints]
-  Map<String, dynamic>? _nextTargetReward(int availablePoints) {
-    Map<String, dynamic>? next;
-    int? minCost;
-    final candidateRewards = <Map<String, dynamic>>[
-      ..._rewards,
-      ..._giftLocked,
-    ];
-    for (final item in candidateRewards) {
-      final cost = _toInt(item['value'] ?? item['pointsCost']);
-      if (cost > availablePoints && (minCost == null || cost < minCost)) {
-        minCost = cost;
-        next = item;
-      }
-    }
-    return next;
-  }
-
-  /// Returns the smallest reward value strictly greater than [availablePoints],
-  /// or null if every known reward is already unlocked.
-  int? _nextMilestoneValue(int availablePoints) {
-    int? next;
-    for (final reward in _rewards) {
-      final value = _toInt(reward['value']);
-      if (value > availablePoints && (next == null || value < next)) {
-        next = value;
-      }
-    }
-    return next;
-  }
-
-  String? _resolveClaimRewardName(Map<String, dynamic> claim) {
-    final rewardId = (claim['rewardId'] ?? '').toString();
-    final sourceId = (claim['sourceId'] ?? '').toString();
-    final pointsCost = _toInt(claim['pointsCost']);
-    if (rewardId.isNotEmpty) {
-      for (final reward in _rewards) {
-        if ((reward['id'] ?? '').toString() == rewardId) {
-          return (reward['reward_name'] ?? '').toString();
-        }
-      }
-    }
-    if (sourceId.isEmpty) return null;
-    for (final reward in _rewards) {
-      if ((reward['id'] ?? '').toString() == sourceId) {
-        return (reward['reward_name'] ?? '').toString();
-      }
-    }
-    for (final reward in _rewards) {
-      final rewardSourceId = (reward['sourceId'] ?? '').toString();
-      if (rewardSourceId.isNotEmpty &&
-          rewardSourceId == sourceId &&
-          _toInt(reward['value']) == pointsCost) {
-        return (reward['reward_name'] ?? '').toString();
-      }
-    }
-    return null;
-  }
-
-  String _claimRewardLabel(Map<String, dynamic> claim) {
-    final name = _resolveClaimRewardName(claim);
-    if (name != null && name.isNotEmpty) return name;
-    final points = _toInt(claim['pointsCost']);
-    return 'coupon_value_label'.tr(namedArgs: {'value': '$points'});
-  }
-
-  List<_TxEntry> _buildTransactions() {
-    final List<_TxEntry> items = [];
-    for (final entry in _ledger) {
-      final points = _toInt(entry['points']);
-      if (points == 0) continue;
-      final type = (entry['type'] ?? '').toString();
-      final date =
-          DateTime.tryParse((entry['createdAt'] ?? '').toString()) ??
-          DateTime.now();
-      final label = type == 'pointsEarned'
-          ? 'tx_receipt_scan_approved'.tr()
-          : ((type == 'pointsRedeemed' || type == 'rewardClaimCreated')
-                ? 'tx_reward_redeemed_generic'.tr()
-                : _formatLedgerType(type));
-      items.add(_TxEntry(date: date, label: label, points: points));
-    }
-    for (final claim in _claims) {
-      if (!shouldAddClaimTransaction(claim, _ledger)) continue;
-      final pointsCost = _toInt(claim['pointsCost']);
-      if (pointsCost <= 0) continue;
-      final date =
-          DateTime.tryParse((claim['createdAt'] ?? '').toString()) ??
-          DateTime.now();
-      final rewardName = _resolveClaimRewardName(claim);
-      final label = (rewardName != null && rewardName.isNotEmpty)
-          ? 'tx_reward_redeemed'.tr(namedArgs: {'reward': rewardName})
-          : 'tx_reward_redeemed_generic'.tr();
-      items.add(_TxEntry(date: date, label: label, points: -pointsCost));
-    }
-    items.sort((a, b) => b.date.compareTo(a.date));
-    return items.take(20).toList();
-  }
-
-  String _formatTxDate(DateTime date) {
-    final d = date.day.toString().padLeft(2, '0');
-    final m = date.month.toString().padLeft(2, '0');
-    return '$d/$m/${date.year}';
-  }
-
-  Future<void> _createDynamicVoucher() async {
-    final amount = double.tryParse(_dynamicVoucherController.text.trim());
-    if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('أدخل مبلغ صحيح أكبر من صفر')),
-      );
-      return;
-    }
-
-    setState(() => _creatingDynamicVoucher = true);
-    try {
-      final result = await CompanyServerService.createDynamicVoucher(
-        cashValueLyD: amount,
-      );
-      if (!mounted) return;
-      final voucher =
-          result['voucher'] as Map<String, dynamic>? ??
-          const <String, dynamic>{};
-      final qrCode = (voucher['qrCode'] ?? '').toString();
-      final pointsUsed = _toInt(voucher['pointsUsed']);
-      final cashValue = (voucher['cashValueLyD'] is num)
-          ? (voucher['cashValueLyD'] as num).toDouble()
-          : amount;
-      _dynamicVoucherController.clear();
-      await _loadData();
-      _showDynamicVoucherDialog(
-        qrCode: qrCode,
-        pointsUsed: pointsUsed,
-        cashValueLyD: cashValue,
-        tier: (voucher['tier'] ?? 'bronze').toString(),
-        message: (voucher['message'] ?? 'جاهز للاستخدام لدى الكاشير')
-            .toString(),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('فشل إنشاء القسيمة: $e')));
-    } finally {
-      if (mounted) setState(() => _creatingDynamicVoucher = false);
-    }
+  Future<void> _openDynamicVoucherSheet() async {
+    final result = await DynamicVoucherSheet.show(context);
+    if (!mounted || result == null) return;
+    final voucher =
+        result['voucher'] as Map<String, dynamic>? ??
+        const <String, dynamic>{};
+    final qrCode = (voucher['qrCode'] ?? '').toString();
+    final pointsUsed = _toInt(voucher['pointsUsed']);
+    final cashValue = (voucher['cashValueLyD'] is num)
+        ? (voucher['cashValueLyD'] as num).toDouble()
+        : 0.0;
+    await _loadData();
+    if (!mounted) return;
+    _showDynamicVoucherDialog(
+      qrCode: qrCode,
+      pointsUsed: pointsUsed,
+      cashValueLyD: cashValue,
+      tier: (voucher['tier'] ?? 'bronze').toString(),
+      message: (voucher['message'] ?? 'جاهز للاستخدام لدى الكاشير').toString(),
+      merchantName: (voucher['merchantName'] ?? '').toString(),
+    );
   }
 
   void _showDynamicVoucherDialog({
@@ -347,6 +213,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     required double cashValueLyD,
     required String tier,
     required String message,
+    String merchantName = '',
   }) {
     if (qrCode.isEmpty) {
       return;
@@ -393,6 +260,16 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
+                if (merchantName.isNotEmpty) ...[
+                  Text(
+                    'المحل: $merchantName',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: kTeal,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                ],
                 Text('النقاط المستهلكة: $pointsUsed نقطة'),
                 Text('الطبقة: ${tier.toUpperCase()}'),
                 const SizedBox(height: 12),
@@ -487,116 +364,8 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     }
   }
 
-  String _formatClaimStatus(String status) {
-    switch (status) {
-      case 'pending_pickup':
-        return 'coupon_status_pending_pickup'.tr();
-      case 'used':
-      case 'redeemed':
-        return 'coupon_status_used'.tr();
-      case 'expired':
-        return 'coupon_status_expired'.tr();
-      case 'refunded_as_points':
-        return 'coupon_status_refunded_as_points'.tr();
-      default:
-        return status;
-    }
-  }
-
-  Color _claimStatusColor(String status) {
-    switch (status) {
-      case 'pending_pickup':
-        return kGold;
-      case 'used':
-      case 'redeemed':
-        return kTeal;
-      case 'expired':
-      case 'refunded_as_points':
-        return Colors.grey;
-      default:
-        return kTeal;
-    }
-  }
-
-  void _showCouponDialog({
-    required String rewardName,
-    required String rewardKind,
-    required String pickupQrCode,
-    required String digitalCode,
-    required String status,
-    required String expiresAt,
-  }) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (dialogContext) {
-        return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  rewardName.isEmpty ? 'reward_generic'.tr() : rewardName,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _formatClaimStatus(status),
-                  style: const TextStyle(color: kTeal),
-                ),
-                const SizedBox(height: 16),
-                if (rewardKind == 'physical' && pickupQrCode.isNotEmpty) ...[
-                  QrImageView(data: pickupQrCode, size: 220),
-                  const SizedBox(height: 10),
-                  Text('coupon_qr_hint'.tr(), textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
-                  SelectableText(pickupQrCode),
-                ] else if (digitalCode.isNotEmpty) ...[
-                  Text('coupon_digital_code_label'.tr()),
-                  const SizedBox(height: 8),
-                  SelectableText(
-                    digitalCode,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: kTeal,
-                    ),
-                  ),
-                ],
-                if (expiresAt.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      'coupon_expires_at'.tr(
-                        namedArgs: {'value': expiresAt.split('T').first},
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    icon: const Icon(Icons.close),
-                    label: Text('close'.tr()),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  String _getRewardCategoryKey(Map<String, dynamic> item) {
+  @Deprecated('Use the extracted reward category helper.')
+  String legacyRewardCategoryKey(Map<String, dynamic> item) {
     final category = (item['category'] ?? item['storeCategory'] ?? item['activity'] ?? '').toString().toLowerCase();
     final title = (item['reward_name'] ?? item['title'] ?? '').toString().toLowerCase();
     final store = (item['storeName'] ?? item['merchant_name'] ?? '').toString().toLowerCase();
@@ -659,7 +428,8 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     return 'أخرى';
   }
 
-  IconData _getCategoryIcon(String category) {
+  @Deprecated('Use the extracted reward category icon helper.')
+  IconData legacyCategoryIcon(String category) {
     switch (category) {
       case 'مطاعم':
         return Icons.restaurant_outlined;
@@ -676,7 +446,8 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     }
   }
 
-  Widget _buildDynamicCashBanner() {
+  @Deprecated('Use the extracted dynamic cash banner.')
+  Widget buildLegacyDynamicCashBanner() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -980,152 +751,6 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     );
   }
 
-  Widget _buildTargetGoalCard(Map<String, dynamic> item, int availablePoints) {
-    final cost = _toInt(item['value'] ?? item['pointsCost']);
-    final remaining = (cost - availablePoints).clamp(0, cost);
-    final progress = cost <= 0 ? 0.0 : (availablePoints / cost).clamp(0.0, 1.0);
-    final storeName = (item['storeName'] ?? item['merchant_name'] ?? '').toString();
-    final imageUrl = (item['imageUrl'] ?? '').toString();
-    final title = (item['reward_name'] ?? item['title'] ?? 'جائزة').toString();
-    final category = _getRewardCategoryKey(item);
-    final fallbackIcon = _getCategoryIcon(category);
-
-    return Container(
-      width: 280,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFFDF5),
-            Color(0xFFFFFFFF),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.6)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  color: const Color(0xFFFEF3C7),
-                  image: imageUrl.isNotEmpty
-                      ? DecorationImage(
-                          image: NetworkImage(imageUrl),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                ),
-                child: imageUrl.isEmpty
-                    ? Icon(fallbackIcon, color: const Color(0xFFD97706), size: 22)
-                    : null,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    if (storeName.isNotEmpty) ...[
-                      const SizedBox(height: 1),
-                      Text(
-                        '🏪 $storeName',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Text(
-                  '🔒 قفل',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFB45309),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
-              color: const Color(0xFFF59E0B),
-              backgroundColor: const Color(0xFFF3F4F6),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '$availablePoints / $cost نقطة',
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '🎯 متبقي لك $remaining نقطة لفتح الجائزة',
-                  style: const TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFB45309),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final Widget body = _loading
@@ -1270,7 +895,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
               ButtonSegment(
                 value: 0,
                 icon: const Icon(Icons.card_giftcard_outlined),
-                label: Text('rewards_section_rewards'.tr()),
+                label: const Text("المكافآت المتاحة"),
               ),
               ButtonSegment(
                 value: 1,
@@ -1280,7 +905,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
               ButtonSegment(
                 value: 2,
                 icon: const Icon(Icons.receipt_long_outlined),
-                label: Text('rewards_section_history'.tr()),
+                label: const Text("سجل النشاطات"),
               ),
             ],
             selected: <int>{_sectionTab},
@@ -1466,84 +1091,8 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     );
   }
 
-  Widget _buildEmptyStateWidget({
-    required String title,
-    required String subtitle,
-    required String actionLabel,
-    required VoidCallback onAction,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.card_giftcard_outlined,
-              size: 28,
-              color: Color(0xFF64748B),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF64748B),
-            ),
-          ),
-          const SizedBox(height: 14),
-          OutlinedButton.icon(
-            onPressed: onAction,
-            icon: const Icon(Icons.refresh, size: 16),
-            label: Text(
-              actionLabel,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF0A5C43),
-              side: const BorderSide(color: Color(0xFF0A5C43)),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBalanceHeader(
+  @Deprecated('Use the extracted rewards balance header.')
+  Widget buildLegacyBalanceHeader(
     int availablePoints,
     int? nextMilestone,
     double progress,
@@ -1610,7 +1159,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'rewards_balance_title'.tr(),
+                        "رصيد المكافآت",
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.white.withValues(alpha: 0.85),
@@ -1693,197 +1242,10 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     );
   }
 
-  void _openDynamicVoucherSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            0,
-            16,
-            16 + MediaQuery.viewInsetsOf(context).bottom,
-          ),
-          child: SingleChildScrollView(child: _buildDynamicVoucherCard()),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTierDetails() {
-    return Card(
-      child: ExpansionTile(
-        leading: const Icon(Icons.info_outline, color: kTeal),
-        title: Text(
-          'wallet_tier_title'.tr(),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        children: [
-          Text('wallet_bronze_scope'.tr()),
-          const SizedBox(height: 6),
-          Text('wallet_silver_scope'.tr()),
-          const SizedBox(height: 6),
-          Text('wallet_gold_scope'.tr()),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTierCounters() {
-    final tiers =
-        (_tiers['tiers'] as Map?)?.cast<String, dynamic>() ??
-        const <String, dynamic>{};
-    final definitions = <Map<String, dynamic>>[
-      {
-        'key': 'bronze',
-        'label': 'wallet_bronze_points',
-        'shortLabel': 'rewards_tier_bronze_short',
-        'scope': 'wallet_bronze_scope',
-        'icon': Icons.workspace_premium_outlined,
-        'color': Colors.brown,
-      },
-      {
-        'key': 'silver',
-        'label': 'wallet_silver_points',
-        'shortLabel': 'rewards_tier_silver_short',
-        'scope': 'wallet_silver_scope',
-        'icon': Icons.workspace_premium_outlined,
-        'color': Colors.blueGrey,
-      },
-      {
-        'key': 'gold',
-        'label': 'wallet_gold_points',
-        'shortLabel': 'rewards_tier_gold_short',
-        'scope': 'wallet_gold_scope',
-        'icon': Icons.workspace_premium_outlined,
-        'color': Colors.amber.shade800,
-      },
-    ];
-    return Row(
-      children: definitions.map((definition) {
-        final tierKey = definition['key'] as String;
-        final tier =
-            (tiers[tierKey] as Map?)?.cast<String, dynamic>() ??
-            const <String, dynamic>{};
-        final balance = _toInt(tier['balance']);
-        final color = definition['color'] as Color;
-        return Expanded(
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _showTierBottomSheet(tierKey),
-              borderRadius: BorderRadius.circular(12),
-              child: Semantics(
-                label: '${definition['label']}'.tr(),
-                value: '$balance',
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: kWhite.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: color.withValues(alpha: 0.85)),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(definition['icon'] as IconData, color: color, size: 16),
-                          const SizedBox(width: 3),
-                          Icon(Icons.unfold_more, color: Colors.white70, size: 12),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '$balance',
-                        style: kPointsNumberStyle(size: 17, color: color),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              '${definition['shortLabel']}'.tr(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: kBodyTextStyle(
-                                size: 11,
-                                weight: FontWeight.w600,
-                                color: kWhite,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 2),
-                          const Text('🔍', style: TextStyle(fontSize: 10)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  void _showTierBottomSheet(String tierKey) {
-    switch (tierKey) {
-      case 'bronze':
-        _showBronzeTierSheet();
-        break;
-      case 'silver':
-        _showSilverTierSheet();
-        break;
-      case 'gold':
-        _showGoldTierSheet();
-        break;
-    }
-  }
-
   void _showBronzeTierSheet() {
     final tiers = (_tiers['tiers'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
     final bronzeBalance = _toInt((tiers['bronze'] as Map?)?['balance']);
-    final rawStores = (_tiers['bronzeStores'] as List?)?.cast<Map<String, dynamic>>() ?? const <Map<String, dynamic>>[];
-
-    List<Map<String, dynamic>> stores = List.from(rawStores);
-    if (stores.isEmpty && bronzeBalance > 0) {
-      final pendingList = List<Map<String, dynamic>>.from(_pending['pending'] ?? const []);
-      final extracted = <String, Map<String, dynamic>>{};
-      for (final p in pendingList) {
-        final mId = (p['merchant_id'] ?? '').toString();
-        final mName = (p['merchant_name'] ?? 'متجر خاص').toString();
-        final pts = _toInt(p['points_remaining'] ?? p['points']);
-        if (mId.isNotEmpty) {
-          extracted.putIfAbsent(mId, () => {
-            'merchant_id': mId,
-            'business_name': mName,
-            'points': 0,
-          })['points'] = _toInt(extracted[mId]!['points']) + pts;
-        }
-      }
-      if (extracted.isNotEmpty) {
-        stores = extracted.values.toList();
-      } else {
-        stores = [
-          {
-            'merchant_id': 'merchant_default',
-            'business_name': 'مطعم السرايا',
-            'points': (bronzeBalance * 0.6).round(),
-          },
-          {
-            'merchant_id': 'merchant_cafe',
-            'business_name': 'كافيه بن رضا',
-            'points': (bronzeBalance * 0.4).round(),
-          },
-        ];
-      }
-    }
+    final stores = _bronzeStores(bronzeBalance);
 
     showModalBottomSheet<void>(
       context: context,
@@ -1999,25 +1361,7 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
   void _showSilverTierSheet() {
     final tiers = (_tiers['tiers'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
     final silverBalance = _toInt((tiers['silver'] as Map?)?['balance']);
-    final rawCoalitions = (_tiers['silverCoalitions'] as List?)?.cast<Map<String, dynamic>>() ?? const <Map<String, dynamic>>[];
-
-    List<Map<String, dynamic>> coalitions = List.from(rawCoalitions);
-    if (coalitions.isEmpty && silverBalance > 0) {
-      coalitions = [
-        {
-          'coalition_id': 'coalition_food',
-          'coalition_name': 'ائتلاف المأكولات والمطاعم',
-          'stores_count': 5,
-          'points': (silverBalance * 0.7).round(),
-        },
-        {
-          'coalition_id': 'coalition_shopping',
-          'coalition_name': 'ائتلاف التسوق والأزياء',
-          'stores_count': 3,
-          'points': (silverBalance * 0.3).round(),
-        },
-      ];
-    }
+    final coalitions = _silverCoalitions(silverBalance);
 
     showModalBottomSheet<void>(
       context: context,
@@ -2131,115 +1475,6 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     );
   }
 
-  void _showGoldTierSheet() {
-    final tiers = (_tiers['tiers'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
-    final goldBalance = _toInt((tiers['gold'] as Map?)?['balance']);
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.workspace_premium, color: Colors.amber.shade800, size: 28),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'النقاط الذهبية الشاملة',
-                        style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.amber.shade700, Colors.amber.shade900],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'رصيد النقاط الذهبية القابلة للاستبدال',
-                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '$goldBalance نقطة',
-                        style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'تُقبل لدى جميع المتاجر في كل الائتلافات بدون استثناء',
-                        style: TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: kTeal.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: kTeal.withValues(alpha: 0.2)),
-                  ),
-                  child: Column(
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.calculate_outlined, color: kTeal),
-                          SizedBox(width: 8),
-                          Text(
-                            'الحاسبة المالية والخصم النقدي المباشر',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: kTeal, fontSize: 14),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'يمكنك تحويل النقاط الذهبية مباشرة إلى خصم نقدي واستخراج قسيمة مالية فورية لدى الكاشير.',
-                        style: TextStyle(fontSize: 12.5, color: Colors.black87),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: kTeal,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          onPressed: () {
-                            Navigator.of(sheetContext).pop();
-                            _openDynamicVoucherSheet();
-                          },
-                          icon: const Icon(Icons.flash_on),
-                          label: const Text('⚡ استخدام الحاسبة وإنشاء قسيمة نقدية'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Future<void> _filterByMerchant(String merchantId, String storeName) async {
     setState(() {
       _selectedMerchantId = merchantId;
@@ -2296,116 +1531,4 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
     _loadData();
   }
 
-  Widget _buildPendingPointsCard() {
-    final pending = List<dynamic>.from(_pending['pending'] ?? const []);
-    if (pending.isEmpty) return const SizedBox.shrink();
-    return Card(
-      color: Colors.orange.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'wallet_pending_title'.tr(),
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'wallet_pending_description'.tr(
-                namedArgs: {'points': '${_pending['total_points'] ?? 0}'},
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...pending.map(
-              (item) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.hourglass_top, color: Colors.orange),
-                title: Text('${item['merchant_name'] ?? 'merchant'}'),
-                subtitle: Text(
-                  'wallet_pending_item'.tr(
-                    namedArgs: {
-                      'points': '${item['points_remaining'] ?? 0}',
-                      'tier': '${item['tier'] ?? ''}',
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDynamicVoucherCard() {
-    final availablePoints = _toInt(_points['availablePoints']);
-    final amountText = _dynamicVoucherController.text.trim();
-    final previewAmount = double.tryParse(amountText) ?? 0;
-    final requiredPoints = RedemptionMath.pointsRequiredForCash(previewAmount);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'حاسبة الاستبدال المالي',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _dynamicVoucherController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      hintText: 'مثال: 25',
-                      labelText: 'المبلغ بالـ LYD',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 120,
-                  child: FilledButton(
-                    onPressed: _creatingDynamicVoucher
-                        ? null
-                        : _createDynamicVoucher,
-                    child: _creatingDynamicVoucher
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('استبدال'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: kTeal.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                previewAmount > 0
-                    ? 'النقاط المطلوبة: $requiredPoints نقطة • الرصيد المتاح: $availablePoints نقطة'
-                    : 'أدخل المبلغ المطلوب لتحويله إلى نقاط استبدال.',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

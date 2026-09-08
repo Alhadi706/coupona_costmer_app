@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -71,19 +72,19 @@ class _CustomerGiftsScreenState extends State<CustomerGiftsScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text((gift['title'] ?? 'هدية').toString(), textAlign: TextAlign.center, style: kDisplayTextStyle(size: 20)),
+              Text((gift['title'] ?? 'free_gift'.tr()).toString(), textAlign: TextAlign.center, style: kDisplayTextStyle(size: 20)),
               const SizedBox(height: 8),
-              Text('اعرض هذا الرمز للكاشير عند الاستلام.', textAlign: TextAlign.center, style: kBodyTextStyle(size: 13)),
+              Text('show_qr_cashier_hint'.tr(), textAlign: TextAlign.center, style: kBodyTextStyle(size: 13)),
               const SizedBox(height: 16),
               if (token.isNotEmpty) ...[
                 QrImageView(data: token, size: 230),
                 const SizedBox(height: 8),
                 SelectableText(token, textAlign: TextAlign.center),
               ] else
-                const Text('لم يتم إنشاء رمز الاستلام.'),
+                Text('coupon_qr_hint'.tr()),
               if ((claim['expiresAt'] ?? '').toString().isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Text('صالح حتى: ${(claim['expiresAt'] ?? '').toString().split('T').first}'),
+                Text('valid_until'.tr(namedArgs: {'date': (claim['expiresAt'] ?? '').toString().split('T').first})),
               ],
               const SizedBox(height: 18),
               SizedBox(
@@ -91,7 +92,7 @@ class _CustomerGiftsScreenState extends State<CustomerGiftsScreen> {
                 child: FilledButton.icon(
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close),
-                  label: const Text('إغلاق'),
+                  label: Text('admin_close'.tr()),
                 ),
               ),
             ],
@@ -104,15 +105,15 @@ class _CustomerGiftsScreenState extends State<CustomerGiftsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('هداياي')),
+      appBar: AppBar(title: Text('customer_my_gifts'.tr())),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('الهدايا المجانية', style: kDisplayTextStyle(size: 22, weight: FontWeight.w700)),
+            Text('free_gifts_title'.tr(), style: kDisplayTextStyle(size: 22, weight: FontWeight.w700)),
             const SizedBox(height: 4),
-            Text('هذه الهدايا لا تخصم من نقاطك. يتم الاستلام فقط بعد تحقق الكاشير من QR.', style: kBodyTextStyle(size: 13, color: kInk.withValues(alpha: 0.68))),
+            Text('free_gifts_subtitle'.tr(), style: kBodyTextStyle(size: 13, color: kInk.withValues(alpha: 0.68))),
             const SizedBox(height: 16),
             if (_loading)
               const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
@@ -120,17 +121,17 @@ class _CustomerGiftsScreenState extends State<CustomerGiftsScreen> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.error_outline, color: Colors.redAccent),
-                  title: const Text('تعذر تحميل الهدايا'),
-                  subtitle: Text(_error!),
+                  title: Text('gift_load_error'.tr()),
+                  subtitle: Text('stream_load_retry_message'.tr()),
                   trailing: IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
                 ),
               )
             else if (_assignments.isEmpty)
-              const Card(
+              Card(
                 child: ListTile(
-                  leading: Icon(Icons.card_giftcard_outlined, color: kTeal),
-                  title: Text('لا توجد هدايا حالية'),
-                  subtitle: Text('عندما يرسل لك تاجر أو علامة تجارية هدية ستظهر هنا.'),
+                  leading: const Icon(Icons.card_giftcard_outlined, color: kTeal),
+                  title: Text('no_current_gifts'.tr()),
+                  subtitle: Text('no_current_gifts_hint'.tr()),
                 ),
               )
             else

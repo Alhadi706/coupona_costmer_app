@@ -15,3 +15,12 @@ source files when (a) modifying/debugging specific code, (b) the graph lacks the
 (c) the graph is missing or stale.
 
 Type `/graphify` in Copilot Chat to build or update the graph.
+
+## Separation of Concerns and File Size
+
+- Organize code by responsibility: each file should represent one clear role, such as a state owner, a service domain, a type/model group, helper logic, or a focused UI component set.
+- Treat 300-400 lines as a review signal, not a strict limit. When a file grows beyond this range, inspect it for a coherent responsibility that can move to a separate file.
+- Extract logically cohesive helper functions, types, services, dialogs, or sub-components. Do not split code only to reduce the line count.
+- Preserve public APIs and behavior during extraction. Keep stateful logic with its owning state object, and pass data and callbacks explicitly to extracted widgets.
+- Avoid creating generic dumping-ground helpers. A new file must have a clear responsibility, a meaningful name, and a focused dependency surface.
+- After each extraction, run a targeted analyzer or test for the affected slice before continuing.

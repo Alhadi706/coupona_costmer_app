@@ -110,18 +110,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final confirmPassword = _confirmPasswordController.text.trim();
 
     if (password != confirmPassword) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('passwords_do_not_match'.tr())),
       );
       return;
     }
     if (_selectedBirthDate == null || _calculatedAge == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_tx('select_birth_date_required', 'Please select birth date.'))),
       );
       return;
     }
     if (_selectedGender == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_tx('select_gender_required', 'Please select gender.'))),
       );
@@ -130,6 +133,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (_userPosition == null) {
       await _getLocation();
       if (_userPosition == null) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(_locationError ?? 'تعذر جلب الموقع.')),
         );
@@ -150,18 +154,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
         locationLng: _userPosition?.longitude,
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('account_created_success'.tr())),
-        );
-        Navigator.pop(context);
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('account_created_success'.tr())),
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('generic_error_with_message'.tr(namedArgs: {'error': e.toString()}))),
       );
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -278,7 +285,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: _selectedGender,
+                initialValue: _selectedGender,
                 decoration: InputDecoration(
                   labelText: _tx('gender', 'Gender'),
                   border: const OutlineInputBorder(),

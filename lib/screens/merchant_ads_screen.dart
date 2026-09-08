@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../services/company_server_service.dart';
 import 'merchant_campaign_screen.dart';
@@ -557,7 +558,7 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        tooltip: status == 'active' ? 'إيقاف الحملة' : 'تفعيل الحملة',
+                        tooltip: status == 'active' ? 'pause_campaign'.tr() : 'activate_campaign'.tr(),
                         icon: Icon(
                           status == 'active' ? Icons.pause_circle_filled : Icons.play_circle_fill,
                           color: status == 'active' ? Colors.orange : Colors.green,
@@ -565,7 +566,7 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
                         onPressed: () => _toggleCampaignStatus(campaign),
                       ),
                       IconButton(
-                        tooltip: 'حذف الحملة',
+                        tooltip: 'delete_campaign'.tr(),
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
                         onPressed: () => _deleteCampaign(campaign),
                       ),

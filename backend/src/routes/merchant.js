@@ -46,7 +46,7 @@ app.get('/api/merchant/profile', auth, async (req, res) => {
     if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
 
     const row = (await client.query(
-      `SELECT id, user_id, business_name, commercial_registration, status, point_value, cashback_percentage
+      `SELECT id, user_id, business_name, commercial_registration, status, point_value
          FROM merchant_profiles
         WHERE id = $1
         LIMIT 1`,
@@ -61,61 +61,10 @@ app.get('/api/merchant/profile', auth, async (req, res) => {
       commercialRegistration: row.commercial_registration,
       status: row.status,
       pointValue: SYSTEM_POINT_VALUE,
-      cashback_percentage: row.cashback_percentage == null ? 5.0 : Number(row.cashback_percentage),
       pointValueManagedBySystem: true,
     });
   } catch (e) {
     return res.status(500).json({ error: 'merchant_profile_fetch_failed', details: String(e.message || e) });
-  } finally {
-    client.release();
-  }
-});
-
-app.get('/api/merchant/settings', auth, async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
-    if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
-
-    const row = (await client.query(
-      `SELECT cashback_percentage FROM merchant_profiles WHERE id = $1 LIMIT 1`,
-      [merchantId]
-    )).rows[0];
-
-    return res.json({
-      cashback_percentage: row?.cashback_percentage == null ? 5.0 : Number(row.cashback_percentage),
-    });
-  } catch (e) {
-    return res.status(500).json({ error: 'merchant_settings_fetch_failed', details: String(e.message || e) });
-  } finally {
-    client.release();
-  }
-});
-
-app.put('/api/merchant/settings', auth, async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
-    if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
-
-    await assertMerchantSubscriptionWritable(client, merchantId);
-
-    const val = Number(req.body?.cashback_percentage ?? req.body?.cashbackPercentage);
-    if (!Number.isFinite(val) || val <= 0 || val > 100) {
-      return res.status(400).json({ error: 'invalid_cashback_percentage' });
-    }
-
-    await client.query(
-      `UPDATE merchant_profiles SET cashback_percentage = $1 WHERE id = $2`,
-      [val, merchantId]
-    );
-
-    return res.json({ ok: true, cashback_percentage: val });
-  } catch (e) {
-    if (isMerchantSubscriptionReadOnlyError(e)) {
-      return res.status(403).json({ error: e.message });
-    }
-    return res.status(500).json({ error: 'merchant_settings_update_failed', details: String(e.message || e) });
   } finally {
     client.release();
   }

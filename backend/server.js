@@ -10,6 +10,7 @@ const createCoreTables = require('./src/schema-core');
 const createExtraTables = require('./src/schema-extra');
 const createCoalitionTables = require('./src/schema-coalition');
 const createCampaignTables = require('./src/schema-campaigns');
+const createRewardsGiftsOffersTables = require('./src/schema-rewards-gifts-offers');
 const pendingPointsService = require('./src/pending-points-service');
 const rewardClaimService = require('./src/reward-claim-service');
 
@@ -55,6 +56,7 @@ const { getIntSetting } = accessControl;
   './src/routes/coalition',
   './src/routes/campaigns',
   './src/routes/community-marketplace',
+  './src/routes/gifts',
 ].forEach((modulePath) => require(modulePath)(app, deps));
 
 async function initSchema() {
@@ -62,6 +64,7 @@ async function initSchema() {
   await createExtraTables();
   await createCoalitionTables(pool);
   await createCampaignTables();
+  await createRewardsGiftsOffersTables();
 }
 
 if (AI_ONLY_MODE) {

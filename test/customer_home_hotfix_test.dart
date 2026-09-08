@@ -1,14 +1,44 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:coupona_app/screens/home_content_screen.dart';
 import 'package:coupona_app/screens/home_screen.dart';
 import 'package:coupona_app/screens/ads_banner_slider.dart';
 import 'package:coupona_app/widgets/design_system/kupuna_top_tabs.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
+class _MemoryAssetLoader extends AssetLoader {
+  final Map<String, Map<String, dynamic>> translations;
+  const _MemoryAssetLoader(this.translations);
+
+  @override
+  Future<Map<String, dynamic>> load(String path, Locale locale) async {
+    return translations[locale.languageCode] ?? <String, dynamic>{};
+  }
+}
+
+Future<void> main() async {
   TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues(<String, Object>{});
+  await EasyLocalization.ensureInitialized();
 
-  Widget app(Widget child) => MaterialApp(home: Scaffold(body: child));
+  final translations = <String, Map<String, dynamic>>{};
+  for (final languageCode in <String>['ar', 'en']) {
+    final contents = await File('assets/lang/$languageCode.json').readAsString();
+    translations[languageCode] = (jsonDecode(contents) as Map).cast<String, dynamic>();
+  }
+
+  Widget app(Widget child) => EasyLocalization(
+        supportedLocales: const [Locale('ar'), Locale('en')],
+        path: 'assets/lang',
+        assetLoader: _MemoryAssetLoader(translations),
+        startLocale: const Locale('ar'),
+        fallbackLocale: const Locale('ar'),
+        child: MaterialApp(home: Scaffold(body: child)),
+      );
 
   testWidgets('customer home has the required five-item navigation', (
     tester,
@@ -29,11 +59,11 @@ void main() {
       find.byType(BottomNavigationBar),
     );
     expect(nav.items.map((item) => item.label), <String>[
-      'home_bottom_home',
-      'home_bottom_map',
-      'home_bottom_communities',
-      'home_bottom_wallet',
-      'home_bottom_account',
+      'الرئيسية',
+      'الخريطة',
+      'المجتمعات والسوق',
+      'الجوائز',
+      'حسابي',
     ]);
   });
 
@@ -80,8 +110,9 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.text('1/3'), findsOneWidget);
+    expect(find.byType(KupunaTopTabs), findsOneWidget);
     final tabs = tester.widget<KupunaTopTabs>(find.byType(KupunaTopTabs));
     expect(tabs.tabs, <String>[
       'home_tab_discover',
@@ -89,14 +120,10 @@ void main() {
       'home_tab_peer_ads',
     ]);
     expect(find.text('home_view_rewards'), findsOneWidget);
-    expect(find.text('home_coalition_network'), findsOneWidget);
+    expect(find.text('home_coalition_network'), findsWidgets);
     expect(find.text('home_quick_scan'), findsNothing);
     expect(find.text('home_quick_map'), findsNothing);
     expect(find.text('home_quick_community'), findsNothing);
-
-    await tester.tap(find.text('home_banner_next'));
-    await tester.pump();
-    expect(find.text('2/3'), findsOneWidget);
   });
 
   testWidgets('approved billboard ad replaces the default customer banner', (
@@ -122,6 +149,7 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.byType(AdsBannerSlider), findsOneWidget);

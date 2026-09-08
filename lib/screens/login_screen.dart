@@ -143,8 +143,9 @@ class _LoginPageState extends State<LoginPage> {
                 {'code': 'bn', 'name': 'বাংলা'},
                 {'code': 'ur', 'name': 'اردو'},
               ];
+              final BuildContext dialogContext = context;
               String? selected = await showDialog<String>(
-                context: context,
+                context: dialogContext,
                 builder: (context) => SimpleDialog(
                   title: Text('choose_language'.tr()),
                   children: loginLanguages.map((lang) => SimpleDialogOption(
@@ -154,10 +155,11 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               );
               if (selected != null) {
-                if (mounted) {
-                  await context.setLocale(Locale(selected));
-                  setState(() {});
-                }
+                if (!mounted) return;
+                if (!dialogContext.mounted) return;
+                await dialogContext.setLocale(Locale(selected));
+                if (!mounted) return;
+                setState(() {});
               }
             },
             tooltip: 'change_language'.tr(),

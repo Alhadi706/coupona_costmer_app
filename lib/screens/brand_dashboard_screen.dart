@@ -22,6 +22,9 @@ import 'community_screen.dart';
 import 'brand_network_screens.dart';
 import 'brand_team_screen.dart';
 import 'public_coalition_membership_screen.dart';
+import 'gift_management_screen.dart';
+
+part 'brand_dashboard_helpers.dart';
 
 typedef BrandOffersLoader = Future<List<Map<String, dynamic>>> Function();
 typedef BrandInvoicesLoader = Future<List<Map<String, dynamic>>> Function({int limit});
@@ -136,7 +139,6 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
   String? _error;
   String? _result;
   List<Map<String, dynamic>> _offers = <Map<String, dynamic>>[];
-  List<Map<String, dynamic>> _invoices = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _brandProducts = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _communityGroups = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _brandRewards = <Map<String, dynamic>>[];
@@ -242,12 +244,6 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
     }
   }
 
-  List<Map<String, dynamic>> _analyticsOptions(String key) {
-    final filterOptions = _analytics['filterOptions'];
-    if (filterOptions is! Map || filterOptions[key] is! List) return const [];
-    return (filterOptions[key] as List).whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList(growable: false);
-  }
-
   @override
   void dispose() {
     _teamUserIdController.dispose();
@@ -255,11 +251,6 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
     _productImageController.dispose();
     _productBarcodeController.dispose();
     super.dispose();
-  }
-
-  String _tx(String key, String fallback) {
-    final value = key.tr();
-    return value == key ? fallback : value;
   }
 
   Future<void> _load() async {
@@ -282,12 +273,11 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
       ]);
       if (!mounted) return;
       final rawAnalytics = results[3];
-      final analytics = rawAnalytics is Map ? Map<String, dynamic>.from(rawAnalytics as Map<dynamic, dynamic>) : <String, dynamic>{};
+      final analytics = rawAnalytics is Map ? Map<String, dynamic>.from(rawAnalytics) : <String, dynamic>{};
       final loadedProducts = List<Map<String, dynamic>>.from(results[2] as List<dynamic>);
       final analyticsProducts = _listSectionFrom(analytics, 'topProducts');
       setState(() {
         _offers = List<Map<String, dynamic>>.from(results[0] as List<dynamic>);
-        _invoices = List<Map<String, dynamic>>.from(results[1] as List<dynamic>);
         _brandProducts = loadedProducts.isEmpty ? analyticsProducts : loadedProducts;
         _analytics = analytics;
         _communityGroups = List<Map<String, dynamic>>.from(results[4] as List<dynamic>);
@@ -512,25 +502,28 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
           spacing: 10,
           runSpacing: 10,
           children: [
-            _analyticsDropdown(
-              key: const Key('brand-analytics-store-filter'),
+            BrandAnalyticsDropdown(
+              fieldKey: const Key('brand-analytics-store-filter'),
               label: 'brand_filter_store'.tr(),
               value: _analyticsStoreId,
               options: _analyticsOptions('stores'),
+              enabled: !_analyticsLoading,
               onChanged: (value) => _changeAnalyticsFilter(storeId: value),
             ),
-            _analyticsDropdown(
-              key: const Key('brand-analytics-product-filter'),
+            BrandAnalyticsDropdown(
+              fieldKey: const Key('brand-analytics-product-filter'),
               label: 'brand_filter_product'.tr(),
               value: _analyticsProduct,
               options: _analyticsOptions('products'),
+              enabled: !_analyticsLoading,
               onChanged: (value) => _changeAnalyticsFilter(product: value),
             ),
-            _analyticsDropdown(
-              key: const Key('brand-analytics-region-filter'),
+            BrandAnalyticsDropdown(
+              fieldKey: const Key('brand-analytics-region-filter'),
               label: 'brand_filter_region'.tr(),
               value: _analyticsRegion,
               options: _analyticsOptions('regions'),
+              enabled: !_analyticsLoading,
               onChanged: (value) => _changeAnalyticsFilter(region: value),
             ),
           ],
@@ -666,37 +659,10 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
     _showAnalyticsExportResult(ok, 'CSV');
   }
 
-  String _csv(String value) => '"${value.replaceAll('"', '""')}"';
-
   void _showAnalyticsExportResult(bool ok, String format) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(ok ? 'brand_export_started'.tr(namedArgs: {'format': format}) : 'brand_export_web_only'.tr())),
-    );
-  }
-
-  Widget _analyticsDropdown({
-    required Key key,
-    required String label,
-    required String value,
-    required List<Map<String, dynamic>> options,
-    required ValueChanged<String> onChanged,
-  }) {
-    return SizedBox(
-      width: 220,
-      child: DropdownButtonFormField<String>(
-        key: key,
-        initialValue: value,
-        decoration: InputDecoration(labelText: label, isDense: true),
-        items: [
-          DropdownMenuItem(value: '', child: Text('brand_filter_all'.tr())),
-          ...options.map((option) => DropdownMenuItem(
-                value: (option['value'] ?? '').toString(),
-                child: Text((option['label'] ?? option['value'] ?? '-').toString(), overflow: TextOverflow.ellipsis),
-              )),
-        ],
-        onChanged: _analyticsLoading ? null : (selected) => onChanged(selected ?? ''),
-      ),
     );
   }
 
@@ -791,6 +757,29 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         _sectionHeader('brand_products_rewards_title'.tr()),
+        Card(
+          color: const Color(0xFFF0F4FF),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFFC7D2FE)),
+          ),
+          child: ListTile(
+            leading: const Icon(Icons.card_giftcard, color: Color(0xFF4F46E5), size: 28),
+            title: Text('brand_gifts_management_card_title'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('brand_gifts_management_card_subtitle'.tr()),
+            trailing: ElevatedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => GiftManagementScreen(ownerLabel: 'brand_owner_label'.tr()),
+                ),
+              ),
+              icon: const Icon(Icons.arrow_forward, size: 16),
+              label: Text('brand_gifts_manage_button'.tr()),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         RewardFundingCard(
           sourceType: 'brand',
           loader: widget.rewardFundingLoader,
@@ -1069,7 +1058,7 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
     for (final row in _listSection('growthLevels')) {
       final growth = _toDouble(row['growthPercent']);
       if (growth >= 0) continue;
-      alerts.add(Card(color: const Color(0xFFFFF3F0), child: ListTile(leading: const Icon(Icons.trending_down, color: Colors.red), title: Text('انخفاض المبيعات: ${(row['label'] ?? '-').toString()}'), subtitle: Text('انخفضت المبيعات بنسبة ${_money(growth.abs())}% مقارنة بالفترة السابقة.'))));
+      alerts.add(Card(color: const Color(0xFFFFF3F0), child: ListTile(leading: const Icon(Icons.trending_down, color: Colors.red), title: Text('${'sales_drop'.tr()}: ${(row['label'] ?? '-').toString()}'), subtitle: Text('انخفضت المبيعات بنسبة ${_money(growth.abs())}% مقارنة بالفترة السابقة.'))));
     }
     return alerts;
   }
@@ -1080,7 +1069,7 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [const Icon(Icons.report_problem_outlined, color: Color(0xFFE67E22)), const SizedBox(width: 8), Expanded(child: Text((report['reportType'] ?? 'بلاغ جودة').toString(), style: const TextStyle(fontWeight: FontWeight.bold))), Chip(label: Text((report['priority'] ?? 'normal').toString())), const SizedBox(width: 6), Text((report['status'] ?? 'new').toString())]),
+          Row(children: [const Icon(Icons.report_problem_outlined, color: Color(0xFFE67E22)), const SizedBox(width: 8), Expanded(child: Text((report['reportType'] ?? 'quality_report'.tr()).toString(), style: const TextStyle(fontWeight: FontWeight.bold))), Chip(label: Text((report['priority'] ?? 'normal').toString())), const SizedBox(width: 6), Text((report['status'] ?? 'new').toString())]),
           const SizedBox(height: 6),
           Text('المبلغ: ${(report['reporterName'] ?? report['reporterEmail'] ?? '-').toString()}'),
           Text('المحل: ${(report['storeName'] ?? 'غير محدد').toString()}'),
@@ -1101,13 +1090,13 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
           if (report['storeLat'] != null && report['storeLng'] != null) ...[const SizedBox(height: 8), AnalyticsMapPanel(points: [mapPoint], emptyLabel: 'لا يوجد موقع للبلاغ', markerColor: Colors.orange)],
           const SizedBox(height: 8),
           Wrap(spacing: 8, children: [
-            if ((report['ownerId'] ?? '').toString().isNotEmpty) OutlinedButton.icon(onPressed: () => _showMessageDialog({'userId': report['ownerId'], 'name': report['reporterName'] ?? 'المبلغ'}), icon: const Icon(Icons.mail_outline), label: const Text('رسالة للمبلغ')),
-            if ((report['storeUserId'] ?? '').toString().isNotEmpty) OutlinedButton.icon(onPressed: () => _showMessageDialog({'userId': report['storeUserId'], 'name': report['storeName'] ?? 'المحل'}), icon: const Icon(Icons.storefront_outlined), label: const Text('رسالة للمحل')),
+            if ((report['ownerId'] ?? '').toString().isNotEmpty) OutlinedButton.icon(onPressed: () => _showMessageDialog({'userId': report['ownerId'], 'name': report['reporterName'] ?? 'المبلغ'}), icon: const Icon(Icons.mail_outline), label: Text('msg_reporter'.tr())),
+            if ((report['storeUserId'] ?? '').toString().isNotEmpty) OutlinedButton.icon(onPressed: () => _showMessageDialog({'userId': report['storeUserId'], 'name': report['storeName'] ?? 'المحل'}), icon: const Icon(Icons.storefront_outlined), label: Text('msg_store'.tr())),
             if (report['status'] == 'new') ...[
-              ElevatedButton.icon(onPressed: () => _resolveReport(report, action: 'reward'), icon: const Icon(Icons.stars_outlined), label: const Text('قبول ومنح نقاط')),
-              OutlinedButton(onPressed: () => _resolveReport(report, action: 'accept'), child: const Text('قبول')),
-              OutlinedButton(onPressed: () => _resolveReport(report, action: 'request_information'), child: const Text('طلب معلومات')),
-              TextButton(onPressed: () => _resolveReport(report, action: 'reject'), child: const Text('رفض')),
+              ElevatedButton.icon(onPressed: () => _resolveReport(report, action: 'reward'), icon: const Icon(Icons.stars_outlined), label: Text('accept_and_grant_points'.tr())),
+              OutlinedButton(onPressed: () => _resolveReport(report, action: 'accept'), child: Text('accept'.tr())),
+              OutlinedButton(onPressed: () => _resolveReport(report, action: 'request_information'), child: Text('request_info'.tr())),
+              TextButton(onPressed: () => _resolveReport(report, action: 'reject'), child: Text('reject'.tr())),
             ],
           ]),
         ]),
@@ -1173,13 +1162,14 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
           const SizedBox(height: 16),
           _buildDailySalesChart(dailySales),
           const SizedBox(height: 12),
-          if (growth.isNotEmpty) Card(child: ListTile(leading: const Icon(Icons.trending_up, color: Color(0xFF1B7A66)), title: const Text('نمو المبيعات'), subtitle: Text('${_money(growth.first['growthPercent'])}% مقارنة بالفترة السابقة'))),
+          if (growth.isNotEmpty) Card(child: ListTile(leading: const Icon(Icons.trending_up, color: Color(0xFF1B7A66)), title: Text('sales_growth'.tr()), subtitle: Text('${_money(growth.first['growthPercent'])}% مقارنة بالفترة السابقة'))),
         ],
       ),
     );
   }
 
-  Widget _buildLegacyOverviewTab() {
+  @Deprecated('Legacy overview is retained for compatibility; use the active brand dashboard tabs.')
+  Widget buildLegacyOverviewTab() {
     final merchantDirectory = <Map<String, dynamic>>[
       <String, dynamic>{'name': 'سوبرماركت المدينة', 'city': 'طرابلس', 'tier': 'ذهبي', 'volume': '1450', 'trend': '+18%'},
       <String, dynamic>{'name': 'محل السلام', 'city': 'زليتن', 'tier': 'فضي', 'volume': '860', 'trend': '-12%'},
@@ -1291,10 +1281,10 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
                     crossAxisSpacing: 10,
                     childAspectRatio: 1.55,
                     children: [
-                      _metricCard(icon: Icons.storefront_outlined, title: 'متاجر', value: '${merchantDirectory.length}', subtitle: 'مكتشفة', color: const Color(0xFF1C7F6B)),
-                      _metricCard(icon: Icons.trending_up_rounded, title: 'تنبيهات', value: '${salesAlerts.length}', subtitle: 'مبيعات', color: const Color(0xFFE68A00)),
-                      _metricCard(icon: Icons.card_giftcard_rounded, title: 'مكافآت', value: '${skuRewards.length}', subtitle: 'منتجات', color: const Color(0xFF5A5FE0)),
-                      _metricCard(icon: Icons.groups_rounded, title: 'مجتمع', value: '${communityPosts.length}', subtitle: 'نشط', color: const Color(0xFF2E80ED)),
+                      _metricCard(icon: Icons.storefront_outlined, title: 'brand_stores'.tr(), value: '${merchantDirectory.length}', subtitle: 'discovered'.tr(), color: const Color(0xFF1C7F6B)),
+                      _metricCard(icon: Icons.trending_up_rounded, title: 'sales_alerts'.tr(), value: '${salesAlerts.length}', subtitle: 'sales'.tr(), color: const Color(0xFFE68A00)),
+                      _metricCard(icon: Icons.card_giftcard_rounded, title: 'rewards'.tr(), value: '${skuRewards.length}', subtitle: 'products'.tr(), color: const Color(0xFF5A5FE0)),
+                      _metricCard(icon: Icons.groups_rounded, title: 'community'.tr(), value: '${communityPosts.length}', subtitle: 'active'.tr(), color: const Color(0xFF2E80ED)),
                     ],
                   ),
                 ],
@@ -1475,182 +1465,6 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
     );
   }
 
-  Widget _metricCard({
-    required IconData icon,
-    required String title,
-    required String value,
-    required String subtitle,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.18), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF5B5F66), fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF18222F)),
-              ),
-              Text(
-                subtitle,
-                style: TextStyle(fontSize: 11, color: color.withValues(alpha: 0.9), fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-
-  Widget _miniStatChip(IconData icon, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAnalyticsCard() {
-    return BrandAnalyticsCharts(analytics: _analytics);
-  }
-
-  List<Map<String, dynamic>> _listSection(String key) {
-    return _listSectionFrom(_analytics, key);
-  }
-
-  List<Map<String, dynamic>> _listSectionFrom(Map<String, dynamic> source, String key) {
-    final raw = source[key];
-    if (raw is List) {
-      return raw.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList(growable: false);
-    }
-    return const <Map<String, dynamic>>[];
-  }
-
-  Widget _buildSalesChart(List<Map<String, dynamic>> stores, List<Map<String, dynamic>> products) {
-    final entries = stores.take(5).toList(growable: false);
-    final maxValue = entries.fold<double>(0, (max, row) => max > _toDouble(row['salesTotal']) ? max : _toDouble(row['salesTotal']));
-    if (entries.isEmpty || maxValue <= 0) {
-      return const SizedBox.shrink();
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('مقارنة المبيعات حسب المتجر', style: TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 210,
-          child: BarChart(
-            BarChartData(
-              maxY: maxValue * 1.2,
-              minY: 0,
-              borderData: FlBorderData(show: false),
-              gridData: const FlGridData(show: false),
-              titlesData: FlTitlesData(
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      final index = value.toInt();
-                      if (index < 0 || index >= entries.length) return const SizedBox.shrink();
-                      final name = (entries[index]['name'] ?? '-').toString();
-                      return Padding(padding: const EdgeInsets.only(top: 6), child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 9)));
-                    },
-                  ),
-                ),
-              ),
-              barGroups: List<BarChartGroupData>.generate(entries.length, (index) {
-                return BarChartGroupData(x: index, barRods: [BarChartRodData(toY: _toDouble(entries[index]['salesTotal']), color: const Color(0xFF1B7A66), width: 18, borderRadius: BorderRadius.circular(4))]);
-              }),
-            ),
-          ),
-        ),
-        if (products.isNotEmpty)
-          Text('أفضل منتج: ${(products.first['name'] ?? '-').toString()} • ${_money(products.first['salesTotal'])}', style: const TextStyle(fontWeight: FontWeight.w600)),
-      ],
-    );
-  }
-
-  Widget _buildDailySalesChart(List<Map<String, dynamic>> dailySales) {
-    if (dailySales.isEmpty) return const SizedBox.shrink();
-    final rows = dailySales.take(31).toList(growable: false);
-    final maxValue = rows.fold<double>(0, (max, row) => max > _toDouble(row['sales']) ? max : _toDouble(row['sales']));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('المبيعات منذ أول ظهور في الفترة المحددة', style: TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 210,
-          child: LineChart(LineChartData(
-            minY: 0,
-            maxY: maxValue <= 0 ? 1 : maxValue * 1.2,
-            gridData: const FlGridData(show: true),
-            borderData: FlBorderData(show: false),
-            titlesData: FlTitlesData(
-              topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 36)),
-              bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, interval: rows.length > 10 ? 5 : 1, getTitlesWidget: (value, meta) {
-                final index = value.toInt();
-                if (index < 0 || index >= rows.length) return const SizedBox.shrink();
-                return Text((rows[index]['date'] ?? '').toString().substring(5), style: const TextStyle(fontSize: 9));
-              })),
-            ),
-            lineBarsData: [LineChartBarData(isCurved: true, color: const Color(0xFF2E80ED), barWidth: 3, dotData: const FlDotData(show: false), spots: List<FlSpot>.generate(rows.length, (index) => FlSpot(index.toDouble(), _toDouble(rows[index]['sales']))))],
-          )),
-        ),
-      ],
-    );
-  }
-
   Future<void> _showStoreDetails(Map<String, dynamic> store) async {
     final growth = _listSection('growthLevels').firstWhere((row) => (row['label'] ?? '').toString() == (store['name'] ?? '').toString(), orElse: () => <String, dynamic>{});
     await showDialog<void>(
@@ -1715,17 +1529,6 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
         await _load();
       },
     );
-  }
-
-  double _toDouble(dynamic value) => double.tryParse('${value ?? 0}') ?? 0;
-
-  String _money(dynamic value) {
-    final parsed = double.tryParse('${value ?? 0}') ?? 0;
-    return parsed.toStringAsFixed(2);
-  }
-
-  int _intValue(dynamic value) {
-    return int.tryParse('${value ?? 0}') ?? (double.tryParse('${value ?? 0}')?.round() ?? 0);
   }
 
   @override

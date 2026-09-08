@@ -9,11 +9,9 @@ import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/customer_campaign_coupons_section.dart';
 import '../widgets/design_system/kupuna_offer_card.dart';
-import '../widgets/design_system/kupuna_top_tabs.dart';
 import '../widgets/stream_load_error.dart';
-import 'ads_banner_slider.dart';
-import 'customer_offers_screen.dart';
-import 'my_rewards_screen.dart';
+import 'home_content_screen_banner.dart';
+import 'home_content_screen_summary.dart';
 import 'store_details_screen.dart';
 
 class HomeContentScreen extends StatefulWidget {
@@ -49,7 +47,6 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   int _activeTab = 0;
-  int _bannerIndex = 0;
   bool _discoverMapMode = false;
   String _selectedDiscoverCategory = '';
   double? _customerLat;
@@ -63,11 +60,29 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   late Future<Map<String, dynamic>> _sourcesFuture;
   late Future<List<Map<String, dynamic>>> _rewardsFuture;
 
-  static const List<String> _bannerKeys = <String>[
-    'home_banner_1',
-    'home_banner_2',
-    'home_banner_3',
-  ];
+  // Getters for external split-off views to utilize cleanly
+  Future<List<Map<String, dynamic>>> get storesFuture => _storesFuture;
+  Future<Map<String, dynamic>> get pointsFuture => _pointsFuture;
+  Future<List<Map<String, dynamic>>> get rewardsFuture => _rewardsFuture;
+  Future<Map<String, dynamic>> get tiersFuture => _tiersFuture;
+  Future<Map<String, dynamic>> get pendingFuture => _pendingFuture;
+  Future<Map<String, dynamic>> get sourcesFuture => _sourcesFuture;
+  Future<List<Map<String, dynamic>>> get billboardAdsFuture => _billboardAdsFuture;
+  Future<List<Map<String, dynamic>>> get customerBannersFuture => _customerBannersFuture;
+  TextEditingController get searchController => _searchController;
+  int get activeTab => _activeTab;
+  bool get discoverMapMode => _discoverMapMode;
+  String get selectedDiscoverCategory => _selectedDiscoverCategory;
+  double? get customerLat => _customerLat;
+  double? get customerLng => _customerLng;
+  LatLng get tripoliDefaultCenter => _tripoliDefaultCenter;
+
+  void handleBillboardTap(Map<String, dynamic> ad) => _handleBillboardTap(ad);
+  void handleTabChanged(int index) => setState(() => _activeTab = index);
+  void handleCategoryChanged(String cat) => setState(() => _selectedDiscoverCategory = cat);
+  void handleMapModeChanged(bool val) => setState(() => _discoverMapMode = val);
+  void handleSearchChanged(String _) => setState(() {});
+  void reloadStores() => _reloadStores();
 
   @override
   void initState() {
@@ -102,7 +117,9 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
 
   void _reloadStores() {
     setState(() {
-      _storesFuture = CompanyServerService.getStores();
+      _storesFuture = CompanyServerService.getStores().catchError(
+        (_) => const <Map<String, dynamic>>[],
+      );
     });
   }
 
@@ -175,11 +192,11 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildBanner(),
+                  buildBanner(this),
                   const SizedBox(height: 12),
-                  _buildWelcomeSummary(),
+                  buildWelcomeSummary(this),
                   const SizedBox(height: 12),
-                  _buildQuickShortcutActions(),
+                  buildQuickShortcutActions(this),
                   const SizedBox(height: 12),
                   const CustomerCampaignCouponsSection(),
                   const SizedBox(height: 16),
@@ -196,11 +213,11 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  _buildSearchBar(),
+                  buildSearchBar(this),
                   const SizedBox(height: 12),
-                  _buildTopTabs(),
+                  buildTopTabs(this),
                   const SizedBox(height: 12),
-                  _buildTabBody(),
+                  buildTabBody(this),
                   const SizedBox(height: 12),
                   _buildBrandPointsBreakdown(),
                 ],
@@ -212,261 +229,30 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     );
   }
 
-  Widget _buildWelcomeSummary() {
-    return FutureBuilder<dynamic>(
-      future: Future.wait<dynamic>([
-        _pointsFuture,
-        _rewardsFuture,
-        _tiersFuture,
-        _pendingFuture,
-      ]),
-      builder: (context, snapshot) {
-        final points = snapshot.hasData && snapshot.data![0] is Map
-            ? Map<String, dynamic>.from(snapshot.data![0] as Map)
-            : <String, dynamic>{};
-        final rewards = snapshot.hasData && snapshot.data![1] is List
-            ? List<Map<String, dynamic>>.from(snapshot.data![1] as List)
-            : <Map<String, dynamic>>[];
-        final tiersPayload = snapshot.hasData && snapshot.data![2] is Map
-            ? Map<String, dynamic>.from(snapshot.data![2] as Map)
-            : <String, dynamic>{};
-        final pendingPayload = snapshot.hasData && snapshot.data![3] is Map
-            ? Map<String, dynamic>.from(snapshot.data![3] as Map)
-            : <String, dynamic>{};
-        final tiers = tiersPayload['tiers'] is Map
-            ? Map<String, dynamic>.from(tiersPayload['tiers'] as Map)
-            : <String, dynamic>{};
-        final bronze = _tierBalance(tiers, 'bronze');
-        final silver = _tierBalance(tiers, 'silver');
-        final gold = _tierBalance(tiers, 'gold');
-        final pending = _toInt(
-          pendingPayload['total_points'] ?? pendingPayload['totalPoints'],
-        );
-        final balance = _toInt(points['availablePoints']);
-        final next = rewards
-            .where((reward) => _toInt(reward['value']) > balance)
-            .fold<Map<String, dynamic>?>(null, (current, reward) {
-              if (current == null ||
-                  _toInt(reward['value']) < _toInt(current['value'])) {
-                return reward;
-              }
-              return current;
-            });
-        final target = _toInt(next?['value']);
-        final remaining = target > balance ? target - balance : 0;
-        final expiresAt = DateTime.tryParse('${next?['expiresAt'] ?? ''}');
-        final expiryMessage = expiresAt == null
-            ? ''
-            : 'home_reward_expires_suffix'.tr(
-                namedArgs: {
-                  'date': expiresAt.toLocal().toString().split(' ').first,
-                },
-              );
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: kTealDark,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: kShadowFloating,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'رحلتك متعددة المستويات',
-                      style: const TextStyle(
-                        color: kWhite,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    'الإجمالي $balance نقطة',
-                    style: const TextStyle(
-                      color: kGold,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              _buildTierCounters(
-                bronze: bronze,
-                silver: silver,
-                gold: gold,
-                pending: pending,
-              ),
-              if (pending > 0) ...[
-                const SizedBox(height: 6),
-                Text(
-                  'home_pending_points'.tr(namedArgs: {'value': '$pending'}),
-                  style: kBodyTextStyle(
-                    size: 12,
-                    weight: FontWeight.w600,
-                    color: kWhite.withValues(alpha: 0.8),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 10),
-              Text(
-                next == null
-                    ? 'home_reward_journey_all_unlocked'.tr()
-                    : 'home_reward_journey_remaining'.tr(
-                            namedArgs: {
-                              'remaining': '$remaining',
-                              'reward':
-                                  (next['reward_name'] ??
-                                          'home_mission_next_reward_fallback'
-                                              .tr())
-                                      .toString(),
-                            },
-                          ) +
-                          expiryMessage,
-                style: TextStyle(color: kWhite.withValues(alpha: 0.9)),
-              ),
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: target <= 0 ? 1 : (balance / target).clamp(0.0, 1.0),
-                  minHeight: 8,
-                  color: kGold,
-                  backgroundColor: kWhite.withValues(alpha: 0.2),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: widget.onOpenRewards,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: kWhite,
-                        foregroundColor: kTealDark,
-                        minimumSize: const Size.fromHeight(48),
-                      ),
-                      icon: const Icon(Icons.card_giftcard_outlined),
-                      label: Text('home_view_rewards'.tr()),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: widget.onOpenCoalitions,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: kWhite,
-                        side: BorderSide(color: kWhite.withValues(alpha: 0.7)),
-                        minimumSize: const Size.fromHeight(48),
-                      ),
-                      icon: const Icon(Icons.hub_outlined),
-                      label: Text('home_coalition_network'.tr()),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  int _tierBalance(Map<String, dynamic> tiers, String key) {
-    final value = tiers[key];
-    if (value is Map) return _toInt(value['balance']);
-    return _toInt(value);
-  }
-
-  Widget _buildTierCounters({
-    required int bronze,
-    required int silver,
-    required int gold,
-    required int pending,
-  }) {
-    final tiles = <Widget>[
-      _tierTile(
-        'البرونزية',
-        bronze,
-        const Color(0xFFC9792B),
-        Icons.workspace_premium_outlined,
-      ),
-      _tierTile(
-        'الفضية',
-        silver,
-        const Color(0xFF9CA3AF),
-        Icons.workspace_premium_outlined,
-      ),
-      _tierTile('الذهبية', gold, kGold, Icons.workspace_premium),
-    ];
-    return Row(
-      children: List<Widget>.generate(
-        tiles.length,
-        (index) => Expanded(
-          child: Padding(
-            padding: EdgeInsetsDirectional.only(
-              end: index == tiles.length - 1 ? 0 : 6,
-            ),
-            child: tiles[index],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _tierTile(String label, int points, Color color, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-      decoration: BoxDecoration(
-        color: kWhite.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.7)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 18),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: kWhite,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          Text(
-            '$points',
-            style: TextStyle(
-              color: color,
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // (Extracted Widget views buildWelcomeSummary, buildQuickShortcutActions, buildSearchBar, buildTopTabs, buildTabBody are now housed in separate modern split-off components)
 
   Widget _buildBrandPointsBreakdown() {
     return FutureBuilder<Map<String, dynamic>>(
       future: _sourcesFuture,
       builder: (context, snapshot) {
-        final payload = snapshot.data ?? const <String, dynamic>{};
-        final brands = payload['brandSources'] is List
-            ? List<Map<String, dynamic>>.from(payload['brandSources'] as List)
-            : <Map<String, dynamic>>[];
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox(
             height: 64,
             child: Center(child: CircularProgressIndicator()),
           );
         }
+        if (snapshot.hasError) {
+          return const SizedBox.shrink();
+        }
+        final raw = snapshot.data;
+        final payload = raw ?? const <String, dynamic>{};
+        final rawBrands = payload['brandSources'];
+        final brands = rawBrands is List
+            ? rawBrands
+                  .whereType<Map>()
+                  .map((item) => Map<String, dynamic>.from(item))
+                  .toList(growable: false)
+            : const <Map<String, dynamic>>[];
         if (brands.isEmpty) {
           return const SizedBox.shrink();
         }
@@ -508,182 +294,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     return int.tryParse('${value ?? 0}') ?? 0;
   }
 
-  Widget _buildBanner() {
-    return FutureBuilder<List<dynamic>>(
-      future: Future.wait<dynamic>([
-        _billboardAdsFuture,
-        _customerBannersFuture,
-      ]),
-      builder: (context, snapshot) {
-        final billboardAds = snapshot.hasData && snapshot.data![0] is List
-            ? List<Map<String, dynamic>>.from(snapshot.data![0] as List)
-            : const <Map<String, dynamic>>[];
-        final customerBanners = snapshot.hasData && snapshot.data![1] is List
-            ? List<Map<String, dynamic>>.from(snapshot.data![1] as List)
-            : const <Map<String, dynamic>>[];
-
-        final combined = <Map<String, dynamic>>[
-          ...customerBanners,
-          ...billboardAds,
-        ];
-
-        if (combined.isNotEmpty) {
-          return AdsBannerSlider(
-            ads: combined,
-            height: 164,
-            onAdTap: _handleBillboardTap,
-            onAdImpression: (ad) {
-              final id = (ad['id'] ?? '').toString();
-              if (id.isNotEmpty) {
-                CompanyServerService.trackBillboardImpression(
-                  id,
-                ).catchError((_) {});
-              }
-            },
-          );
-        }
-
-        final defaultBanners = <Map<String, dynamic>>[
-          {
-            'id': 'default_banner_1',
-            'title': 'home_banner_title'.tr(),
-            'description': 'home_banner_1'.tr(),
-          },
-          {
-            'id': 'default_banner_2',
-            'title': 'home_banner_title'.tr(),
-            'description': 'home_banner_2'.tr(),
-          },
-          {
-            'id': 'default_banner_3',
-            'title': 'home_banner_title'.tr(),
-            'description': 'home_banner_3'.tr(),
-          },
-        ];
-
-        return AdsBannerSlider(
-          ads: defaultBanners,
-          height: 164,
-          onAdTap: (ad) {},
-        );
-      },
-    );
-  }
-
-  Widget _buildQuickShortcutActions() {
-    final actions = [
-      _ShortcutItem(
-        icon: Icons.calculate_outlined,
-        label: 'حاسبة الخصم',
-        color: kTeal,
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => const MyRewardsScreen(openDynamicVoucherOnLoad: true),
-            ),
-          );
-        },
-      ),
-      _ShortcutItem(
-        icon: Icons.camera_alt_outlined,
-        label: 'مسح فاتورة',
-        color: const Color(0xFFE53935),
-        onTap: () {
-          widget.onScanReceipt?.call();
-        },
-      ),
-      _ShortcutItem(
-        icon: Icons.card_giftcard_outlined,
-        label: 'هداياي الخاصة',
-        color: kGold,
-        onTap: () {
-          if (widget.onOpenRewards != null) {
-            widget.onOpenRewards!();
-          } else {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const MyRewardsScreen(focusGifts: true),
-              ),
-            );
-          }
-        },
-      ),
-      _ShortcutItem(
-        icon: Icons.local_offer_outlined,
-        label: 'عروض الزبائن',
-        color: const Color(0xFF6D4C41),
-        onTap: () {
-          if (widget.onOpenCustomerOffers != null) {
-            widget.onOpenCustomerOffers!();
-            return;
-          }
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CustomerOffersScreen()),
-          );
-        },
-      ),
-      _ShortcutItem(
-        icon: Icons.storefront_outlined,
-        label: 'سوق المجتمع',
-        color: const Color(0xFF1E88E5),
-        onTap: () {
-          widget.onOpenCommunity?.call();
-        },
-      ),
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        children: actions.map((item) {
-          return Padding(
-            padding: const EdgeInsetsDirectional.only(end: 10),
-            child: Material(
-              color: kWhite,
-              borderRadius: BorderRadius.circular(16),
-              elevation: 1,
-              shadowColor: Colors.black.withValues(alpha: 0.06),
-              child: InkWell(
-                onTap: item.onTap,
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: kLine),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: item.color.withValues(alpha: 0.12),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(item.icon, size: 20, color: item.color),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        item.label,
-                        style: kBodyTextStyle(
-                          size: 13,
-                          weight: FontWeight.w700,
-                          color: kInk,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
+  // Billboard tap and details helpers remain inside state
   void _showBillboardDetails(Map<String, dynamic> ad) {
     showModalBottomSheet<void>(
       context: context,
@@ -770,43 +381,6 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
     if (mounted) _showBillboardDetails(ad);
   }
 
-  Widget _buildSearchBar() {
-    return Material(
-      elevation: 1,
-      borderRadius: BorderRadius.circular(14),
-      child: TextField(
-        controller: _searchController,
-        onChanged: (_) => setState(() {}),
-        decoration: InputDecoration(
-          hintText: 'home_search_hint'.tr(),
-          prefixIcon: const Icon(Icons.search, color: kTeal),
-          filled: true,
-          fillColor: kWhite,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopTabs() {
-    return KupunaTopTabs(
-      tabs: <String>[
-        'home_tab_discover'.tr(),
-        'home_tab_offers'.tr(),
-        'home_tab_peer_ads'.tr(),
-      ],
-      activeIndex: _activeTab,
-      onSelect: (index) {
-        setState(() {
-          _activeTab = index;
-        });
-      },
-    );
-  }
-
   Widget _buildTabBody() {
     switch (_activeTab) {
       case 1:
@@ -862,34 +436,37 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                   .toList()
                 ..sort();
 
-          final filteredRows =
-              sourceRows
-                  .where((store) {
-                    final name = (store['name'] ?? '').toString().toLowerCase();
-                    final category = (store['category'] ?? '').toString();
-                    final matchesKeyword =
-                        keyword.isEmpty || name.contains(keyword);
-                    final matchesCategory =
-                        _selectedDiscoverCategory.isEmpty ||
-                        category == _selectedDiscoverCategory;
-                    return matchesKeyword && matchesCategory;
-                  })
-                  .toList(growable: false)
-                ..sort((a, b) {
-                  final distanceA = _distanceKm(
-                    _customerLat,
-                    _customerLng,
-                    _toDouble(a['lat']),
-                    _toDouble(a['lng']),
-                  );
-                  final distanceB = _distanceKm(
-                    _customerLat,
-                    _customerLng,
-                    _toDouble(b['lat']),
-                    _toDouble(b['lng']),
-                  );
-                  return distanceA.compareTo(distanceB);
-                });
+          final seenNames = <String>{};
+          final filteredRows = <Map<String, dynamic>>[];
+          for (final store in sourceRows) {
+            final name = (store['name'] ?? '').toString().trim();
+            final category = (store['category'] ?? '').toString();
+            final matchesKeyword = keyword.isEmpty || name.toLowerCase().contains(keyword);
+            final matchesCategory = _selectedDiscoverCategory.isEmpty || category == _selectedDiscoverCategory;
+            if (matchesKeyword && matchesCategory) {
+              final normalized = name.toLowerCase();
+              if (normalized.isNotEmpty && seenNames.contains(normalized)) {
+                continue;
+              }
+              seenNames.add(normalized);
+              filteredRows.add(store);
+            }
+          }
+          filteredRows.sort((a, b) {
+            final distanceA = _distanceKm(
+              _customerLat,
+              _customerLng,
+              _toDouble(a['lat']),
+              _toDouble(a['lng']),
+            );
+            final distanceB = _distanceKm(
+              _customerLat,
+              _customerLng,
+              _toDouble(b['lat']),
+              _toDouble(b['lng']),
+            );
+            return distanceA.compareTo(distanceB);
+          });
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1091,22 +668,12 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                             ),
                             _storeMetaChip(
                               Icons.add_circle_outline,
-                              'store_points_rate'.tr(
-                                namedArgs: {
-                                  'value': '${store['pointValue'] ?? 0}',
-                                },
-                              ),
+                              "⚡ كاشباك ${store['pointValue'] ?? store['cashbackRate'] ?? 5}%",
                               kTeal,
                             ),
                             _storeMetaChip(
                               Icons.inventory_2_outlined,
-                              'store_content_summary'.tr(
-                                namedArgs: {
-                                  'products': '${store['productsCount'] ?? 0}',
-                                  'offers': '${store['offersCount'] ?? 0}',
-                                  'rewards': '${store['rewardsCount'] ?? 0}',
-                                },
-                              ),
+                              "خدمات المتجر",
                               kIndigo,
                             ),
                           ],
@@ -1428,20 +995,6 @@ class _SectionCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ShortcutItem {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ShortcutItem({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
 }
 
 extension _StreamInit<T> on Stream<T> {

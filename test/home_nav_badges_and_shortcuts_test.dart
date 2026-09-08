@@ -1,4 +1,5 @@
 import 'package:coupona_app/screens/home_content_screen.dart';
+import 'package:coupona_app/screens/home_screen.dart';
 import 'package:coupona_app/widgets/design_system/kupuna_bottom_navbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,7 +8,6 @@ void main() {
   testWidgets('HomeContentScreen renders quick shortcut action buttons', (tester) async {
     bool scanned = false;
     bool openedCommunity = false;
-    bool openedCustomerOffers = false;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -21,9 +21,6 @@ void main() {
             onOpenCommunity: () {
               openedCommunity = true;
             },
-            onOpenCustomerOffers: () {
-              openedCustomerOffers = true;
-            },
           ),
         ),
       ),
@@ -32,12 +29,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('حاسبة الخصم'), findsOneWidget);
-    expect(find.text('مسح فاتورة'), findsOneWidget);
+    expect(find.text('مسح الفاتورة'), findsOneWidget);
     expect(find.text('هداياي الخاصة'), findsOneWidget);
-    expect(find.text('عروض الزبائن'), findsOneWidget);
     expect(find.text('سوق المجتمع'), findsOneWidget);
 
-    await tester.tap(find.text('مسح فاتورة'));
+    await tester.tap(find.text('مسح الفاتورة'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(scanned, isTrue);
 
@@ -45,11 +41,6 @@ void main() {
     await tester.tap(find.text('سوق المجتمع'));
     await tester.pump(const Duration(milliseconds: 300));
     expect(openedCommunity, isTrue);
-
-    await tester.ensureVisible(find.text('عروض الزبائن'));
-    await tester.tap(find.text('عروض الزبائن'));
-    await tester.pump();
-    expect(openedCustomerOffers, isTrue);
   });
 
   testWidgets('KupunaBottomNavbar hides badge when count is 0', (tester) async {

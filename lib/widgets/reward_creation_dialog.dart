@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -113,13 +114,13 @@ Future<void> showRewardCreationDialog({
                           if (picked != null) setDialogState(() => image = picked);
                         },
                   icon: const Icon(Icons.camera_alt_outlined),
-                  label: const Text('التقاط صورة بالكاميرا'),
+                  label: Text('capture_camera_image'.tr()),
                 ),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext), child: Text('cancel'.tr())),
             ElevatedButton(
               onPressed: saving
                   ? null

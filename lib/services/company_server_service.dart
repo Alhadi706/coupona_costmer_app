@@ -105,24 +105,6 @@ class CompanyServerService {
     return _decode(response);
   }
 
-  static Future<dynamic> put(
-    String path,
-    Map<String, dynamic> payload, {
-    bool auth = false,
-  }) async {
-    final response = await http.put(
-      _uri(path),
-      headers: await _headers(auth: auth),
-      body: jsonEncode(payload),
-    );
-    if (response.statusCode >= 400) {
-      throw StateError(
-        'PUT $path failed (${response.statusCode}): ${response.body}',
-      );
-    }
-    return _decode(response);
-  }
-
   static Future<dynamic> patch(
     String path,
     Map<String, dynamic> payload, {
@@ -2262,20 +2244,6 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
-  static Future<Map<String, dynamic>> updateMerchantCashbackPercentage({
-    required double cashbackPercentage,
-  }) async {
-    final data = await put('/merchant/settings', {
-      'cashback_percentage': cashbackPercentage,
-    }, auth: true);
-    return (data as Map).cast<String, dynamic>();
-  }
-
-  static Future<Map<String, dynamic>> getMerchantSettings() async {
-    final data = await get('/merchant/settings', auth: true);
-    return (data as Map).cast<String, dynamic>();
-  }
-
   static Future<Map<String, dynamic>> setMerchantPointValue({
     required double pointValue,
   }) async {
@@ -2288,17 +2256,7 @@ class CompanyServerService {
   static Future<List<Map<String, dynamic>>> getMerchantCustomerOffers() async {
     try {
       final data = await get('/merchant/customer-offers', auth: true);
-      if (data is Map && data['offers'] is List) {
-        return (data['offers'] as List)
-            .map((offer) => (offer as Map).cast<String, dynamic>())
-            .toList();
-      }
-      if (data is List) {
-        return data
-            .map((offer) => (offer as Map).cast<String, dynamic>())
-            .toList();
-      }
-      return [];
+      return (data as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
     } catch (_) {
       return [];
     }
@@ -2764,6 +2722,62 @@ class CompanyServerService {
 
   static Future<Map<String, dynamic>> claimGiftAssignment(String assignmentId) async {
     final data = await post('/customer/gifts/assignments/$assignmentId/claim', <String, dynamic>{}, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<List<Map<String, dynamic>>> getMyGiftDefinitions() async {
+    final data = await get('/api/gifts/definitions/mine', auth: true);
+    final list = (data as Map)['gifts'] as List? ?? const <dynamic>[];
+    return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  static Future<Map<String, dynamic>> getMyGiftAnalytics() async {
+    final data = await get('/api/gifts/analytics/mine', auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> createGiftDefinition({
+    required String giftType,
+    required String title,
+    String? description,
+    num? valueAmount,
+    int? discountPercentage,
+    String? terms,
+    String? pickupInstructions,
+    String status = 'ACTIVE',
+    DateTime? expiresAt,
+  }) async {
+    final payload = {
+      'giftType': giftType,
+      'title': title,
+      if (description != null) 'description': description,
+      if (valueAmount != null) 'valueAmount': valueAmount,
+      if (discountPercentage != null) 'discountPercentage': discountPercentage,
+      if (terms != null) 'terms': terms,
+      if (pickupInstructions != null) 'pickupInstructions': pickupInstructions,
+      'status': status,
+      if (expiresAt != null) 'expiresAt': expiresAt.toIso8601String(),
+    };
+    final data = await post('/api/gifts/definitions', payload, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> launchGiftCampaign({
+    required String giftDefinitionId,
+    required String title,
+    String segmentFilter = 'all',
+    Map<String, dynamic>? segmentParams,
+    int? maxRecipients,
+    DateTime? endsAt,
+  }) async {
+    final payload = {
+      'title': title,
+      'segmentFilter': segmentFilter,
+      if (segmentParams != null) 'segmentParams': segmentParams,
+      if (maxRecipients != null) 'maxRecipients': maxRecipients,
+      if (endsAt != null) 'endsAt': endsAt.toIso8601String(),
+    };
+    final data = await post('/api/gifts/definitions/$giftDefinitionId/campaigns/launch', payload, auth: true);
     return (data as Map).cast<String, dynamic>();
   }
 }

@@ -27,16 +27,21 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         'country': _countryController.text.trim(),
         'profileCompleted': true,
       });
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('profile_saved_success'.tr())),
       );
+      if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('profile_save_error'.tr(namedArgs: {'error': e.toString()}))),
       );
     } finally {
-      setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -57,7 +62,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _gender,
+              initialValue: _gender,
               items: [
                 DropdownMenuItem(value: 'male', child: Text('male'.tr())),
                 DropdownMenuItem(value: 'female', child: Text('female'.tr())),

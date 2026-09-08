@@ -7,7 +7,7 @@ module.exports = function registerCoalitionRoutes(app, deps) {
   const { pool, auth, id, toIso, getMerchantProfileIdByUser, getBrandProfileIdByUser, insertNotification } = deps;
 
   app.get('/api/customer/wallet/tiers', auth, async (req, res) => {
-    const [tierResult, accountResult, bronzeResult, silverResult] = await Promise.all([
+    const [tierResult, accountResult] = await Promise.all([
       pool.query(`
         SELECT tier, COALESCE(SUM(balance), 0)::int AS balance,
                COALESCE(SUM(lifetime_earned), 0)::int AS lifetime_earned
@@ -19,23 +19,6 @@ module.exports = function registerCoalitionRoutes(app, deps) {
         'SELECT available_points, lifetime_points FROM point_accounts WHERE owner_id = $1',
         [req.user.userId]
       ),
-      pool.query(`
-        SELECT cpt.merchant_id, COALESCE(mp.business_name, 'متجر') AS business_name,
-               mp.logo_url, COALESCE(SUM(cpt.balance), 0)::int AS points
-          FROM customer_point_tiers cpt
-          LEFT JOIN merchant_profiles mp ON mp.id = cpt.merchant_id
-         WHERE cpt.customer_id = $1 AND cpt.tier = 'bronze' AND cpt.balance > 0
-         GROUP BY cpt.merchant_id, mp.business_name, mp.logo_url
-      `, [req.user.userId]),
-      pool.query(`
-        SELECT cpt.coalition_id, COALESCE(c.name, 'ائتلاف') AS coalition_name,
-               (SELECT COUNT(*)::int FROM coalition_members cm WHERE cm.coalition_id = cpt.coalition_id) AS stores_count,
-               COALESCE(SUM(cpt.balance), 0)::int AS points
-          FROM customer_point_tiers cpt
-          LEFT JOIN coalitions c ON c.id = cpt.coalition_id
-         WHERE cpt.customer_id = $1 AND cpt.tier = 'silver' AND cpt.balance > 0
-         GROUP BY cpt.coalition_id, c.name
-      `, [req.user.userId]),
     ]);
     const availablePoints = Number(accountResult.rows[0]?.available_points || 0);
     const lifetimePoints = Number(accountResult.rows[0]?.lifetime_points || 0);
@@ -44,13 +27,7 @@ module.exports = function registerCoalitionRoutes(app, deps) {
       tierResult.rows,
       lifetimePoints
     );
-    res.json({
-      tiers,
-      availablePoints,
-      legacyUnclassified,
-      bronzeStores: bronzeResult.rows,
-      silverCoalitions: silverResult.rows,
-    });
+    res.json({ tiers, availablePoints, legacyUnclassified });
   });
 
   app.get('/api/customer/wallet/pending-points', auth, async (req, res) => {
@@ -147,6 +124,7 @@ module.exports = function registerCoalitionRoutes(app, deps) {
     const body = req.body || {};
     const rawCashValue = Number(body.cashValueLyD ?? body.cashValue ?? body.amount ?? 0);
     const rawPoints = Number(body.points ?? 0);
+    const merchantId = String(body.merchantId || '').trim();
     const customerId = req.user.userId;
 
     if (!Number.isFinite(rawCashValue) || rawCashValue <= 0) {
@@ -169,14 +147,45 @@ module.exports = function registerCoalitionRoutes(app, deps) {
         [customerId]
       );
 
-      const pointAccount = (await client.query(
-        'SELECT available_points FROM point_accounts WHERE owner_id = $1 FOR UPDATE',
-        [customerId]
-      )).rows[0];
+      let merchantName = null;
+      if (merchantId) {
+        const { rows: [merchant] } = await client.query(
+          'SELECT id, business_name FROM merchant_profiles WHERE id = $1 LIMIT 1',
+          [merchantId]
+        );
+        if (!merchant) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'merchant_not_found' });
+        }
+        merchantName = merchant.business_name || null;
 
-      if (!pointAccount || Number(pointAccount.available_points || 0) < requiredPoints) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'insufficient_points' });
+        const { rows: [merchantBalance] } = await client.query(
+          `SELECT COALESCE(SUM(CASE WHEN status = 'active' THEN points_delta ELSE 0 END), 0)::int AS active_points
+             FROM points_ledger_merchant
+            WHERE customer_id = $1 AND merchant_id = $2`,
+          [customerId, merchantId]
+        );
+        const merchantPoints = Number(merchantBalance?.active_points || 0);
+        if (merchantPoints < requiredPoints) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            error: 'insufficient_points_at_merchant',
+            merchantId,
+            merchantName,
+            availablePoints: merchantPoints,
+            requiredPoints,
+          });
+        }
+      } else {
+        const pointAccount = (await client.query(
+          'SELECT available_points FROM point_accounts WHERE owner_id = $1 FOR UPDATE',
+          [customerId]
+        )).rows[0];
+
+        if (!pointAccount || Number(pointAccount.available_points || 0) < requiredPoints) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'insufficient_points' });
+        }
       }
 
       const tierRows = await client.query(
@@ -194,10 +203,17 @@ module.exports = function registerCoalitionRoutes(app, deps) {
       const claimId = id();
 
       const { rows: [claim] } = await client.query(
-        `INSERT INTO cash_voucher_claims (id, customer_id, points_cost, cash_value_lyd, status, claimed_at, tokenized_at, expires_at)
-         VALUES ($1, $2, $3, $4, 'TOKENIZED', NOW(), NOW(), NOW() + INTERVAL '24 hours')
+        `INSERT INTO cash_voucher_claims (id, customer_id, points_cost, cash_value_lyd, status, merchant_id, snapshot_json, claimed_at, tokenized_at, expires_at)
+         VALUES ($1, $2, $3, $4, 'TOKENIZED', $5, $6::jsonb, NOW(), NOW(), NOW() + INTERVAL '24 hours')
          RETURNING *`,
-        [claimId, customerId, requiredPoints, rawCashValue]
+        [
+          claimId,
+          customerId,
+          requiredPoints,
+          rawCashValue,
+          merchantId || null,
+          JSON.stringify(merchantName ? { merchantName } : {}),
+        ]
       );
 
       await client.query(
@@ -217,7 +233,11 @@ module.exports = function registerCoalitionRoutes(app, deps) {
           cashValueLyD: Number(rawCashValue.toFixed(2)),
           status: 'ready_for_cashier',
           tier: selectedTier,
-          message: 'جاهز للاستخدام لدى الكاشير',
+          merchantId: merchantId || null,
+          merchantName,
+          message: merchantName
+            ? `جاهز للاستخدام لدى ${merchantName}`
+            : 'جاهز للاستخدام لدى الكاشير',
         },
       });
     } catch (error) {
@@ -238,10 +258,12 @@ module.exports = function registerCoalitionRoutes(app, deps) {
     try {
       await client.query('BEGIN');
       const { rows: [token] } = await client.query(
-        `SELECT rt.*, cvc.customer_id, cvc.points_cost, cvc.cash_value_lyd, cvc.status AS claim_status
+        `SELECT rt.*, cvc.customer_id, cvc.points_cost, cvc.cash_value_lyd, cvc.status AS claim_status,
+                cvc.merchant_id, mp.business_name AS merchant_name
            FROM redemption_tokens rt
            JOIN cash_voucher_claims cvc ON cvc.id = rt.cash_voucher_claim_id
-          WHERE rt.token_hash = $1 FOR UPDATE`,
+           LEFT JOIN merchant_profiles mp ON mp.id = cvc.merchant_id
+          WHERE rt.token_hash = $1 FOR UPDATE OF rt, cvc`,
         [tokenHash]
       );
 
@@ -283,6 +305,8 @@ module.exports = function registerCoalitionRoutes(app, deps) {
         pointsCost: Number(token.points_cost),
         customerId: token.customer_id,
         claimId: token.cash_voucher_claim_id,
+        merchantId: token.merchant_id || null,
+        merchantName: token.merchant_name || null,
       });
     } catch (error) {
       await client.query('ROLLBACK');
@@ -314,10 +338,12 @@ module.exports = function registerCoalitionRoutes(app, deps) {
       await client.query('BEGIN');
 
       const { rows: [token] } = await client.query(
-        `SELECT rt.*, cvc.customer_id, cvc.points_cost, cvc.cash_value_lyd, cvc.status AS claim_status
+        `SELECT rt.*, cvc.customer_id, cvc.points_cost, cvc.cash_value_lyd, cvc.status AS claim_status,
+                cvc.merchant_id, mp.business_name AS merchant_name
            FROM redemption_tokens rt
            JOIN cash_voucher_claims cvc ON cvc.id = rt.cash_voucher_claim_id
-          WHERE rt.token_hash = $1 FOR UPDATE`,
+           LEFT JOIN merchant_profiles mp ON mp.id = cvc.merchant_id
+          WHERE rt.token_hash = $1 FOR UPDATE OF rt, cvc`,
         [tokenHash]
       );
 
@@ -349,13 +375,35 @@ module.exports = function registerCoalitionRoutes(app, deps) {
         return res.status(400).json({ error: 'insufficient_points' });
       }
 
-      const fulfillerMerchantId = await getMerchantProfileIdByUser(client, req.user.userId) || null;
+      const fulfillerMerchantId = await getMerchantProfileIdByUser(client, req.user.userId)
+        || (await client.query(
+          'SELECT merchant_id FROM cashier_profiles WHERE user_id = $1 AND is_active = TRUE LIMIT 1',
+          [req.user.userId]
+        )).rows[0]?.merchant_id
+        || null;
       const redemptionId = id();
+
+      if (token.merchant_id && fulfillerMerchantId && token.merchant_id !== fulfillerMerchantId) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: 'voucher_merchant_mismatch',
+          boundMerchantId: token.merchant_id,
+          boundMerchantName: token.merchant_name || null,
+        });
+      }
 
       await client.query(
         `UPDATE point_accounts SET available_points = available_points - $1, updated_at = NOW() WHERE owner_id = $2`,
         [pointsCost, customerId]
       );
+
+      if (token.merchant_id) {
+        await client.query(
+          `INSERT INTO points_ledger_merchant (id, customer_id, merchant_id, points_delta, fraction_before, fraction_after, status)
+           VALUES ($1, $2, $3, $4, 0, 0, 'active')`,
+          [id(), customerId, token.merchant_id, -pointsCost]
+        );
+      }
 
       await client.query(
         `INSERT INTO ledger_entries (id, owner_id, type, amount, points, reference, created_at)
@@ -390,6 +438,8 @@ module.exports = function registerCoalitionRoutes(app, deps) {
         redemptionId,
         pointsDebited: pointsCost,
         cashValueLyD: Number(token.cash_value_lyd),
+        merchantId: token.merchant_id || null,
+        merchantName: token.merchant_name || null,
         status: 'COMPLETED',
       };
 

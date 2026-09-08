@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../services/company_server_service.dart';
@@ -66,11 +67,11 @@ class _GiftManagementScreenState extends State<GiftManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('إدارة الهدايا')),
+      appBar: AppBar(title: Text('gift_management_title'.tr())),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _createGift,
         icon: const Icon(Icons.add),
-        label: const Text('هدية جديدة'),
+        label: Text('new_gift'.tr()),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -78,12 +79,12 @@ class _GiftManagementScreenState extends State<GiftManagementScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             Text(
-              'الهدايا الخاصة بـ ${widget.ownerLabel}',
+              'owner_gifts'.tr(namedArgs: {'owner': widget.ownerLabel}),
               style: kDisplayTextStyle(size: 22, weight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
-              'أنشئ هدايا مجانية للعملاء ثم أطلق حملة استهداف. الهدية لا تخصم نقاطًا من العميل.',
+              'gift_management_description'.tr(),
               style: kBodyTextStyle(size: 13, color: kInk.withValues(alpha: 0.68)),
             ),
             const SizedBox(height: 16),
@@ -95,21 +96,21 @@ class _GiftManagementScreenState extends State<GiftManagementScreen> {
               Card(
                 child: ListTile(
                   leading: const Icon(Icons.error_outline, color: Colors.redAccent),
-                  title: const Text('تعذر تحميل الهدايا'),
+                  title: Text('gift_load_error'.tr()),
                   subtitle: Text(_error!),
                   trailing: IconButton(
-                    tooltip: 'إعادة المحاولة',
+                    tooltip: 'retry'.tr(),
                     onPressed: _load,
                     icon: const Icon(Icons.refresh),
                   ),
                 ),
               )
             else if (_gifts.isEmpty)
-              const Card(
+              Card(
                 child: ListTile(
-                  leading: Icon(Icons.card_giftcard_outlined, color: kTeal),
-                  title: Text('لا توجد هدايا بعد'),
-                  subtitle: Text('ابدأ بتعريف هدية، ثم أطلق حملة لإرسالها إلى العملاء.'),
+                  leading: const Icon(Icons.card_giftcard_outlined, color: kTeal),
+                  title: Text('no_gifts_yet'.tr()),
+                  subtitle: Text('no_gifts_yet_hint'.tr()),
                 ),
               )
             else
@@ -133,10 +134,10 @@ class _GiftAnalyticsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final items = [
-      ('الهدايا', analytics['giftCount'] ?? 0, Icons.card_giftcard_outlined, kTeal),
-      ('الحملات', analytics['campaignCount'] ?? 0, Icons.campaign_outlined, kGold),
-      ('المستلمون', analytics['assignmentCount'] ?? 0, Icons.people_outline, kIndigo),
-      ('نسبة الاستلام', '${analytics['redemptionRate'] ?? 0}%', Icons.trending_up_outlined, kTealDark),
+      ('gifts_title'.tr(), analytics['giftCount'] ?? 0, Icons.card_giftcard_outlined, kTeal),
+      ('campaigns_title'.tr(), analytics['campaignCount'] ?? 0, Icons.campaign_outlined, kGold),
+      ('recipients_title'.tr(), analytics['assignmentCount'] ?? 0, Icons.people_outline, kIndigo),
+      ('redemption_rate_title'.tr(), '${analytics['redemptionRate'] ?? 0}%', Icons.trending_up_outlined, kTealDark),
     ];
     return Wrap(
       spacing: 8,
@@ -208,7 +209,7 @@ class _GiftDefinitionCard extends StatelessWidget {
                         runSpacing: 6,
                         children: [
                           Chip(label: Text(_typeLabel(type)), visualDensity: VisualDensity.compact),
-                          Chip(label: Text(status.isEmpty ? 'بدون حالة' : status), visualDensity: VisualDensity.compact),
+                          Chip(label: Text(status.isEmpty ? 'no_status'.tr() : status), visualDensity: VisualDensity.compact),
                         ],
                       ),
                     ],
@@ -397,11 +398,11 @@ class _GiftDefinitionDialogState extends State<_GiftDefinitionDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _saving ? null : () => Navigator.of(context).pop(false), child: const Text('إلغاء')),
+        TextButton(onPressed: _saving ? null : () => Navigator.of(context).pop(false), child: Text('cancel'.tr())),
         FilledButton.icon(
           onPressed: _saving ? null : _save,
           icon: _saving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
-          label: const Text('حفظ'),
+          label: Text('save'.tr()),
         ),
       ],
     );
@@ -536,11 +537,11 @@ class _GiftCampaignDialogState extends State<_GiftCampaignDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: _launching ? null : () => Navigator.of(context).pop(false), child: const Text('إلغاء')),
+        TextButton(onPressed: _launching ? null : () => Navigator.of(context).pop(false), child: Text('cancel'.tr())),
         FilledButton.icon(
           onPressed: _launching ? null : _launch,
           icon: _launching ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send_outlined),
-          label: const Text('إرسال'),
+          label: Text('send'.tr()),
         ),
       ],
     );

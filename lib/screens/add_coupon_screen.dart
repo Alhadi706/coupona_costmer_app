@@ -211,7 +211,7 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
                     labelText: 'offer_type'.tr(),
                     border: const OutlineInputBorder(),
                   ),
-                  value: _offerType,
+                  initialValue: _offerType,
                   items: _offerTypes.map((type) => DropdownMenuItem(
                     value: type,
                     // عند عرض القيم في واجهة المستخدم استخدم tr() دائمًا
@@ -232,7 +232,7 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
                       labelText: 'discount_type'.tr(),
                       border: const OutlineInputBorder(),
                     ),
-                    value: _discountType,
+                    initialValue: _discountType,
                     items: [
                       DropdownMenuItem(value: 'percent', child: Text('discount_percent'.tr())),
                       DropdownMenuItem(value: 'fixed', child: Text('discount_fixed'.tr())),
@@ -258,7 +258,7 @@ class _AddCouponScreenState extends State<AddCouponScreen> {
                     labelText: 'category'.tr(),
                     border: const OutlineInputBorder(),
                   ),
-                  value: _category,
+                  initialValue: _category,
                   items: _categories.map((cat) => DropdownMenuItem(
                     value: cat,
                     // عند عرض القيم في واجهة المستخدم استخدم tr() دائمًا

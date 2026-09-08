@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../modules/accounting/models/ledger_entry.dart';
@@ -180,10 +181,10 @@ class _WalletEngineScreenState extends State<WalletEngineScreen> {
       stream: _service.watchWallet(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _LoadingCard(title: 'تحميل بيانات المحفظة...');
+          return _LoadingCard(title: 'loading_wallet'.tr());
         }
         if (snapshot.hasError) {
-          return _ErrorCard(message: 'خطأ في تحميل المحفظة: ${snapshot.error}');
+          return _ErrorCard(message: '${'wallet_load_error'.tr()}: ${snapshot.error}');
         }
         final WalletAccount wallet = snapshot.data ??
             WalletAccount(
@@ -211,10 +212,10 @@ class _WalletEngineScreenState extends State<WalletEngineScreen> {
       stream: _service.watchPointAccount(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _LoadingCard(title: 'تحميل بيانات النقاط...');
+          return _LoadingCard(title: 'loading_points'.tr());
         }
         if (snapshot.hasError) {
-          return _ErrorCard(message: 'خطأ في تحميل النقاط: ${snapshot.error}');
+          return _ErrorCard(message: '${'points_load_error'.tr()}: ${snapshot.error}');
         }
         final PointAccount points = snapshot.data ??
             PointAccount(
@@ -335,14 +336,14 @@ class _WalletEngineScreenState extends State<WalletEngineScreen> {
       stream: _service.watchLedgerEntries(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const _LoadingCard(title: 'تحميل دفتر الحركات...');
+          return _LoadingCard(title: 'loading_ledger'.tr());
         }
         if (snapshot.hasError) {
-          return _ErrorCard(message: 'خطأ في تحميل الحركات: ${snapshot.error}');
+          return _ErrorCard(message: '${'ledger_load_error'.tr()}: ${snapshot.error}');
         }
         final entries = snapshot.data ?? const <LedgerEntry>[];
         if (entries.isEmpty) {
-          return const _EmptyCard(message: 'لا توجد حركات محاسبية بعد.');
+          return _EmptyCard(message: 'empty_ledger'.tr());
         }
         return Card(
           child: Column(

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -86,8 +87,8 @@ class _CustomerCampaignCouponsSectionState extends State<CustomerCampaignCoupons
           children: [
             const Icon(Icons.local_activity_outlined, color: kTeal),
             const SizedBox(width: 8),
-            Expanded(child: Text('كوبوناتي الخاصة', style: kDisplayTextStyle(size: 18))),
-            IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'تحديث الكوبونات'),
+            const Expanded(child: Text("كوبوناتي الخاصة", style: TextStyle(fontFamily: 'Cairo', fontSize: 18, fontWeight: FontWeight.bold))),
+            IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'refresh_coupons'.tr()),
           ],
         ),
         const SizedBox(height: 8),
@@ -96,15 +97,15 @@ class _CustomerCampaignCouponsSectionState extends State<CustomerCampaignCoupons
         else if (_error != null)
           _MessagePanel(
             icon: Icons.error_outline,
-            title: 'تعذر تحميل الكوبونات',
+            title: 'coupons_load_error'.tr(),
             subtitle: _error!,
-            action: TextButton(onPressed: _load, child: const Text('إعادة المحاولة')),
+            action: TextButton(onPressed: _load, child: Text('retry'.tr())),
           )
         else if (_coupons.isEmpty && _tickets.isEmpty)
           const _MessagePanel(
             icon: Icons.inbox_outlined,
-            title: 'لا توجد كوبونات خاصة حالياً',
-            subtitle: 'ستظهر هنا العروض التي يرسلها لك المتجر أو العلامة التجارية.',
+            title: "لا توجد كوبونات خاصة حالياً",
+            subtitle: "لا توجد كوبونات خاصة مسجلة حالياً لطلبها",
           )
         else ...[
           ..._coupons.map(_buildCouponCard),

@@ -34,9 +34,11 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         isLoading = false;
       });
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('activity_log_fetch_error'.tr(namedArgs: {'error': e.toString()}))),
       );

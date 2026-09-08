@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:flutter/material.dart';
 
 import '../services/company_server_service.dart';
 import '../widgets/design_system/kupuna_cashier_mode_screen_wrapper.dart';
+import 'cashier_dashboard_screen_widgets.dart';
 
 class CashierDashboardScreen extends StatefulWidget {
   final bool embedded;
@@ -127,9 +127,7 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
       try {
         await CompanyServerService.getMerchantProfile();
         merchantActive = true;
-      } catch (_) {
-        // Non-merchant cashiers are expected to fail this profile lookup.
-      }
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _cashierActive = merchantActive || cashierRows.any((row) => row is Map && row['isActive'] == true);
@@ -144,7 +142,7 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
 
   Future<void> _scanCustomerQr() async {
     final scanned = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const _QrScannerScreen()),
+      MaterialPageRoute(builder: (_) => const CashierQrScannerScreen()),
     );
     if (scanned == null || scanned.isEmpty) return;
     setState(() {
@@ -178,8 +176,7 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
       });
       return;
     }
-    if (useManualOverride &&
-        (_manualCustomerIdController.text.trim().isEmpty || _manualOverrideReasonController.text.trim().isEmpty)) {
+    if (useManualOverride && (_manualCustomerIdController.text.trim().isEmpty || _manualOverrideReasonController.text.trim().isEmpty)) {
       setState(() {
         _result = _tx('cashier_manual_reason_required', 'Please enter the customer ID and a reason for manual entry.');
         _isResultError = true;
@@ -206,7 +203,6 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
             .replaceAll('{points}', '${result['points'] ?? 0}')
             .replaceAll('{fraction}', '${result['fraction'] ?? 0}');
         _isResultError = false;
-        // Reset so a scanned/used token can never be resubmitted from this screen.
         _scannedQrToken = null;
         _manualOverrideOpen = false;
         _manualCustomerIdController.clear();
@@ -252,7 +248,7 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
 
   Future<void> _scanRewardQr() async {
     final scanned = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const _QrScannerScreen()),
+      MaterialPageRoute(builder: (_) => const CashierQrScannerScreen()),
     );
     if (scanned == null || scanned.isEmpty || !mounted) return;
     setState(() => _pickupQrCodeController.text = scanned);
@@ -277,7 +273,7 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
 
   Future<void> _scanPromoQr() async {
     final scanned = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const _QrScannerScreen()),
+      MaterialPageRoute(builder: (_) => const CashierQrScannerScreen()),
     );
     if (scanned == null || scanned.isEmpty || !mounted) return;
     setState(() => _promoQrCodeController.text = scanned);
@@ -290,11 +286,11 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('تأكيد استخدام الكوبون'),
-        content: const Text('تحقق من حضور العميل. سيصبح الكوبون مستخدماً ولا يمكن مسحه مرة أخرى.'),
+        title: Text(_tx('confirm_coupon_usage_title', 'Confirm Coupon Usage')),
+        content: Text(_tx('confirm_coupon_usage_message', 'Verify customer presence. This coupon will become used and cannot be scanned again.')),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('إلغاء')),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('تأكيد الاستخدام')),
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: Text(_tx('cancel', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(_tx('confirm_usage', 'Confirm Usage'))),
         ],
       ),
     );
@@ -312,7 +308,7 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
       final gift = (response['giftDescription'] ?? '').toString();
       setState(() {
         _result = campaignType == 'early_access_discount'
-            ? 'تم قبول الكوبون. طبّق خصماً بنسبة ${num.tryParse(discount.toString())?.toStringAsFixed(0) ?? discount}%.'
+            ? 'تم قبول الكوبون. طبّق خصماً بنسبة ${num.tryParse(discount.toString())?.toStringAsFixed(0) ?? discount}%. '
             : 'تم قبول كوبون الهدية${gift.isEmpty ? '.' : ': $gift'}';
         _isResultError = false;
         _promoQrCodeController.clear();
@@ -328,228 +324,66 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
     }
   }
 
-  Widget _buildBody() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (!_cashierActive) ...[
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade100,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.amber.shade700),
-            ),
-            child: Text(
-              _tx('cashier_access_inactive', 'Cashier access is currently inactive because the parent merchant subscription is not writable.'),
-              style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.w700),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        const Text(
-          'cashier_grant_points_title',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ).tr(),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _branchIdController,
-          decoration: InputDecoration(labelText: _tx('cashier_branch_id', 'Branch ID')),
-        ),
-        TextField(
-          controller: _purchaseAmountController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: InputDecoration(labelText: _tx('cashier_purchase_amount', 'Purchase Amount')),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: _scannedQrToken != null ? Colors.green.shade50 : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _scannedQrToken != null ? Colors.green.shade400 : Colors.grey.shade400),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                _scannedQrToken != null ? Icons.check_circle : Icons.qr_code_scanner,
-                color: _scannedQrToken != null ? Colors.green.shade700 : Colors.grey.shade700,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  _scannedQrToken != null
-                      ? _tx('cashier_qr_scanned', 'Customer QR scanned successfully.')
-                      : _tx('cashier_scan_prompt', "Scan the customer's QR code to identify them."),
-                ),
-              ),
-              TextButton(
-                onPressed: _scanCustomerQr,
-                child: Text(_scannedQrToken != null
-                    ? _tx('cashier_rescan', 'Rescan')
-                    : _tx('cashier_scan_action', 'Scan')),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        ExpansionTile(
-          initiallyExpanded: false,
-          onExpansionChanged: (open) => setState(() => _manualOverrideOpen = open),
-          title: Text(_tx('cashier_manual_override_title', 'Manual entry (camera unavailable)')),
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                _tx('cashier_manual_override_warning', 'Manual entries are logged and flagged for merchant/admin review.'),
-                style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
-              ),
-            ),
-            TextField(
-              controller: _manualCustomerIdController,
-              decoration: InputDecoration(labelText: _tx('cashier_customer_user_id', 'Customer User ID')),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _manualOverrideReasonController,
-              decoration: InputDecoration(labelText: _tx('cashier_manual_override_reason', 'Reason (required)')),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: (!_cashierActive || _loadingGrant) ? null : _grantPoints,
-          child: Text(_loadingGrant
-              ? _tx('cashier_sending', 'Sending...')
-              : _tx('cashier_grant_points_action', 'Grant points')),
-        ),
-        const Divider(height: 32),
-        const Text(
-          'cashier_redeem_claim_title',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ).tr(),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _pickupQrCodeController,
-          decoration: InputDecoration(labelText: _tx('cashier_pickup_qr_code', 'Pickup QR Code')),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: (!_cashierActive || _loadingRedeem) ? null : _scanRewardQr,
-          icon: const Icon(Icons.qr_code_scanner),
-          label: Text(_tx('cashier_scan_reward_qr', 'Scan reward QR')),
-        ),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: (!_cashierActive || _loadingRedeem) ? null : _confirmRedeemClaim,
-          child: Text(_loadingRedeem
-              ? _tx('cashier_redeeming', 'Redeeming...')
-              : _tx('cashier_redeem_claim_action', 'Redeem claim')),
-        ),
-        const Divider(height: 32),
-        const Text('مسح كوبون ترويجي', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        const Text('امسح كوبون الخصم أو الهدية من هاتف العميل للتحقق من صلاحيته واستخدامه.'),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _promoQrCodeController,
-          onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-            labelText: 'رمز الكوبون الترويجي',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.local_activity_outlined),
-          ),
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: FilledButton.icon(
-            onPressed: (!_cashierActive || _loadingPromoRedeem) ? null : _scanPromoQr,
-            icon: _loadingPromoRedeem
-                ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.qr_code_scanner),
-            label: Text(_loadingPromoRedeem ? 'جارٍ التحقق...' : 'مسح كوبون ترويجي'),
-          ),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton(
-          onPressed: (!_cashierActive || _loadingPromoRedeem || _promoQrCodeController.text.trim().isEmpty)
-              ? null
-              : _confirmPromoRedemption,
-          child: const Text('التحقق من الرمز المكتوب'),
-        ),
-        if (_result != null) ...[
-          const SizedBox(height: 12),
-          Text(
-            _result!,
-            style: TextStyle(color: _isResultError ? Colors.red : Colors.green),
-          ),
-        ],
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (widget.embedded) {
-      return _buildBody();
+      return CashierDashboardBody(
+        cashierActive: _cashierActive,
+        loadingGrant: _loadingGrant,
+        loadingRedeem: _loadingRedeem,
+        loadingPromoRedeem: _loadingPromoRedeem,
+        manualOverrideOpen: _manualOverrideOpen,
+        scannedQrTokenExists: _scannedQrToken != null,
+        result: _result,
+        isResultError: _isResultError,
+        branchIdController: _branchIdController,
+        purchaseAmountController: _purchaseAmountController,
+        pickupQrCodeController: _pickupQrCodeController,
+        promoQrCodeController: _promoQrCodeController,
+        manualCustomerIdController: _manualCustomerIdController,
+        manualOverrideReasonController: _manualOverrideReasonController,
+        onGrantPoints: _grantPoints,
+        onRedeemClaim: _redeemClaim,
+        onConfirmRedeemClaim: _confirmRedeemClaim,
+        onScanCustomerQr: _scanCustomerQr,
+        onScanRewardQr: _scanRewardQr,
+        onScanPromoQr: _scanPromoQr,
+        onConfirmPromoRedemption: _confirmPromoRedemption,
+        onManualOverrideToggled: (open) => setState(() => _manualOverrideOpen = open),
+        onPromoCodeChanged: (_) => setState(() {}),
+        tx: _tx,
+      );
     }
+
     return KupunaCashierModeScreenWrapper(
       storeName: _tx('cashier_dashboard_title', 'Cashier Dashboard'),
       onGrantPoints: _grantPoints,
       onRedeemReward: _redeemClaim,
-      body: _buildBody(),
-    );
-  }
-}
-
-/// Full-screen live camera QR scanner. Pops with the raw decoded text of the
-/// first barcode detected, or null if the cashier cancels.
-class _QrScannerScreen extends StatefulWidget {
-  const _QrScannerScreen();
-
-  @override
-  State<_QrScannerScreen> createState() => _QrScannerScreenState();
-}
-
-class _QrScannerScreenState extends State<_QrScannerScreen> {
-  final MobileScannerController _controller = MobileScannerController(
-    detectionSpeed: DetectionSpeed.noDuplicates,
-  );
-  bool _handled = false;
-
-  String _tx(String key, String fallback) {
-    final value = key.tr();
-    return value == key ? fallback : value;
-  }
-
-  void _onDetect(BarcodeCapture capture) {
-    if (_handled) return;
-    for (final barcode in capture.barcodes) {
-      final value = barcode.rawValue;
-      if (value != null && value.isNotEmpty) {
-        _handled = true;
-        Navigator.of(context).pop(value);
-        return;
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(_tx('cashier_scan_customer_qr_title', 'Scan customer QR'))),
-      body: MobileScanner(
-        controller: _controller,
-        onDetect: _onDetect,
+      body: CashierDashboardBody(
+        cashierActive: _cashierActive,
+        loadingGrant: _loadingGrant,
+        loadingRedeem: _loadingRedeem,
+        loadingPromoRedeem: _loadingPromoRedeem,
+        manualOverrideOpen: _manualOverrideOpen,
+        scannedQrTokenExists: _scannedQrToken != null,
+        result: _result,
+        isResultError: _isResultError,
+        branchIdController: _branchIdController,
+        purchaseAmountController: _purchaseAmountController,
+        pickupQrCodeController: _pickupQrCodeController,
+        promoQrCodeController: _promoQrCodeController,
+        manualCustomerIdController: _manualCustomerIdController,
+        manualOverrideReasonController: _manualOverrideReasonController,
+        onGrantPoints: _grantPoints,
+        onRedeemClaim: _redeemClaim,
+        onConfirmRedeemClaim: _confirmRedeemClaim,
+        onScanCustomerQr: _scanCustomerQr,
+        onScanRewardQr: _scanRewardQr,
+        onScanPromoQr: _scanPromoQr,
+        onConfirmPromoRedemption: _confirmPromoRedemption,
+        onManualOverrideToggled: (open) => setState(() => _manualOverrideOpen = open),
+        onPromoCodeChanged: (_) => setState(() {}),
+        tx: _tx,
       ),
     );
   }

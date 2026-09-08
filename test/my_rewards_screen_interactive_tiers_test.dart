@@ -19,7 +19,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     // 1. Find and tap Bronze Tier badge
-    final bronzeFinder = find.text('rewards_tier_bronze_short');
+    final bronzeFinder = find.text('برونزي');
     expect(bronzeFinder, findsOneWidget);
     await tester.tap(bronzeFinder);
     await tester.pumpAndSettle();
@@ -33,7 +33,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 2. Find and tap Silver Tier badge
-    final silverFinder = find.text('rewards_tier_silver_short');
+    final silverFinder = find.text('فضي');
     expect(silverFinder, findsOneWidget);
     await tester.tap(silverFinder);
     await tester.pumpAndSettle();
@@ -47,7 +47,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 3. Find and tap Gold Tier badge
-    final goldFinder = find.text('rewards_tier_gold_short');
+    final goldFinder = find.text('ذهبي');
     expect(goldFinder, findsOneWidget);
     await tester.tap(goldFinder);
     await tester.pumpAndSettle();

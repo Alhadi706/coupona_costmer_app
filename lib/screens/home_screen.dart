@@ -10,6 +10,7 @@ import 'cashier_dashboard_screen.dart';
 import 'community_screen.dart';
 import 'customer_coalitions_screen.dart';
 import 'customer_invoices_screen.dart';
+import 'customer_offers_screen.dart';
 import 'customer_reports_screen.dart';
 import 'home_content_screen.dart';
 import 'full_map_screen.dart';
@@ -401,6 +402,9 @@ class _HomeScreenState extends State<HomeScreen> {
           MaterialPageRoute(builder: (_) => const CustomerCoalitionsScreen()),
         ),
         onOpenCommunity: () => _onItemTapped(2),
+        onOpenCustomerOffers: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const CustomerOffersScreen()),
+        ),
         onScanReceipt: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ScanInvoiceScreen())),
       ),
       const FullMapScreen(embedded: true),
@@ -460,28 +464,34 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 600),
-          child: _activeRole == 'customer'
-              ? KeyedSubtree(
-                  key: const ValueKey<String>('customer_mode_surface'),
-                  child: customerTabs[_selectedIndex],
-                )
-              : _buildRoleSurface(),
+          child: Stack(
+            children: [
+              _activeRole == 'customer'
+                  ? KeyedSubtree(
+                      key: const ValueKey<String>('customer_mode_surface'),
+                      child: customerTabs[_selectedIndex],
+                    )
+                  : _buildRoleSurface(),
+              if (_activeRole == 'customer' && _selectedIndex == 0)
+                Positioned(
+                  bottom: 16,
+                  right: context.locale.languageCode == 'ar' ? null : 16,
+                  left: context.locale.languageCode == 'ar' ? 16 : null,
+                  child: FloatingActionButton(
+                    heroTag: 'camera_scan_fab_unique_id',
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ScanInvoiceScreen()),
+                      );
+                    },
+                    backgroundColor: kTeal,
+                    child: const Icon(Icons.camera_alt, color: kWhite),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
-        floatingActionButton: _activeRole == 'customer' && _selectedIndex == 0
-          ? FloatingActionButton(
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ScanInvoiceScreen()),
-                );
-              },
-              backgroundColor: kTeal,
-              child: const Icon(Icons.camera_alt, color: kWhite),
-            )
-          : null,
-        floatingActionButtonLocation: _activeRole == 'customer' && _selectedIndex == 0
-          ? FloatingActionButtonLocation.endFloat
-          : FloatingActionButtonLocation.endDocked,
       bottomNavigationBar: _activeRole != 'customer'
           ? null
           : BottomNavigationBar(
@@ -495,12 +505,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 BottomNavigationBarItem(
                   icon: const Icon(Icons.home_outlined),
                   activeIcon: const Icon(Icons.home),
-                  label: 'home_bottom_home'.tr(),
+                  label: 'الرئيسية',
                 ),
                 BottomNavigationBarItem(
                   icon: _buildNavIconWithBadge(Icons.map_outlined, _mapBadgeCount),
                   activeIcon: const Icon(Icons.map),
-                  label: 'home_bottom_map'.tr(),
+                  label: 'الخريطة',
                 ),
                 BottomNavigationBarItem(
                   icon: _buildNavIconWithBadge(
@@ -508,7 +518,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     _communityBadgeCount > 0 ? _communityBadgeCount : _groupMessageUnread,
                   ),
                   activeIcon: const Icon(Icons.groups),
-                  label: 'home_bottom_communities'.tr(),
+                  label: 'المجتمعات والسوق',
                 ),
                 BottomNavigationBarItem(
                   icon: _buildNavIconWithBadge(
@@ -516,12 +526,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     _rewardsBadgeCount,
                   ),
                   activeIcon: const Icon(Icons.account_balance_wallet),
-                  label: 'home_bottom_wallet'.tr(),
+                  label: 'الجوائز',
                 ),
                 BottomNavigationBarItem(
                   icon: const Icon(Icons.person_outline),
                   activeIcon: const Icon(Icons.person),
-                  label: 'home_bottom_account'.tr(),
+                  label: 'حسابي',
                 ),
               ],
             ),

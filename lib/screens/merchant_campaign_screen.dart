@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
@@ -442,11 +443,11 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
         children: [
           Row(
             children: [
-              _stepItem(0, '1. الجمهور المستهدف', Icons.group_outlined),
+              _stepItem(0, 'step_target_audience'.tr(), Icons.group_outlined),
               _stepLine(0),
-              _stepItem(1, '2. الهدية والخصم', Icons.card_giftcard),
+              _stepItem(1, 'step_gift_discount'.tr(), Icons.card_giftcard),
               _stepLine(1),
-              _stepItem(2, '3. التوقيت والمعاينة', Icons.mobile_screen_share),
+              _stepItem(2, 'step_timing_preview'.tr(), Icons.mobile_screen_share),
             ],
           ),
           const SizedBox(height: 8),
@@ -817,10 +818,10 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
               Text('طريقة الإطلاق', style: kBodyTextStyle(weight: FontWeight.w700)),
               const SizedBox(height: 8),
               SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'active', icon: Icon(Icons.send_outlined), label: Text('إطلاق فوري')),
-                  ButtonSegment(value: 'scheduled', icon: Icon(Icons.schedule), label: Text('مجدولة')),
-                  ButtonSegment(value: 'draft', icon: Icon(Icons.edit_note), label: Text('مسودة')),
+                segments: [
+                  ButtonSegment(value: 'active', icon: const Icon(Icons.send_outlined), label: Text('launch_immediate'.tr())),
+                  ButtonSegment(value: 'scheduled', icon: const Icon(Icons.schedule), label: Text('launch_scheduled'.tr())),
+                  ButtonSegment(value: 'draft', icon: const Icon(Icons.edit_note), label: Text('launch_draft'.tr())),
                 ],
                 selected: {_launchMode},
                 onSelectionChanged: (val) => setState(() => _launchMode = val.first),
@@ -1305,7 +1306,7 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
         leading: const Icon(Icons.error_outline, color: Colors.red),
         title: const Text('تعذر تحميل الحملات السابقة'),
         subtitle: Text(_loadError!),
-        trailing: IconButton(onPressed: _loadCampaigns, icon: const Icon(Icons.refresh), tooltip: 'إعادة المحاولة'),
+        trailing: IconButton(onPressed: _loadCampaigns, icon: const Icon(Icons.refresh), tooltip: 'retry'.tr()),
       );
     }
     if (_campaigns.isEmpty) {
@@ -1342,7 +1343,7 @@ class _MerchantCampaignScreenState extends State<MerchantCampaignScreen> {
             ),
             isThreeLine: true,
             trailing: PopupMenuButton<String>(
-              tooltip: 'إجراءات الحملة',
+              tooltip: 'campaign_actions'.tr(),
               onSelected: (action) async {
                 if (action == 'launch') {
                   await CompanyServerService.launchCampaign((campaign['id'] ?? '').toString());

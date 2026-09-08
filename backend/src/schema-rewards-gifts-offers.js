@@ -12,6 +12,7 @@ const PHASE_2_MIGRATIONS = [
   '025_remove_legacy_free_gift_campaigns.sql',
   '026_cash_voucher_claims_canonical_redemption.sql',
   '027_cash_value_idempotency_type.sql',
+  '029_dynamic_voucher_merchant_binding.sql',
 ];
 
 async function createRewardsGiftsOffersTables() {

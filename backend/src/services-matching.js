@@ -3,7 +3,6 @@ const { id, toIso, parseTargetingCriteria, normalizeMerchantKey } = require('./h
 const { ensureCommunityGroupForRole, ensureCommunityMembership, joinCustomerToMerchantCommunity,
   joinCustomerToBrandCommunities, insertNotification } = require('./services-social');
 const { issueRaffleTicketsForInvoice } = require('./promotion-campaign-service');
-const { SYSTEM_POINT_VALUE } = require('./system-policy');
 
 async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantProfileId) {
   const summary = {
@@ -34,7 +33,11 @@ async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantP
     )).rows[0];
 
     if (!alreadyMerchantAwarded) {
-      const pointValue = SYSTEM_POINT_VALUE;
+      const merchant = (await client.query(
+        'SELECT point_value FROM merchant_profiles WHERE id = $1 LIMIT 1',
+        [merchantProfileId]
+      )).rows[0];
+      const pointValue = Number(merchant?.point_value || 0);
       if (Number.isFinite(pointValue) && pointValue > 0) {
         await client.query(
           `INSERT INTO customer_merchant_fraction_balance (customer_id, merchant_id, fraction_balance)
@@ -161,7 +164,12 @@ async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantP
     )).rows[0];
     if (alreadyBrandAwarded) continue;
 
-    const pointValue = SYSTEM_POINT_VALUE;
+    const brand = (await client.query(
+      'SELECT point_value FROM brand_profiles WHERE id = $1 LIMIT 1',
+      [brandId]
+    )).rows[0];
+    const pointValue = Number(brand?.point_value || 0);
+    if (!Number.isFinite(pointValue) || pointValue <= 0) continue;
 
     await client.query(
       `INSERT INTO customer_brand_fraction_balance (customer_id, brand_id, fraction_balance)

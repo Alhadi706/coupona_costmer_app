@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../services/company_server_service.dart';
 import 'community_screen.dart';
+import 'community_screen_widgets.dart';
 
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});

@@ -13,6 +13,8 @@ import 'screens/home_screen.dart'; // استيراد الشاشة الرئيسي
 import 'screens/merchant_analytics_screen.dart';
 import 'services/app_session.dart';
 import 'theme/app_themes.dart';
+import 'widgets/app_build_error_view.dart';
+import 'widgets/session_route_guard.dart';
 
 void main() async {
   runZonedGuarded(() async {
@@ -21,6 +23,13 @@ void main() async {
     FlutterError.onError = (FlutterErrorDetails details) {
       AppLogger.error('Flutter framework error', details.exception, details.stack);
       FlutterError.presentError(details);
+    };
+
+    // Release builds render a bare grey box on build failures; show a readable
+    // recoverable message instead so a single widget error cannot blank a page.
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      AppLogger.error('Widget build error', details.exception, details.stack);
+      return const AppBuildErrorView();
     };
 
     PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
@@ -75,16 +84,25 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   Future<Map<String, dynamic>> _resolveLaunchState() async {
-    final prefs = await SharedPreferences.getInstance();
-    final shouldShowOnboarding = !(prefs.getBool('onboarding_done') ?? false);
-    final token = await AppSession.token();
-    final activeRole = await AppSession.role();
-    final hasSession = token != null && token.trim().isNotEmpty;
-    return <String, dynamic>{
-      'shouldShowOnboarding': shouldShowOnboarding,
-      'hasSession': hasSession,
-      'activeRole': activeRole,
-    };
+    try {
+      final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
+      final shouldShowOnboarding = !(prefs.getBool('onboarding_done') ?? false);
+      final token = await AppSession.token().timeout(const Duration(seconds: 2));
+      final activeRole = await AppSession.role().timeout(const Duration(seconds: 2));
+      final hasSession = token != null && token.trim().isNotEmpty;
+      return <String, dynamic>{
+        'shouldShowOnboarding': shouldShowOnboarding,
+        'hasSession': hasSession,
+        'activeRole': activeRole,
+      };
+    } catch (e, st) {
+      AppLogger.error('Failed _resolveLaunchState', e, st);
+      return <String, dynamic>{
+        'shouldShowOnboarding': false,
+        'hasSession': false,
+        'activeRole': 'customer',
+      };
+    }
   }
 
   @override
@@ -106,13 +124,29 @@ class _MyAppState extends State<MyApp> {
       darkTheme: adminTheme,
       themeMode: ThemeMode.light,
       routes: {
-        '/merchant/analytics': (context) => const MerchantAnalyticsScreen(),
+        '/merchant/analytics': (context) => SessionRouteGuard(
+          allowedRoles: const ['merchant'],
+          builder: (_) => const MerchantAnalyticsScreen(),
+          fallbackBuilder: (_) => LoginPage(),
+        ),
       },
+      onUnknownRoute: (settings) => MaterialPageRoute<void>(
+        settings: settings,
+        builder: (_) => LoginPage(),
+      ),
       home: FutureBuilder<Map<String, dynamic>>(
         future: _resolveLaunchState(),
         builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            AppLogger.error('Launch state snapshot error', snapshot.error ?? 'Unknown error', snapshot.stackTrace);
+            return LoginPage();
+          }
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
           }
 
           final state = snapshot.data!;
