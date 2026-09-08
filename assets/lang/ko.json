@@ -584,5 +584,14 @@
   "role_request_item_title": "Role: {role}",
   "role_request_item_status": "Status: {status}",
   "role_request_item_status_reason": "Status: {status} | Reason: {reason}",
-  "role_subscription_status": "Subscription status: {status}"
+  "role_subscription_status": "Subscription status: {status}",
+  "onboarding_p1_title": "주변의 최고의 혜택을 찾아보세요",
+  "onboarding_p1_desc": "주변의 할인과 혜택을 쉽게 둘러보세요.",
+  "onboarding_p2_title": "구매할 때마다 포인트를 적립하세요",
+  "onboarding_p2_desc": "영수증을 스캔하고 포인트와 보상을 모아보세요.",
+  "onboarding_p3_title": "지금 Coupona를 시작하세요",
+  "onboarding_p3_desc": "더 많은 혜택을 누리고 매일의 쇼핑 비용을 절약하세요.",
+  "onboarding_skip": "건너뛰기",
+  "onboarding_next": "다음",
+  "onboarding_start": "시작하기"
 }

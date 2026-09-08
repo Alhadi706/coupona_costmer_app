@@ -1099,5 +1099,14 @@
   "marketplace_load_failed": "Could not load offers, please try again",
   "marketplace_publish_failed": "Could not publish the offer, please try again",
   "marketplace_status_update_failed": "Could not update the offer status, please try again",
-  "marketplace_session_expired": "Could not publish the offer, please sign in again"
+  "marketplace_session_expired": "Could not publish the offer, please sign in again",
+  "onboarding_p1_title": "Discover the best offers around you",
+  "onboarding_p1_desc": "Browse nearby offers and discounts with ease.",
+  "onboarding_p2_title": "Earn points with every purchase",
+  "onboarding_p2_desc": "Scan your invoices and collect points and rewards.",
+  "onboarding_p3_title": "Start your Coupona journey",
+  "onboarding_p3_desc": "Enjoy more offers and save on your everyday purchases.",
+  "onboarding_skip": "Skip",
+  "onboarding_next": "Next",
+  "onboarding_start": "Get started"
 }

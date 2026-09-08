@@ -584,5 +584,14 @@
   "role_request_item_title": "Role: {role}",
   "role_request_item_status": "Status: {status}",
   "role_request_item_status_reason": "Status: {status} | Reason: {reason}",
-  "role_subscription_status": "Subscription status: {status}"
+  "role_subscription_status": "Subscription status: {status}",
+  "onboarding_p1_title": "Scopri le migliori offerte vicino a te",
+  "onboarding_p1_desc": "Esplora facilmente offerte e sconti nelle vicinanze.",
+  "onboarding_p2_title": "Guadagna punti a ogni acquisto",
+  "onboarding_p2_desc": "Scansiona le ricevute e raccogli punti e premi.",
+  "onboarding_p3_title": "Inizia ora con Coupona",
+  "onboarding_p3_desc": "Scopri più offerte e risparmia sui tuoi acquisti quotidiani.",
+  "onboarding_skip": "Salta",
+  "onboarding_next": "Avanti",
+  "onboarding_start": "Inizia"
 }

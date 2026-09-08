@@ -80,19 +80,25 @@
   </div>
   <script>
     (function() {
-      var observer = new MutationObserver(function(mutations) {
-        if (document.querySelector('flt-glass-pane') || document.querySelector('flt-scene-host')) {
-          var splash = document.getElementById('loading-splash');
-          if (splash) {
-            splash.style.opacity = '0';
-            splash.style.transition = 'opacity 0.3s ease';
-            setTimeout(function() {
-              if (splash.parentNode) splash.parentNode.removeChild(splash);
-            }, 300);
-          }
-          observer.disconnect();
+      var observer;
+      var readinessCheck = setInterval(function() {
+        var flutterView = document.querySelector('flutter-view');
+        var sceneHost = flutterView && flutterView.shadowRoot &&
+          flutterView.shadowRoot.querySelector('flt-scene-host');
+        if (!sceneHost) return;
+
+        var splash = document.getElementById('loading-splash');
+        if (splash) {
+          splash.style.opacity = '0';
+          splash.style.transition = 'opacity 0.3s ease';
+          setTimeout(function() {
+            if (splash.parentNode) splash.parentNode.removeChild(splash);
+          }, 300);
         }
-      });
+        clearInterval(readinessCheck);
+        observer.disconnect();
+      }, 100);
+      observer = new MutationObserver(function() {});
       observer.observe(document.body, { childList: true, subtree: true });
     })();
   </script>

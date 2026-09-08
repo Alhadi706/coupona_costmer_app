@@ -81,7 +81,7 @@
   <script>
     (function() {
       var observer = new MutationObserver(function(mutations) {
-        if (document.querySelector('flt-glass-pane') || document.querySelector('flt-scene-host')) {
+        if (document.querySelector('flt-scene-host')) {
           var splash = document.getElementById('loading-splash');
           if (splash) {
             splash.style.opacity = '0';

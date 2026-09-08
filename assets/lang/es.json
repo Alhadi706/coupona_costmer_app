@@ -171,5 +171,14 @@
   "role_request_item_title": "Role: {role}",
   "role_request_item_status": "Status: {status}",
   "role_request_item_status_reason": "Status: {status} | Reason: {reason}",
-  "role_subscription_status": "Subscription status: {status}"
+  "role_subscription_status": "Subscription status: {status}",
+  "onboarding_p1_title": "Descubre las mejores ofertas cerca de ti",
+  "onboarding_p1_desc": "Explora ofertas y descuentos cercanos fácilmente.",
+  "onboarding_p2_title": "Gana puntos con cada compra",
+  "onboarding_p2_desc": "Escanea tus facturas y acumula puntos y recompensas.",
+  "onboarding_p3_title": "Empieza tu experiencia con Coupona",
+  "onboarding_p3_desc": "Disfruta de más ofertas y ahorra en tus compras diarias.",
+  "onboarding_skip": "Omitir",
+  "onboarding_next": "Siguiente",
+  "onboarding_start": "Empezar"
 }

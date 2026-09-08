@@ -584,5 +584,14 @@
   "role_request_item_title": "Role: {role}",
   "role_request_item_status": "Status: {status}",
   "role_request_item_status_reason": "Status: {status} | Reason: {reason}",
-  "role_subscription_status": "Subscription status: {status}"
+  "role_subscription_status": "Subscription status: {status}",
+  "onboarding_p1_title": "اپنے آس پاس بہترین پیشکشیں دریافت کریں",
+  "onboarding_p1_desc": "قریب کی پیشکشیں اور رعایتیں آسانی سے دیکھیں۔",
+  "onboarding_p2_title": "ہر خریداری پر پوائنٹس حاصل کریں",
+  "onboarding_p2_desc": "اپنی رسیدیں اسکین کریں اور پوائنٹس و انعامات جمع کریں۔",
+  "onboarding_p3_title": "ابھی Coupona شروع کریں",
+  "onboarding_p3_desc": "مزید پیشکشوں سے لطف اٹھائیں اور روزمرہ خریداری میں بچت کریں۔",
+  "onboarding_skip": "چھوڑیں",
+  "onboarding_next": "اگلا",
+  "onboarding_start": "شروع کریں"
 }

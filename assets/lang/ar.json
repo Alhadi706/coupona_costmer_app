@@ -905,5 +905,14 @@
   "marketplace_load_failed": "تعذر تحميل العروض، يرجى إعادة المحاولة",
   "marketplace_publish_failed": "تعذر نشر العرض، يرجى إعادة المحاولة",
   "marketplace_status_update_failed": "تعذر تحديث حالة العرض، يرجى إعادة المحاولة",
-  "marketplace_session_expired": "تعذر نشر العرض، يرجى إعادة تسجيل الدخول"
+  "marketplace_session_expired": "تعذر نشر العرض، يرجى إعادة تسجيل الدخول",
+  "onboarding_p1_title": "اكتشف أفضل العروض من حولك",
+  "onboarding_p1_desc": "تصفح العروض والخصومات القريبة منك بسهولة.",
+  "onboarding_p2_title": "اكسب النقاط مع كل عملية شراء",
+  "onboarding_p2_desc": "امسح فواتيرك واجمع نقاطًا ومكافآت مميزة.",
+  "onboarding_p3_title": "ابدأ تجربة كوبونا الآن",
+  "onboarding_p3_desc": "استمتع بعروض أكثر ووفّر في مشترياتك اليومية.",
+  "onboarding_skip": "تخطي",
+  "onboarding_next": "التالي",
+  "onboarding_start": "ابدأ"
 }

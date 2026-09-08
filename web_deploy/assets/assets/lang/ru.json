@@ -149,5 +149,14 @@
   "role_request_item_title": "Role: {role}",
   "role_request_item_status": "Status: {status}",
   "role_request_item_status_reason": "Status: {status} | Reason: {reason}",
-  "role_subscription_status": "Subscription status: {status}"
+  "role_subscription_status": "Subscription status: {status}",
+  "onboarding_p1_title": "Откройте лучшие предложения рядом с вами",
+  "onboarding_p1_desc": "Легко находите ближайшие предложения и скидки.",
+  "onboarding_p2_title": "Получайте баллы за каждую покупку",
+  "onboarding_p2_desc": "Сканируйте чеки и собирайте баллы и награды.",
+  "onboarding_p3_title": "Начните пользоваться Coupona",
+  "onboarding_p3_desc": "Пользуйтесь большим количеством предложений и экономьте каждый день.",
+  "onboarding_skip": "Пропустить",
+  "onboarding_next": "Далее",
+  "onboarding_start": "Начать"
 }

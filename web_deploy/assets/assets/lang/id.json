@@ -584,5 +584,14 @@
   "role_request_item_title": "Role: {role}",
   "role_request_item_status": "Status: {status}",
   "role_request_item_status_reason": "Status: {status} | Reason: {reason}",
-  "role_subscription_status": "Subscription status: {status}"
+  "role_subscription_status": "Subscription status: {status}",
+  "onboarding_p1_title": "Temukan penawaran terbaik di sekitar Anda",
+  "onboarding_p1_desc": "Jelajahi penawaran dan diskon terdekat dengan mudah.",
+  "onboarding_p2_title": "Dapatkan poin setiap berbelanja",
+  "onboarding_p2_desc": "Pindai tagihan Anda dan kumpulkan poin serta hadiah.",
+  "onboarding_p3_title": "Mulai perjalanan Anda bersama Coupona",
+  "onboarding_p3_desc": "Nikmati lebih banyak penawaran dan hemat setiap hari.",
+  "onboarding_skip": "Lewati",
+  "onboarding_next": "Berikutnya",
+  "onboarding_start": "Mulai"
 }

@@ -37,7 +37,11 @@ void main() async {
       return true;
     };
 
-    await EasyLocalization.ensureInitialized();
+    try {
+      await EasyLocalization.ensureInitialized().timeout(const Duration(seconds: 3));
+    } catch (error, stackTrace) {
+      AppLogger.error('Localization initialization failed', error, stackTrace);
+    }
     AppLogger.info('Booting in server-only mode.');
 
     runApp(

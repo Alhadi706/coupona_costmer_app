@@ -584,5 +584,14 @@
   "role_request_item_title": "Role: {role}",
   "role_request_item_status": "Status: {status}",
   "role_request_item_status_reason": "Status: {status} | Reason: {reason}",
-  "role_subscription_status": "Subscription status: {status}"
+  "role_subscription_status": "Subscription status: {status}",
+  "onboarding_p1_title": "আপনার আশেপাশের সেরা অফার আবিষ্কার করুন",
+  "onboarding_p1_desc": "সহজেই কাছাকাছি অফার ও ছাড় দেখুন।",
+  "onboarding_p2_title": "প্রতিটি কেনাকাটায় পয়েন্ট অর্জন করুন",
+  "onboarding_p2_desc": "আপনার চালান স্ক্যান করে পয়েন্ট ও পুরস্কার সংগ্রহ করুন।",
+  "onboarding_p3_title": "এখনই Coupona ব্যবহার শুরু করুন",
+  "onboarding_p3_desc": "আরও অফার উপভোগ করুন এবং দৈনন্দিন কেনাকাটায় সাশ্রয় করুন।",
+  "onboarding_skip": "এড়িয়ে যান",
+  "onboarding_next": "পরবর্তী",
+  "onboarding_start": "শুরু করুন"
 }

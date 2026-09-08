@@ -584,5 +584,14 @@
   "role_request_item_title": "Role: {role}",
   "role_request_item_status": "Status: {status}",
   "role_request_item_status_reason": "Status: {status} | Reason: {reason}",
-  "role_subscription_status": "Subscription status: {status}"
+  "role_subscription_status": "Subscription status: {status}",
+  "onboarding_p1_title": "अपने आसपास के बेहतरीन ऑफर खोजें",
+  "onboarding_p1_desc": "आस-पास के ऑफर और छूट आसानी से देखें।",
+  "onboarding_p2_title": "हर खरीदारी पर अंक कमाएं",
+  "onboarding_p2_desc": "अपने बिल स्कैन करें और अंक व पुरस्कार पाएं।",
+  "onboarding_p3_title": "अभी Coupona शुरू करें",
+  "onboarding_p3_desc": "अधिक ऑफर पाएं और रोजमर्रा की खरीदारी पर बचत करें।",
+  "onboarding_skip": "छोड़ें",
+  "onboarding_next": "आगे",
+  "onboarding_start": "शुरू करें"
 }

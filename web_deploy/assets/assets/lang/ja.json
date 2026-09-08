@@ -584,5 +584,14 @@
   "role_request_item_title": "Role: {role}",
   "role_request_item_status": "Status: {status}",
   "role_request_item_status_reason": "Status: {status} | Reason: {reason}",
-  "role_subscription_status": "Subscription status: {status}"
+  "role_subscription_status": "Subscription status: {status}",
+  "onboarding_p1_title": "近くのお得な情報を見つけよう",
+  "onboarding_p1_desc": "近くのお得な情報や割引を簡単に探せます。",
+  "onboarding_p2_title": "お買い物ごとにポイントを獲得",
+  "onboarding_p2_desc": "請求書をスキャンしてポイントや特典を集めましょう。",
+  "onboarding_p3_title": "Couponaを今すぐ始めよう",
+  "onboarding_p3_desc": "より多くの特典を楽しみ、毎日の買い物を節約しましょう。",
+  "onboarding_skip": "スキップ",
+  "onboarding_next": "次へ",
+  "onboarding_start": "始める"
 }
