@@ -5,22 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('HomeContentScreen renders quick shortcut action buttons', (tester) async {
-    bool scanned = false;
-    bool openedCommunity = false;
-
+  testWidgets('HomeContentScreen does not render removed quick shortcut action chips', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: HomeContentScreen(
             onOpenOffersTab: () {},
             onOpenPeerAdsTab: () {},
-            onScanReceipt: () {
-              scanned = true;
-            },
-            onOpenCommunity: () {
-              openedCommunity = true;
-            },
+            onScanReceipt: () {},
+            onOpenCommunity: () {},
           ),
         ),
       ),
@@ -28,19 +21,10 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('حاسبة الخصم'), findsOneWidget);
-    expect(find.text('مسح الفاتورة'), findsOneWidget);
-    expect(find.text('هداياي الخاصة'), findsOneWidget);
-    expect(find.text('سوق المجتمع'), findsOneWidget);
-
-    await tester.tap(find.text('مسح الفاتورة'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(scanned, isTrue);
-
-    await tester.ensureVisible(find.text('سوق المجتمع'));
-    await tester.tap(find.text('سوق المجتمع'));
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(openedCommunity, isTrue);
+    expect(find.text('حاسبة الخصم'), findsNothing);
+    expect(find.text('مسح الفاتورة'), findsNothing);
+    expect(find.text('هداياي الخاصة'), findsNothing);
+    expect(find.text('عروض الزبائن'), findsNothing);
   });
 
   testWidgets('KupunaBottomNavbar hides badge when count is 0', (tester) async {

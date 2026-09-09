@@ -11,6 +11,10 @@ class CashierDashboardBody extends StatelessWidget {
   final bool scannedQrTokenExists;
   final String? result;
   final bool isResultError;
+  final List<Map<String, dynamic>> branches;
+  final String? selectedBranchId;
+  final ValueChanged<String>? onBranchSelected;
+  final VoidCallback? onExit;
   final TextEditingController branchIdController;
   final TextEditingController purchaseAmountController;
   final TextEditingController pickupQrCodeController;
@@ -38,6 +42,10 @@ class CashierDashboardBody extends StatelessWidget {
     required this.scannedQrTokenExists,
     required this.result,
     required this.isResultError,
+    this.branches = const [],
+    this.selectedBranchId,
+    this.onBranchSelected,
+    this.onExit,
     required this.branchIdController,
     required this.purchaseAmountController,
     required this.pickupQrCodeController,
@@ -56,11 +64,99 @@ class CashierDashboardBody extends StatelessWidget {
     required this.tx,
   });
 
+  Widget _buildBranchSelector(BuildContext context) {
+    if (branches.length == 1) {
+      final b = branches.first;
+      final name = (b['name'] ?? b['id'] ?? '').toString();
+      final bId = (b['id'] ?? '').toString();
+      return Container(
+        key: const Key('cashier_assigned_branch_badge'),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.storefront, color: Colors.blue.shade700),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    tx('cashier_assigned_branch_label', 'الفرع المعيّن'),
+                    style: TextStyle(fontSize: 11, color: Colors.blue.shade900, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    name.isNotEmpty && name != bId ? '$name ($bId)' : bId,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (branches.length > 1) {
+      final currentSelected = branches.any((b) => b['id'] == selectedBranchId)
+          ? selectedBranchId
+          : branches.first['id']?.toString();
+
+      return DropdownButtonFormField<String>(
+        key: const Key('cashier_branch_dropdown'),
+        initialValue: currentSelected,
+        decoration: InputDecoration(
+          labelText: tx('cashier_select_branch', 'اختر الفرع'),
+          prefixIcon: const Icon(Icons.storefront),
+          border: const OutlineInputBorder(),
+        ),
+        items: branches.map((branch) {
+          final idStr = (branch['id'] ?? '').toString();
+          final nameStr = (branch['name'] ?? idStr).toString();
+          return DropdownMenuItem<String>(
+            value: idStr,
+            child: Text(nameStr != idStr ? '$nameStr ($idStr)' : idStr),
+          );
+        }).toList(),
+        onChanged: (val) {
+          if (val != null && onBranchSelected != null) {
+            onBranchSelected!(val);
+          }
+        },
+      );
+    }
+
+    return TextField(
+      controller: branchIdController,
+      decoration: InputDecoration(labelText: tx('cashier_branch_id', 'Branch ID')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (onExit != null) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const Key('cashier_body_exit_button'),
+              onPressed: onExit,
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: Text(tx('exit_cashier_mode', 'خروج من وضع الكاشير')),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red.shade700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
         if (!cashierActive) ...[
           Container(
             padding: const EdgeInsets.all(12),
@@ -81,10 +177,8 @@ class CashierDashboardBody extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller: branchIdController,
-          decoration: InputDecoration(labelText: tx('cashier_branch_id', 'Branch ID')),
-        ),
+        _buildBranchSelector(context),
+        const SizedBox(height: 8),
         TextField(
           controller: purchaseAmountController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),

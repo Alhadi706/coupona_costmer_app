@@ -31,6 +31,24 @@ test('merchant clearinghouse includes disputes assigned to that merchant', async
   assert.equal(res.body.disputes[0].brandName, 'Brand');
 });
 
+test('merchant clearinghouse returns directional KPIs and member settlements', async () => {
+  let calls = 0;
+  const routes = setup(async () => {
+    calls += 1;
+    return calls === 1 ? {rows: [
+      {coalition_id: 'co-1', from_merchant_id: 'merchant-1', to_merchant_id: 'm-2', to_merchant: 'Store B', total_points: 80, settled: false},
+      {coalition_id: 'co-1', from_merchant_id: 'm-3', from_merchant: 'Store C', to_merchant_id: 'merchant-1', total_points: 120, settled: true},
+    ]} : {rows: []};
+  });
+  const res = response();
+  await routes.get('GET /api/merchant/coalitions/clearinghouse')({user: {userId: 'owner'}}, res);
+  assert.deepEqual(res.body.summary, {issuedPoints: 80, redeemedPoints: 120, netBalance: 40, pointValue: 1});
+  assert.equal(res.body.memberSettlements[0].partner_merchant, 'Store B');
+  assert.equal(res.body.memberSettlements[0].net_amount, -80);
+  assert.equal(res.body.memberSettlements[1].status, 'completed');
+  assert.equal(res.body.settlementHistory.length, 1);
+});
+
 test('settlement replay returns conflict instead of silent success', async () => {
   const routes = setup(async () => ({rowCount: 0, rows: []}));
   const res = response();

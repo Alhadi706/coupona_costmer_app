@@ -1,16 +1,25 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
+import '../services/app_session.dart';
 import '../services/company_server_service.dart';
 import '../widgets/design_system/kupuna_cashier_mode_screen_wrapper.dart';
 import 'cashier_dashboard_screen_widgets.dart';
 
 class CashierDashboardScreen extends StatefulWidget {
   final bool embedded;
+  final VoidCallback? onExit;
 
-  const CashierDashboardScreen({super.key, this.embedded = false});
+  const CashierDashboardScreen({
+    super.key,
+    this.embedded = false,
+    this.onExit,
+  });
 
-  const CashierDashboardScreen.embedded({super.key}) : embedded = true;
+  const CashierDashboardScreen.embedded({
+    super.key,
+    this.onExit,
+  }) : embedded = true;
 
   @override
   State<CashierDashboardScreen> createState() => _CashierDashboardScreenState();
@@ -32,6 +41,9 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
   bool _cashierActive = true;
   String? _scannedQrToken;
   bool _manualOverrideOpen = false;
+
+  List<Map<String, dynamic>> _branches = [];
+  String? _selectedBranchId;
 
   @override
   void initState() {
@@ -128,15 +140,92 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
         await CompanyServerService.getMerchantProfile();
         merchantActive = true;
       } catch (_) {}
+
+      final Map<String, Map<String, dynamic>> branchesMap = {};
+
+      for (final row in cashierRows) {
+        if (row is Map) {
+          final bId = (row['branchId'] ?? row['branch_id'] ?? row['id'] ?? '').toString();
+          final bName = (row['branchName'] ?? row['branch_name'] ?? row['name'] ?? '').toString();
+          final isActive = row['isActive'] == true || row['is_active'] == true || row['isActive'] == 1;
+          if (bId.isNotEmpty && (isActive || cashierRows.length == 1)) {
+            branchesMap[bId] = {
+              'id': bId,
+              'name': bName.isNotEmpty ? bName : _tx('cashier_branch_fallback', 'فرع $bId'),
+            };
+          }
+        }
+      }
+
+      try {
+        final fetchedBranches = await CompanyServerService.getMerchantBranches();
+        for (final b in fetchedBranches) {
+          final bId = (b['id'] ?? '').toString();
+          final bName = (b['name'] ?? '').toString();
+          if (bId.isNotEmpty) {
+            if (!branchesMap.containsKey(bId)) {
+              branchesMap[bId] = {
+                'id': bId,
+                'name': bName.isNotEmpty ? bName : _tx('cashier_branch_fallback', 'فرع $bId'),
+              };
+            } else if (bName.isNotEmpty) {
+              branchesMap[bId]!['name'] = bName;
+            }
+          }
+        }
+      } catch (_) {}
+
+      final loadedBranches = branchesMap.values.toList();
+
       if (!mounted) return;
       setState(() {
         _cashierActive = merchantActive || cashierRows.any((row) => row is Map && row['isActive'] == true);
+        _branches = loadedBranches;
+        if (loadedBranches.isNotEmpty) {
+          final currentText = _branchIdController.text.trim();
+          final matching = loadedBranches.any((b) => b['id'] == currentText);
+          if (currentText.isEmpty || !matching) {
+            _selectedBranchId = loadedBranches.first['id'];
+            _branchIdController.text = loadedBranches.first['id'];
+          } else {
+            _selectedBranchId = currentText;
+          }
+        }
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _cashierActive = false;
       });
+    }
+  }
+
+  void _onBranchSelected(String branchId) {
+    setState(() {
+      _selectedBranchId = branchId;
+      _branchIdController.text = branchId;
+    });
+  }
+
+  Future<void> _handleExit() async {
+    if (widget.onExit != null) {
+      widget.onExit!();
+      return;
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    } else {
+      try {
+        final roles = await CompanyServerService.getMyRoles();
+        final isMerchant = roles['merchant'] == true;
+        final targetRole = isMerchant ? 'merchant' : 'customer';
+        await AppSession.setRole(targetRole);
+      } catch (_) {
+        await AppSession.setRole('customer');
+      }
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
     }
   }
 
@@ -336,6 +425,10 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
         scannedQrTokenExists: _scannedQrToken != null,
         result: _result,
         isResultError: _isResultError,
+        branches: _branches,
+        selectedBranchId: _selectedBranchId,
+        onBranchSelected: _onBranchSelected,
+        onExit: _handleExit,
         branchIdController: _branchIdController,
         purchaseAmountController: _purchaseAmountController,
         pickupQrCodeController: _pickupQrCodeController,
@@ -359,6 +452,7 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
       storeName: _tx('cashier_dashboard_title', 'Cashier Dashboard'),
       onGrantPoints: _grantPoints,
       onRedeemReward: _redeemClaim,
+      onExit: _handleExit,
       body: CashierDashboardBody(
         cashierActive: _cashierActive,
         loadingGrant: _loadingGrant,
@@ -368,6 +462,10 @@ class _CashierDashboardScreenState extends State<CashierDashboardScreen> {
         scannedQrTokenExists: _scannedQrToken != null,
         result: _result,
         isResultError: _isResultError,
+        branches: _branches,
+        selectedBranchId: _selectedBranchId,
+        onBranchSelected: _onBranchSelected,
+        onExit: _handleExit,
         branchIdController: _branchIdController,
         purchaseAmountController: _purchaseAmountController,
         pickupQrCodeController: _pickupQrCodeController,

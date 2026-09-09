@@ -130,6 +130,33 @@ module.exports = async function createCoalitionTables(pool) {
       PRIMARY KEY (coalition_id, from_merchant_id, to_merchant_id, period)
     );
 
+    CREATE TABLE IF NOT EXISTS merchant_settlement_wallets (
+      merchant_id TEXT PRIMARY KEY REFERENCES merchant_profiles(id) ON DELETE CASCADE,
+      settled_balance INTEGER NOT NULL DEFAULT 0 CHECK (settled_balance >= 0),
+      currency TEXT NOT NULL DEFAULT 'LYD',
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS merchant_settlement_ledger (
+      id TEXT PRIMARY KEY,
+      merchant_id TEXT NOT NULL REFERENCES merchant_profiles(id) ON DELETE CASCADE,
+      customer_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      reference TEXT NOT NULL,
+      type TEXT NOT NULL,
+      amount INTEGER NOT NULL CHECK (amount > 0),
+      balance_after INTEGER NOT NULL CHECK (balance_after >= 0),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS customer_gold_vouchers (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      value_lyd INTEGER NOT NULL CHECK (value_lyd > 0),
+      status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'REDEEMED', 'CANCELLED')),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      redeemed_at TIMESTAMPTZ
+    );
+
     -- Spending caps per merchant per coalition per month
     CREATE TABLE IF NOT EXISTS coalition_spending_caps (
       coalition_id TEXT NOT NULL REFERENCES coalitions(id) ON DELETE CASCADE,

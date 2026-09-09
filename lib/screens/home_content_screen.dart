@@ -10,7 +10,6 @@ import '../widgets/compact_tier_card.dart';
 import '../widgets/home_rewards_path_widget.dart';
 import 'home_content_screen_banner.dart';
 import 'home_content_screen_offers.dart';
-import 'home_quick_shortcuts.dart';
 import 'home_store_discovery_section.dart';
 
 class HomeContentScreen extends StatefulWidget {
@@ -24,6 +23,10 @@ class HomeContentScreen extends StatefulWidget {
   final VoidCallback? onScanReceipt;
   final Future<List<Map<String, dynamic>>> Function()? billboardAdsLoader;
 
+  /// Optional shared stores future. When provided, the section reuses the
+  /// caller's data source instead of issuing a separate [getStores] call.
+  final Future<List<Map<String, dynamic>>>? storesFuture;
+
   const HomeContentScreen({
     super.key,
     required this.onOpenOffersTab,
@@ -35,6 +38,7 @@ class HomeContentScreen extends StatefulWidget {
     this.onOpenCustomerOffers,
     this.onScanReceipt,
     this.billboardAdsLoader,
+    this.storesFuture,
   });
 
   @override
@@ -83,7 +87,8 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   @override
   void initState() {
     super.initState();
-    _storesFuture = CompanyServerService.getStores().catchError(
+    _storesFuture = (widget.storesFuture ?? CompanyServerService.getStores())
+        .catchError(
       (_) => const <Map<String, dynamic>>[],
     );
     _billboardAdsFuture =
@@ -184,8 +189,6 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
                   buildBanner(this),
                   const SizedBox(height: 12),
                   buildCompactTierCard(this),
-                  const SizedBox(height: 12),
-                  buildQuickShortcutActions(this),
                   const SizedBox(height: 12),
                   buildHomeRewardsPath(this),
                   const SizedBox(height: 16),

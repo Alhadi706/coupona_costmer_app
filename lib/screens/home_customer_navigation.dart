@@ -9,9 +9,12 @@ Color _homeRoleColor(_HomeScreenState state) {
   }
 }
 
-Widget _buildHomeBody(_HomeScreenState state) {
+Widget _buildHomeBody(
+  _HomeScreenState state,
+  Future<List<Map<String, dynamic>>> storesFuture,
+) {
   final context = state.context;
-  final customerTabs = _buildCustomerTabs(state);
+  final customerTabs = _buildCustomerTabs(state, storesFuture);
 
   return Center(
     child: ConstrainedBox(
@@ -31,13 +34,7 @@ Widget _buildHomeBody(_HomeScreenState state) {
               left: context.locale.languageCode == 'ar' ? 16 : null,
               child: FloatingActionButton(
                 heroTag: 'camera_scan_fab_unique_id',
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const ScanInvoiceScreen(),
-                    ),
-                  );
-                },
+                onPressed: () => _showCameraActionMenu(context),
                 backgroundColor: kTeal,
                 child: const Icon(Icons.camera_alt, color: kWhite),
               ),
@@ -48,11 +45,72 @@ Widget _buildHomeBody(_HomeScreenState state) {
   );
 }
 
-List<Widget> _buildCustomerTabs(_HomeScreenState state) {
+void _showCameraActionMenu(BuildContext context) {
+  showModalBottomSheet<void>(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) => Directionality(
+      textDirection: ui.TextDirection.rtl,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'camera_menu_title'.tr(),
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFE8F5E9),
+                  child: Icon(Icons.receipt_long, color: Color(0xFF1B7A66)),
+                ),
+                title: Text('camera_menu_scan_invoice'.tr()),
+                subtitle: Text('camera_menu_scan_invoice_hint'.tr()),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ScanInvoiceScreen()),
+                  );
+                },
+              ),
+              const Divider(),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFFFF3E0),
+                  child: Icon(Icons.report_problem_outlined, color: Color(0xFFE67E22)),
+                ),
+                title: Text('camera_menu_submit_report'.tr()),
+                subtitle: Text('camera_menu_submit_report_hint'.tr()),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DisputeFlowScreen()),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+List<Widget> _buildCustomerTabs(
+  _HomeScreenState state,
+  Future<List<Map<String, dynamic>>> storesFuture,
+) {
   final context = state.context;
 
   return <Widget>[
     HomeContentScreen(
+      storesFuture: storesFuture,
       onOpenOffersTab: () => state._onItemTapped(0),
       onOpenPeerAdsTab: () => state._onItemTapped(2),
       onOpenMap: () => state._onItemTapped(1),
@@ -68,7 +126,7 @@ List<Widget> _buildCustomerTabs(_HomeScreenState state) {
         context,
       ).push(MaterialPageRoute(builder: (_) => const ScanInvoiceScreen())),
     ),
-    const FullMapScreen(embedded: true),
+    FullMapScreen(embedded: true, storesFuture: storesFuture),
     CommunityScreen.embedded(tabRequest: state._communityTabRequest),
     const MyRewardsScreen.embedded(),
     const SettingsScreen.embedded(),

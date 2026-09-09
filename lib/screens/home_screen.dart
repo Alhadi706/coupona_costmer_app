@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
@@ -12,6 +14,7 @@ import 'community_screen.dart';
 import 'customer_coalitions_screen.dart';
 import 'customer_invoices_screen.dart';
 import 'customer_reports_screen.dart';
+import 'dispute_flow_screen.dart';
 import 'home_content_screen.dart';
 import 'full_map_screen.dart';
 import 'merchant_dashboard_screen.dart';
@@ -68,11 +71,15 @@ class _HomeScreenState extends State<HomeScreen> {
   int _rewardsBadgeCount = 0;
   int _mapBadgeCount = 0;
   final CommunityTabRequest _communityTabRequest = CommunityTabRequest();
+  late Future<List<Map<String, dynamic>>> _customerStoresFuture;
 
   @override
   void initState() {
     super.initState();
     _activeRole = widget.initialRoleOverride ?? 'customer';
+    _customerStoresFuture = CompanyServerService.getStores().catchError(
+      (_) => const <Map<String, dynamic>>[],
+    );
     _loadNotifications();
     if (widget.initialRoleOverride == null) {
       _loadActiveRole();
@@ -406,7 +413,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onSwitchRole: _openRolesScreen,
             )
           : AppDrawer(onSelectHomeTab: _onItemTapped, currentRole: _activeRole),
-      body: _buildHomeBody(this),
+      body: _buildHomeBody(this, _customerStoresFuture),
       bottomNavigationBar: _buildCustomerBottomNavigationBar(this),
     );
   }

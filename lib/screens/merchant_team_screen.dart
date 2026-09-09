@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
@@ -60,6 +61,27 @@ class _MerchantTeamScreenState extends State<MerchantTeamScreen> {
     return value == key ? fallback : value;
   }
 
+  String _permissionLabel(String key) {
+    switch (key) {
+      case 'canReviewInvoices':
+        return _tx('merchant_permission_canReviewInvoices', 'مراجعة الفواتير');
+      case 'canCreateOffers':
+        return _tx('merchant_permission_canCreateOffers', 'إنشاء وتعديل العروض');
+      case 'canManageGroup':
+        return _tx('merchant_permission_canManageGroup', 'إدارة المجموعة والأعضاء');
+      case 'canViewReports':
+        return _tx('merchant_permission_canViewReports', 'عرض التقارير والإحصائيات');
+      case 'canViewSettlements':
+        return _tx('merchant_permission_canViewSettlements', 'عرض التسويات والحسابات');
+      case 'canAddCashiers':
+        return _tx('merchant_permission_canAddCashiers', 'إضافة وتعيين الكاشيرين');
+      case 'canReplyReports':
+        return _tx('merchant_permission_canReplyReports', 'الرد على التقارير والبلاغات');
+      default:
+        return _tx('merchant_permission_$key', key);
+    }
+  }
+
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
@@ -81,7 +103,9 @@ class _MerchantTeamScreenState extends State<MerchantTeamScreen> {
 
   Future<void> _showInviteDialog() async {
     if (widget.branches.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_tx('merchant_team_branch_required', 'Create a branch before inviting team members.'))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_tx('merchant_team_branch_required', 'الرجاء إنشاء فرع أولاً قبل دعوة أعضاء الفريق.'))),
+      );
       return;
     }
     var branchId = (widget.branches.first['id'] ?? '').toString();
@@ -99,58 +123,90 @@ class _MerchantTeamScreenState extends State<MerchantTeamScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(_tx('merchant_team_invite_title', 'Invite team member')),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  key: const Key('merchant-team-branch'),
-                  initialValue: branchId,
-                  items: widget.branches.map((branch) => DropdownMenuItem(
-                    value: (branch['id'] ?? '').toString(),
-                    child: Text((branch['name'] ?? '').toString()),
-                  )).toList(),
-                  onChanged: (value) => branchId = value ?? branchId,
-                  decoration: InputDecoration(labelText: _tx('merchant_branch', 'Branch')),
-                ),
-                DropdownButtonFormField<String>(
-                  key: const Key('merchant-team-role'),
-                  initialValue: roleType,
-                  items: [
-                    DropdownMenuItem(value: 'manager', child: Text(_tx('merchant_team_role_manager', 'Manager'))),
-                    DropdownMenuItem(value: 'cashier', child: Text(_tx('merchant_team_role_cashier', 'Cashier'))),
+        builder: (context, setDialogState) => Directionality(
+          textDirection: ui.TextDirection.rtl,
+          child: AlertDialog(
+            title: Text(_tx('merchant_team_invite_title', 'دعوة عضو جديد للفريق')),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      key: const Key('merchant-team-branch'),
+                      initialValue: branchId,
+                      items: widget.branches.map((branch) => DropdownMenuItem(
+                        value: (branch['id'] ?? '').toString(),
+                        child: Text((branch['name'] ?? '').toString()),
+                      )).toList(),
+                      onChanged: (value) => branchId = value ?? branchId,
+                      decoration: InputDecoration(labelText: _tx('merchant_branch', 'الفرع')),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      key: const Key('merchant-team-role'),
+                      initialValue: roleType,
+                      items: [
+                        DropdownMenuItem(value: 'manager', child: Text(_tx('merchant_team_role_manager', 'مدير الفرع'))),
+                        DropdownMenuItem(value: 'cashier', child: Text(_tx('merchant_team_role_cashier', 'كاشير'))),
+                      ],
+                      onChanged: (value) => setDialogState(() => roleType = value ?? roleType),
+                      decoration: InputDecoration(labelText: _tx('merchant_team_role', 'الدور / الصفة')),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('merchant-team-identifier'),
+                      onChanged: (value) => identifier = value,
+                      decoration: InputDecoration(
+                        labelText: _tx('merchant_team_email_phone', 'البريد الإلكتروني أو رقم الهاتف المسجل'),
+                        hintText: 'example@domain.com / 09xxxxxxxx',
+                      ),
+                    ),
+                    if (roleType == 'manager') ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        _tx('merchant_team_permissions_title', 'صلاحيات المدير:'),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      ...permissions.keys.map((key) => CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        value: permissions[key],
+                        title: Text(_permissionLabel(key)),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        onChanged: (value) => setDialogState(() => permissions[key] = value == true),
+                      )),
+                    ],
                   ],
-                  onChanged: (value) => setDialogState(() => roleType = value ?? roleType),
-                  decoration: InputDecoration(labelText: _tx('merchant_team_role', 'Role')),
                 ),
-                TextField(
-                  key: const Key('merchant-team-identifier'),
-                  onChanged: (value) => identifier = value,
-                  decoration: InputDecoration(labelText: _tx('merchant_team_email_phone', 'Registered email or phone')),
-                ),
-                if (roleType == 'manager')
-                  ...permissions.keys.map((key) => CheckboxListTile(
-                    value: permissions[key],
-                    title: Text(_tx('merchant_permission_$key', key)),
-                    onChanged: (value) => setDialogState(() => permissions[key] = value == true),
-                  )),
-              ],
+              ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(_tx('cancel', 'إلغاء')),
+              ),
+              FilledButton(
+                key: const Key('merchant-team-send-invite'),
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(_tx('merchant_team_send_invite', 'إرسال الدعوة')),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_tx('cancel', 'Cancel'))),
-            FilledButton(
-              key: const Key('merchant-team-send-invite'),
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(_tx('merchant_team_send_invite', 'Send invitation')),
-            ),
-          ],
         ),
       ),
     );
-    if (confirmed != true || identifier.trim().isEmpty) return;
+    if (confirmed != true) return;
+    if (identifier.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_tx('merchant_team_identifier_required', 'الرجاء إدخال البريد الإلكتروني أو رقم الهاتف المسجل'))),
+        );
+      }
+      return;
+    }
     await (widget.inviter ?? CompanyServerService.inviteMerchantTeamMember)(
       branchId: branchId,
       roleType: roleType,
@@ -181,26 +237,34 @@ class _MerchantTeamScreenState extends State<MerchantTeamScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(_tx('merchant_team_edit_permissions', 'Edit manager permissions')),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: permissions.keys.map((key) => CheckboxListTile(
-                value: permissions[key],
-                title: Text(_tx('merchant_permission_$key', key)),
-                onChanged: (value) => setDialogState(() => permissions[key] = value == true),
-              )).toList(),
+        builder: (context, setDialogState) => Directionality(
+          textDirection: ui.TextDirection.rtl,
+          child: AlertDialog(
+            title: Text(_tx('merchant_team_edit_permissions', 'تعديل صلاحيات المدير')),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: permissions.keys.map((key) => CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: permissions[key],
+                    title: Text(_permissionLabel(key)),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    onChanged: (value) => setDialogState(() => permissions[key] = value == true),
+                  )).toList(),
+                ),
+              ),
             ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_tx('cancel', 'إلغاء'))),
+              FilledButton(
+                key: const Key('merchant-team-save-permissions'),
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(_tx('save', 'حفظ')),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_tx('cancel', 'Cancel'))),
-            FilledButton(
-              key: const Key('merchant-team-save-permissions'),
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(_tx('save', 'Save')),
-            ),
-          ],
         ),
       ),
     );
@@ -232,9 +296,11 @@ class _MerchantTeamScreenState extends State<MerchantTeamScreen> {
   String _permissionSummary(Map<String, dynamic> member) {
     final source = member['permissions'];
     if (source is! Map) return '';
-    final enabled = source.entries.where((entry) => entry.value == true).map((entry) =>
-        _tx('merchant_permission_${entry.key}', entry.key.toString())).toList();
-    return enabled.isEmpty ? _tx('merchant_team_no_permissions', 'No permissions') : enabled.join(' • ');
+    final enabled = source.entries
+        .where((entry) => entry.value == true)
+        .map((entry) => _permissionLabel(entry.key.toString()))
+        .toList();
+    return enabled.isEmpty ? _tx('merchant_team_no_permissions', 'لا توجد صلاحيات') : enabled.join(' • ');
   }
 
   @override

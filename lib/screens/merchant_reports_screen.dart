@@ -62,59 +62,70 @@ class _MerchantReportsScreenState extends State<MerchantReportsScreen> {
   }
 
   Future<void> _resolve(Map<String, dynamic> report) async {
-    var action = 'accept';
-    var grantReward = false;
-    var rewardPoints = 10;
     var note = '';
+    var grantPoints = false;
+    var points = 0;
+    var sendGift = false;
+    String? selectedGiftTitle;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(_tx('merchant_report_resolve_title', 'Resolve report')),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                key: const Key('merchant-report-action'),
-                initialValue: action,
-                items: [
-                  DropdownMenuItem(value: 'accept', child: Text(_tx('report_action_accept', 'Accept'))),
-                  DropdownMenuItem(value: 'reward', child: Text(_tx('report_action_reward', 'Accept and compensate'))),
-                  DropdownMenuItem(value: 'request_information', child: Text(_tx('report_action_request_information', 'Request information'))),
-                  DropdownMenuItem(value: 'reject', child: Text(_tx('report_action_reject', 'Reject'))),
-                ],
-                onChanged: (value) => setDialogState(() {
-                  action = value ?? 'accept';
-                  grantReward = action == 'reward';
-                }),
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: grantReward,
-                title: Text(_tx('merchant_report_grant_reward', 'Grant compensation points')),
-                onChanged: action == 'reward' ? (value) => setDialogState(() => grantReward = value) : null,
-              ),
-              if (grantReward)
-                TextFormField(
-                  initialValue: '$rewardPoints',
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(labelText: _tx('merchant_report_reward_points', 'Reward points')),
-                  onChanged: (value) => rewardPoints = int.tryParse(value) ?? 0,
+          title: Text(_tx('merchant_report_resolve_title', 'Respond to report')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_tx('merchant_report_manual_response_hint', 'All responses are manual. Compensation is optional.'), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 12),
+                TextField(
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: _tx('merchant_report_thank_you_note', 'Thank you / clarification note *'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => setDialogState(() => note = value),
                 ),
-              const SizedBox(height: 8),
-              TextField(
-                maxLines: 2,
-                decoration: InputDecoration(labelText: _tx('report_resolution_note', 'Resolution note')),
-                onChanged: (value) => setDialogState(() => note = value),
-              ),
-            ],
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: grantPoints,
+                  title: Text(_tx('merchant_report_grant_reward', 'Grant compensation points')),
+                  onChanged: (value) => setDialogState(() => grantPoints = value),
+                ),
+                if (grantPoints)
+                  TextFormField(
+                    initialValue: '10',
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(labelText: _tx('merchant_report_reward_points', 'Points')),
+                    onChanged: (value) => setDialogState(() => points = int.tryParse(value) ?? 0),
+                  ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: sendGift,
+                  title: Text(_tx('merchant_report_send_gift', 'Send gift or voucher')),
+                  onChanged: (value) => setDialogState(() => sendGift = value),
+                ),
+                if (sendGift)
+                  DropdownButtonFormField<String>(
+                    value: selectedGiftTitle,
+                    decoration: InputDecoration(labelText: _tx('merchant_report_select_gift', 'Select gift')),
+                    items: [
+                      _tx('merchant_report_gift_discount', 'Discount voucher'),
+                      _tx('merchant_report_gift_free_item', 'Free item'),
+                      _tx('merchant_report_gift_service_credit', 'Service credit'),
+                    ].map((title) => DropdownMenuItem(value: title, child: Text(title))).toList(growable: false),
+                    onChanged: (value) => setDialogState(() => selectedGiftTitle = value),
+                  ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(_tx('cancel', 'Cancel'))),
             FilledButton(
               key: const Key('merchant-report-confirm-action'),
-              onPressed: (grantReward && rewardPoints <= 0) ||
-                      (['reject', 'request_information'].contains(action) && note.trim().isEmpty)
+              onPressed: note.trim().isEmpty || (grantPoints && points <= 0) || (sendGift && selectedGiftTitle == null)
                   ? null
                   : () => Navigator.pop(dialogContext, true),
               child: Text(_tx('confirm', 'Confirm')),
@@ -125,13 +136,28 @@ class _MerchantReportsScreenState extends State<MerchantReportsScreen> {
     );
     if (confirmed != true || !mounted) return;
     try {
+      final action = (grantPoints && points > 0) || sendGift ? 'reward' : 'accept';
       await (widget.reportResolver ?? CompanyServerService.acceptMerchantReport)(
         (report['id'] ?? '').toString(),
         action: action,
-        grantReward: grantReward,
-        rewardPoints: rewardPoints,
-        resolutionNote: note,
+        grantReward: grantPoints && points > 0,
+        rewardPoints: points,
+        resolutionNote: note.trim(),
       );
+      if (sendGift && mounted) {
+        final customerId = (report['ownerId'] ?? report['customerUserId'] ?? '').toString();
+        final merchantName = (report['storeName'] ?? report['targetStoreNameSnapshot'] ?? 'Merchant').toString();
+        if (customerId.isNotEmpty) {
+          await CompanyServerService.dispatchDirectGift(
+            customerUserId: customerId,
+            merchantName: merchantName,
+            thresholdPoints: grantPoints && points > 0 ? points : 0,
+            voucherOptions: selectedGiftTitle == null
+                ? null
+                : [<String, dynamic>{'title': selectedGiftTitle, 'subtitle': _tx('merchant_report_gift_from_report', 'Compensation for your report')}],
+          );
+        }
+      }
       await _load();
     } catch (error) {
       if (!mounted) return;
@@ -185,7 +211,7 @@ class _MerchantReportsScreenState extends State<MerchantReportsScreen> {
                       Expanded(child: Text((report['reportType'] ?? '-').toString(), style: const TextStyle(fontWeight: FontWeight.w700))),
                       Chip(label: Text((report['priority'] ?? 'normal').toString())),
                       const SizedBox(width: 6),
-                      Chip(label: Text(status)),
+                      _buildStatusBadge(status),
                     ],
                   ),
                   Text('${_tx('merchant_report_customer', 'Customer')}: ${report['ownerName'] ?? report['ownerEmail'] ?? '-'}'),
@@ -195,13 +221,13 @@ class _MerchantReportsScreenState extends State<MerchantReportsScreen> {
                   if ((report['productName'] ?? '').toString().isNotEmpty)
                     Text('${_tx('merchant_report_product', 'Product')}: ${report['productName']}'),
                   ..._buildUpdates(report['updates']),
-                  if (status == 'new') ...[
+                  if (status == 'new' || status == 'information_requested' || status == 'under_review') ...[
                     const SizedBox(height: 10),
                     FilledButton.icon(
                       key: Key('merchant-report-$reportId-resolve'),
                       onPressed: () => _resolve(report),
                       icon: const Icon(Icons.task_alt),
-                      label: Text(_tx('merchant_report_resolve', 'Resolve')),
+                      label: Text(_tx('merchant_report_resolve', 'Respond')),
                     ),
                   ],
                 ],
@@ -219,6 +245,55 @@ class _MerchantReportsScreenState extends State<MerchantReportsScreen> {
     return statusMatches && priorityMatches;
   }).toList(growable: false);
 
+  Widget _buildStatusBadge(String status) {
+    final label = _statusLabel(status);
+    final color = _statusColor(status);
+    return Chip(
+      label: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+      backgroundColor: color.withValues(alpha: 0.12),
+      side: BorderSide(color: color.withValues(alpha: 0.4)),
+    );
+  }
+
+  String _statusLabel(String status) {
+    switch (status) {
+      case 'new':
+      case 'under_review':
+        return _tx('report_status_under_review', 'Under review');
+      case 'information_requested':
+        return _tx('report_status_information_requested', 'Information requested');
+      case 'accepted':
+        return _tx('report_status_responded', 'Responded');
+      case 'reward_granted':
+        return _tx('report_status_compensated', 'Compensated');
+      case 'rejected':
+        return _tx('report_status_rejected', 'Rejected');
+      case 'closed':
+        return _tx('report_status_closed', 'Closed');
+      default:
+        return status;
+    }
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'new':
+      case 'under_review':
+      case 'information_requested':
+        return const Color(0xFFE67E22);
+      case 'accepted':
+        return const Color(0xFF1B7A66);
+      case 'reward_granted':
+        return const Color(0xFF2E80ED);
+      case 'rejected':
+        return const Color(0xFFE53935);
+      case 'closed':
+        return Colors.grey;
+      default:
+        return Colors.grey;
+    }
+  }
+
   Widget _buildFilters() {
     return Wrap(
       spacing: 8,
@@ -227,7 +302,7 @@ class _MerchantReportsScreenState extends State<MerchantReportsScreen> {
         DropdownButton<String>(
           value: _statusFilter,
           items: ['all', 'new', 'information_requested', 'accepted', 'reward_granted', 'rejected']
-              .map((value) => DropdownMenuItem(value: value, child: Text(value == 'all' ? _tx('all', 'All') : value)))
+              .map((value) => DropdownMenuItem(value: value, child: Text(value == 'all' ? _tx('all', 'All') : _statusLabel(value))))
               .toList(),
           onChanged: (value) => setState(() => _statusFilter = value ?? 'all'),
         ),

@@ -22,7 +22,6 @@ import 'community_screen.dart';
 import 'brand_network_screens.dart';
 import 'brand_team_screen.dart';
 import 'public_coalition_membership_screen.dart';
-import 'gift_management_screen.dart';
 
 part 'brand_dashboard_helpers.dart';
 
@@ -769,13 +768,9 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
             title: Text('brand_gifts_management_card_title'.tr(), style: const TextStyle(fontWeight: FontWeight.bold)),
             subtitle: Text('brand_gifts_management_card_subtitle'.tr()),
             trailing: ElevatedButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => GiftManagementScreen(ownerLabel: 'brand_owner_label'.tr()),
-                ),
-              ),
-              icon: const Icon(Icons.arrow_forward, size: 16),
-              label: Text('brand_gifts_manage_button'.tr()),
+              onPressed: _showCreateRewardDialog,
+              icon: const Icon(Icons.add, size: 16),
+              label: Text('merchant_reward_add'.tr()),
             ),
           ),
         ),
@@ -1005,13 +1000,13 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
           children: [
             DropdownButton<String>(
               value: _reportStatusFilter,
-              items: const [
-                DropdownMenuItem(value: 'all', child: Text('كل الحالات')),
-                DropdownMenuItem(value: 'new', child: Text('جديد')),
-                DropdownMenuItem(value: 'information_requested', child: Text('بانتظار معلومات')),
-                DropdownMenuItem(value: 'accepted', child: Text('مقبول')),
-                DropdownMenuItem(value: 'reward_granted', child: Text('تم التعويض')),
-                DropdownMenuItem(value: 'rejected', child: Text('مرفوض')),
+              items: [
+                const DropdownMenuItem(value: 'all', child: Text('كل الحالات')),
+                DropdownMenuItem(value: 'new', child: Text(_brandStatusLabel('new'))),
+                DropdownMenuItem(value: 'information_requested', child: Text(_brandStatusLabel('information_requested'))),
+                DropdownMenuItem(value: 'accepted', child: Text(_brandStatusLabel('accepted'))),
+                DropdownMenuItem(value: 'reward_granted', child: Text(_brandStatusLabel('reward_granted'))),
+                DropdownMenuItem(value: 'rejected', child: Text(_brandStatusLabel('rejected'))),
               ],
               onChanged: (value) => setState(() => _reportStatusFilter = value ?? 'all'),
             ),
@@ -1065,11 +1060,12 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
 
   Widget _buildReportCard(Map<String, dynamic> report) {
     final mapPoint = <String, dynamic>{'label': report['storeName'] ?? 'موقع البلاغ', 'latitude': report['storeLat'], 'longitude': report['storeLng'], 'value': report['reportType'] ?? 'بلاغ'};
+    final status = (report['status'] ?? 'new').toString();
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [const Icon(Icons.report_problem_outlined, color: Color(0xFFE67E22)), const SizedBox(width: 8), Expanded(child: Text((report['reportType'] ?? 'quality_report'.tr()).toString(), style: const TextStyle(fontWeight: FontWeight.bold))), Chip(label: Text((report['priority'] ?? 'normal').toString())), const SizedBox(width: 6), Text((report['status'] ?? 'new').toString())]),
+          Row(children: [const Icon(Icons.report_problem_outlined, color: Color(0xFFE67E22)), const SizedBox(width: 8), Expanded(child: Text((report['reportType'] ?? 'quality_report'.tr()).toString(), style: const TextStyle(fontWeight: FontWeight.bold))), Chip(label: Text((report['priority'] ?? 'normal').toString())), const SizedBox(width: 6), _buildBrandStatusBadge(status)]),
           const SizedBox(height: 6),
           Text('المبلغ: ${(report['reporterName'] ?? report['reporterEmail'] ?? '-').toString()}'),
           Text('المحل: ${(report['storeName'] ?? 'غير محدد').toString()}'),
@@ -1092,11 +1088,8 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
           Wrap(spacing: 8, children: [
             if ((report['ownerId'] ?? '').toString().isNotEmpty) OutlinedButton.icon(onPressed: () => _showMessageDialog({'userId': report['ownerId'], 'name': report['reporterName'] ?? 'المبلغ'}), icon: const Icon(Icons.mail_outline), label: Text('msg_reporter'.tr())),
             if ((report['storeUserId'] ?? '').toString().isNotEmpty) OutlinedButton.icon(onPressed: () => _showMessageDialog({'userId': report['storeUserId'], 'name': report['storeName'] ?? 'المحل'}), icon: const Icon(Icons.storefront_outlined), label: Text('msg_store'.tr())),
-            if (report['status'] == 'new') ...[
-              ElevatedButton.icon(onPressed: () => _resolveReport(report, action: 'reward'), icon: const Icon(Icons.stars_outlined), label: Text('accept_and_grant_points'.tr())),
-              OutlinedButton(onPressed: () => _resolveReport(report, action: 'accept'), child: Text('accept'.tr())),
-              OutlinedButton(onPressed: () => _resolveReport(report, action: 'request_information'), child: Text('request_info'.tr())),
-              TextButton(onPressed: () => _resolveReport(report, action: 'reject'), child: Text('reject'.tr())),
+            if (status == 'new' || status == 'information_requested' || status == 'under_review') ...[
+              ElevatedButton.icon(onPressed: () => _resolveReport(report), icon: const Icon(Icons.task_alt), label: Text('merchant_report_resolve'.tr())),
             ],
           ]),
         ]),
@@ -1104,26 +1097,158 @@ class _BrandDashboardScreenState extends State<BrandDashboardScreen> {
     );
   }
 
-  Future<void> _resolveReport(Map<String, dynamic> report, {required String action}) async {
-    String? note = action == 'reward' || action == 'accept' ? 'تمت مراجعة البلاغ من العلامة.' : null;
-    if (action == 'reject' || action == 'request_information') {
-      final controller = TextEditingController();
-      note = await showDialog<String>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text(action == 'reject' ? 'سبب الرفض' : 'المعلومات المطلوبة'),
-          content: TextField(controller: controller, maxLines: 3, decoration: const InputDecoration(labelText: 'ملاحظة للمستهلك')),
+  Widget _buildBrandStatusBadge(String status) {
+    final label = _brandStatusLabel(status);
+    final color = _brandStatusColor(status);
+    return Chip(
+      label: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700)),
+      backgroundColor: color.withValues(alpha: 0.12),
+      side: BorderSide(color: color.withValues(alpha: 0.4)),
+    );
+  }
+
+  String _brandStatusLabel(String status) {
+    switch (status) {
+      case 'new':
+      case 'under_review':
+        return 'report_status_under_review'.tr();
+      case 'information_requested':
+        return 'report_status_information_requested'.tr();
+      case 'accepted':
+        return 'report_status_responded'.tr();
+      case 'reward_granted':
+        return 'report_status_compensated'.tr();
+      case 'rejected':
+        return 'report_status_rejected'.tr();
+      case 'closed':
+        return 'report_status_closed'.tr();
+      default:
+        return status;
+    }
+  }
+
+  Color _brandStatusColor(String status) {
+    switch (status) {
+      case 'new':
+      case 'under_review':
+      case 'information_requested':
+        return const Color(0xFFE67E22);
+      case 'accepted':
+        return const Color(0xFF1B7A66);
+      case 'reward_granted':
+        return const Color(0xFF2E80ED);
+      case 'rejected':
+        return const Color(0xFFE53935);
+      case 'closed':
+        return Colors.grey;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Future<void> _resolveReport(Map<String, dynamic> report) async {
+    var note = '';
+    var grantPoints = false;
+    var points = 0;
+    var sendGift = false;
+    String? selectedGiftTitle;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('brand_report_resolve_title'.tr()),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('brand_report_manual_response_hint'.tr(), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 12),
+                TextField(
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: 'merchant_report_thank_you_note'.tr(),
+                    border: const OutlineInputBorder(),
+                  ),
+                  onChanged: (value) => setDialogState(() => note = value),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: grantPoints,
+                  title: Text('merchant_report_grant_reward'.tr()),
+                  onChanged: (value) => setDialogState(() => grantPoints = value),
+                ),
+                if (grantPoints)
+                  TextFormField(
+                    initialValue: '10',
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(labelText: 'merchant_report_reward_points'.tr()),
+                    onChanged: (value) => setDialogState(() => points = int.tryParse(value) ?? 0),
+                  ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: sendGift,
+                  title: Text('merchant_report_send_gift'.tr()),
+                  onChanged: (value) => setDialogState(() => sendGift = value),
+                ),
+                if (sendGift)
+                  DropdownButtonFormField<String>(
+                    value: selectedGiftTitle,
+                    decoration: InputDecoration(labelText: 'merchant_report_select_gift'.tr()),
+                    items: [
+                      'merchant_report_gift_discount'.tr(),
+                      'merchant_report_gift_free_item'.tr(),
+                      'merchant_report_gift_service_credit'.tr(),
+                    ].map((title) => DropdownMenuItem(value: title, child: Text(title))).toList(growable: false),
+                    onChanged: (value) => setDialogState(() => selectedGiftTitle = value),
+                  ),
+              ],
+            ),
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext), child: Text('cancel'.tr())),
-            FilledButton(onPressed: () { final value = controller.text.trim(); if (value.isNotEmpty) Navigator.pop(dialogContext, value); }, child: Text('confirm'.tr())),
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text('cancel'.tr())),
+            FilledButton(
+              onPressed: note.trim().isEmpty || (grantPoints && points <= 0) || (sendGift && selectedGiftTitle == null)
+                  ? null
+                  : () => Navigator.pop(dialogContext, true),
+              child: Text('confirm'.tr()),
+            ),
           ],
         ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final action = (grantPoints && points > 0) || sendGift ? 'reward' : 'accept';
+      await CompanyServerService.resolveBrandReport(
+        (report['id'] ?? '').toString(),
+        action: action,
+        grantReward: grantPoints && points > 0,
+        rewardPoints: points,
+        resolutionNote: note.trim(),
       );
-      controller.dispose();
-      if (note == null) return;
+      if (sendGift && mounted) {
+        final customerId = (report['ownerId'] ?? report['customerUserId'] ?? '').toString();
+        final brandName = (report['brandName'] ?? report['targetBrandNameSnapshot'] ?? 'Brand').toString();
+        if (customerId.isNotEmpty) {
+          await CompanyServerService.dispatchDirectGift(
+            customerUserId: customerId,
+            merchantName: brandName,
+            thresholdPoints: grantPoints && points > 0 ? points : 0,
+            voucherOptions: selectedGiftTitle == null
+                ? null
+                : [<String, dynamic>{'title': selectedGiftTitle, 'subtitle': 'merchant_report_gift_from_report'.tr()}],
+          );
+        }
+      }
+      await _load();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${'brand_report_resolve_failed'.tr()}: $error')),
+      );
     }
-    await CompanyServerService.resolveBrandReport((report['id'] ?? '').toString(), action: action, grantReward: action == 'reward', rewardPoints: 10, resolutionNote: note);
-    await _load();
   }
 
   Widget _buildOverviewTab() {

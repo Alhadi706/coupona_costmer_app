@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../screens/full_map_screen.dart';
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
+import 'stores_map_view.dart';
 
 class MapBar extends StatefulWidget {
   final VoidCallback? onExpand;
@@ -115,35 +116,15 @@ class _MapBarState extends State<MapBar> {
                   width: double.infinity,
                   child: Stack(
                     children: [
-                      FlutterMap(
-                        options: MapOptions(
-                          initialCenter: filteredStores.isNotEmpty
-                              ? LatLng(_toDouble(filteredStores[0]['lat']), _toDouble(filteredStores[0]['lng']))
-                              : _tripoliDefaultCenter,
-                          initialZoom: 12.0,
-                          interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
-                        ),
-                        children: [
-                          TileLayer(
-                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.example.coupona_app',
-                            tileProvider: NetworkTileProvider(),
-                          ),
-                          MarkerLayer(
-                            markers: [
-                              for (final store in filteredStores)
-                                Marker(
-                                  width: 40,
-                                  height: 40,
-                                  point: LatLng(_toDouble(store['lat']), _toDouble(store['lng'])),
-                                  child: GestureDetector(
-                                    onTap: () => _showStoreDetails(store),
-                                    child: const Icon(Icons.location_on, color: Colors.red, size: 36),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
+                      StoresMapView(
+                        stores: filteredStores,
+                        initialCenter: filteredStores.isNotEmpty
+                            ? LatLng(_toDouble(filteredStores[0]['lat']), _toDouble(filteredStores[0]['lng']))
+                            : _tripoliDefaultCenter,
+                        initialZoom: 12.0,
+                        markerColor: kGold,
+                        onStoreTap: _showStoreDetails,
+                        interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
                       ),
                       Positioned(
                         bottom: 12,

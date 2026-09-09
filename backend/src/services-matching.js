@@ -8,6 +8,8 @@ async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantP
   const summary = {
     merchantPoints: 0,
     merchantFraction: 0,
+    merchantTier: null,
+    merchantCoalitionId: null,
     degradedLocalMode: false,
     merchantTokenBalance: null,
     pendingMerchantPoints: 0,
@@ -87,25 +89,18 @@ async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantP
         `, [merchantProfileId]);
         const tier = tierRow?.tier || 'bronze';
         const coalitionId = tierRow?.coalition_id || null;
-        const pending = tokenBalance < calc.points;
-        const balanceAfter = pending ? tokenBalance : tokenBalance - calc.points;
+        const goldFunded = tier === 'gold' && tokenBalance >= calc.points;
+        const issuanceTier = tier === 'gold' && !goldFunded ? 'bronze' : tier;
+        const issuanceCoalitionId = issuanceTier === 'bronze' ? null : coalitionId;
+        const balanceAfter = goldFunded ? tokenBalance - calc.points : tokenBalance;
         await client.query(
           `UPDATE merchant_token_wallets
               SET balance = $2,
                   is_local_mode = $3,
                   last_updated_at = NOW()
             WHERE merchant_id = $1`,
-          [merchantProfileId, balanceAfter, false]
+          [merchantProfileId, balanceAfter, tier === 'gold' && !goldFunded]
         );
-        if (pending) {
-          await client.query(`
-            INSERT INTO customer_pending_points
-              (id, customer_id, merchant_id, invoice_id, points, points_remaining, tier, coalition_id)
-            VALUES ($1, $2, $3, $4, $5, $5, $6, $7)
-          `, [id(), ownerId, merchantProfileId, invoiceId, calc.points, tier, coalitionId]);
-          summary.pendingMerchantPoints = calc.points;
-          summary.merchantPoints = 0;
-        }
         await client.query(
           `INSERT INTO merchant_token_ledger
             (id, merchant_id, customer_user_id, receipt_id, type, amount, balance_after, created_at)
@@ -115,8 +110,9 @@ async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantP
             merchantProfileId,
             ownerId,
             invoiceId,
-            pending ? 'points_pending' : 'points_debited',
-            pending ? 0 : calc.points,
+            issuanceTier === 'gold' ? 'ISSUANCE_GOLD'
+              : issuanceTier === 'silver' ? 'SILVER_ISSUANCE' : 'BRONZE_ISSUANCE',
+            goldFunded ? calc.points : 0,
             balanceAfter,
           ]
         );
@@ -135,9 +131,11 @@ async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantP
           )`,
           [id(), ownerId, merchantProfileId, invoiceId, calc.points, before, calc.newFraction]
         );
-        if (!pending) summary.merchantPoints = calc.points;
+        summary.merchantPoints = calc.points;
         summary.merchantFraction = calc.newFraction;
-        summary.degradedLocalMode = false;
+        summary.merchantTier = issuanceTier;
+        summary.merchantCoalitionId = issuanceCoalitionId;
+        summary.degradedLocalMode = tier === 'gold' && !goldFunded;
         summary.merchantTokenBalance = balanceAfter;
       }
     }
@@ -248,25 +246,9 @@ async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantP
   const totalAwardedPoints = summary.merchantPoints + summary.brandPoints;
   if (totalAwardedPoints > 0) {
     if (summary.merchantPoints > 0 && merchantProfileId) {
-      const { rows: [merchantTier] } = await client.query(`
-        SELECT
-          CASE WHEN mp.is_public_coalition_active THEN 'gold'
-               WHEN EXISTS (
-                 SELECT 1 FROM coalition_members cm
-                 JOIN coalitions c ON c.id = cm.coalition_id
-                 WHERE cm.merchant_id = mp.id AND c.type = 'private' AND c.is_active = TRUE
-               ) THEN 'silver'
-               ELSE 'bronze' END AS tier,
-          CASE WHEN mp.is_public_coalition_active THEN NULL ELSE mp.id END AS merchant_id,
-          CASE WHEN mp.is_public_coalition_active THEN NULL ELSE (
-            SELECT cm.coalition_id FROM coalition_members cm
-            JOIN coalitions c ON c.id = cm.coalition_id
-            WHERE cm.merchant_id = mp.id AND c.type = 'private' AND c.is_active = TRUE
-            ORDER BY cm.joined_at ASC LIMIT 1
-          ) END AS coalition_id
-        FROM merchant_profiles mp WHERE mp.id = $1
-      `, [merchantProfileId]);
-      const tier = merchantTier?.tier || 'bronze';
+      const tier = summary.merchantTier || 'bronze';
+      const tierMerchantId = tier === 'gold' ? null : merchantProfileId;
+      const tierCoalitionId = tier === 'bronze' ? null : summary.merchantCoalitionId;
       await client.query(`
         INSERT INTO customer_point_tiers
           (id, customer_id, tier, merchant_id, coalition_id, balance, lifetime_earned)
@@ -275,13 +257,16 @@ async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantP
         DO UPDATE SET balance = customer_point_tiers.balance + EXCLUDED.balance,
                       lifetime_earned = customer_point_tiers.lifetime_earned + EXCLUDED.lifetime_earned,
                       updated_at = NOW()
-      `, [id(), ownerId, tier, merchantTier?.merchant_id || null, merchantTier?.coalition_id || null, summary.merchantPoints]);
+      `, [id(), ownerId, tier, tierMerchantId, tierCoalitionId, summary.merchantPoints]);
 
       const coalitionQuery = tier === 'gold'
         ? `SELECT id FROM coalitions WHERE id = 'public-platform-coalition' AND is_active = TRUE`
-        : `SELECT coalition_id AS id FROM coalition_members WHERE merchant_id = $1
-             AND EXISTS (SELECT 1 FROM coalitions c WHERE c.id = coalition_members.coalition_id AND c.type = 'private' AND c.is_active = TRUE)`;
-      const { rows: tierCoalitions } = await client.query(coalitionQuery, tier === 'gold' ? [] : [merchantProfileId]);
+        : tier === 'silver' ? `SELECT coalition_id AS id FROM coalition_members WHERE merchant_id = $1
+             AND EXISTS (SELECT 1 FROM coalitions c WHERE c.id = coalition_members.coalition_id AND c.type = 'private' AND c.is_active = TRUE)`
+          : null;
+      const { rows: tierCoalitions } = coalitionQuery
+        ? await client.query(coalitionQuery, tier === 'gold' ? [] : [merchantProfileId])
+        : { rows: [] };
       for (const coalition of tierCoalitions) {
         await client.query(`
           INSERT INTO customer_merchant_point_balances

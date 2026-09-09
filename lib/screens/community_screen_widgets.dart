@@ -1354,10 +1354,16 @@ class _CommunityPrivateChatsTabState extends State<CommunityPrivateChatsTab> {
 }
 
 class PrivateChatScreen extends StatefulWidget {
-  const PrivateChatScreen({super.key, required this.chatId, required this.title});
+  const PrivateChatScreen({
+    super.key,
+    required this.chatId,
+    required this.title,
+    this.initialMessage,
+  });
 
   final String chatId;
   final String title;
+  final String? initialMessage;
 
   @override
   State<PrivateChatScreen> createState() => _PrivateChatScreenState();
@@ -1370,6 +1376,9 @@ class _PrivateChatScreenState extends State<PrivateChatScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialMessage != null && widget.initialMessage!.isNotEmpty) {
+      _messageController.text = widget.initialMessage!;
+    }
     _markAsRead();
   }
 

@@ -75,9 +75,9 @@ class _CustomerReportsScreenState extends State<CustomerReportsScreen> {
       case 'information_requested':
         return _tx('report_status_information_requested', 'Information requested');
       case 'accepted':
-        return _tx('report_status_accepted', 'Accepted');
+        return _tx('report_status_responded', 'Responded');
       case 'reward_granted':
-        return _tx('report_status_reward_granted', 'Reward granted');
+        return _tx('report_status_compensated', 'Compensated');
       case 'rejected':
         return _tx('report_status_rejected', 'Rejected');
       case 'closed':

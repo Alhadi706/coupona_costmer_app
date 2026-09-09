@@ -1,5 +1,6 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import '../dialogs/create_banner_dialog.dart';
 import '../services/company_server_service.dart';
 import 'merchant_campaign_screen.dart';
 
@@ -155,7 +156,7 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(ctx).viewInsets.bottom,
         ),
-        child: _AddBannerModal(
+        child: CreateBannerDialog(
           onAdd: (newBanner) {
             setState(() {
               _campaigns.insert(0, newBanner);
@@ -613,187 +614,6 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
       child: Text(
         text,
         style: TextStyle(fontSize: 12, color: fg, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-}
-
-/// Modal Sheet for creating a new Ad Banner with Form Validation
-class _AddBannerModal extends StatefulWidget {
-  final ValueChanged<Map<String, dynamic>> onAdd;
-
-  const _AddBannerModal({required this.onAdd});
-
-  @override
-  State<_AddBannerModal> createState() => _AddBannerModalState();
-}
-
-class _AddBannerModalState extends State<_AddBannerModal> {
-  final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _linkController = TextEditingController();
-  final _imageUrlController = TextEditingController();
-
-  String _selectedAudience = 'كافة الزبائن';
-  DateTime _expiryDate = DateTime.now().add(const Duration(days: 30));
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _linkController.dispose();
-    _imageUrlController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _selectExpiryDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _expiryDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null) {
-      setState(() => _expiryDate = picked);
-    }
-  }
-
-  void _submitForm() {
-    if (_formKey.currentState?.validate() ?? false) {
-      final newBanner = {
-        'id': 'banner-${DateTime.now().millisecondsSinceEpoch}',
-        'title': _titleController.text.trim(),
-        'targetLink': _linkController.text.trim().isNotEmpty
-            ? _linkController.text.trim()
-            : 'الصفحة الرئيسية',
-        'campaign_type': 'BANNER',
-        'status': 'active',
-        'issued_count': 0,
-        'redeemed_count': 0,
-        'ends_at': _expiryDate.toString().split(' ').first,
-        'audience': _selectedAudience,
-        'image_url': _imageUrlController.text.trim(),
-      };
-
-      widget.onAdd(newBanner);
-      Navigator.of(context).pop();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.add_photo_alternate, color: kMerchantPrimary),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'إضافة بانر إعلاني رئيسي جديد',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-              const Divider(),
-              const SizedBox(height: 8),
-
-              // Title Field
-              TextFormField(
-                key: const Key('banner-title-field'),
-                controller: _titleController,
-                decoration: const InputDecoration(
-                  labelText: 'عنوان الإعلان *',
-                  hintText: 'مثال: خصم 20% على حلويات العيد',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'يرجى إدخال عنوان الإعلان';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-
-              // Target Link / Product
-              TextFormField(
-                key: const Key('banner-link-field'),
-                controller: _linkController,
-                decoration: const InputDecoration(
-                  labelText: 'الرابط / القسم المربوط',
-                  hintText: 'مثال: قسم العصائر أو قسم العروض الخاصة',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Image URL / path
-              TextFormField(
-                key: const Key('banner-image-field'),
-                controller: _imageUrlController,
-                decoration: const InputDecoration(
-                  labelText: 'رابط صورة الإعلان (اختياري)',
-                  hintText: 'https://example.com/banner.png',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Audience Selection Dropdown
-              DropdownButtonFormField<String>(
-                initialValue: _selectedAudience,
-                decoration: const InputDecoration(
-                  labelText: 'الجمهور المستهدف',
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'كافة الزبائن', child: Text('كافة الزبائن')),
-                  DropdownMenuItem(value: 'أفضل العملاء', child: Text('أفضل العملاء (Top Spenders)')),
-                  DropdownMenuItem(
-                      value: 'العملاء غير النشطين', child: Text('العملاء غير النشطين (Inactive)')),
-                ],
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedAudience = val);
-                },
-              ),
-              const SizedBox(height: 12),
-
-              // Expiry Date Selection
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('تاريخ انتهاء الإعلان'),
-                subtitle: Text(_expiryDate.toString().split(' ').first),
-                trailing: const Icon(Icons.calendar_today, color: kMerchantPrimary),
-                onTap: _selectExpiryDate,
-              ),
-              const SizedBox(height: 16),
-
-              // Submit Button
-              ElevatedButton(
-                key: const Key('submit-banner-btn'),
-                onPressed: _submitForm,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: kMerchantPrimary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('إطلاق البانر الإعلاني', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

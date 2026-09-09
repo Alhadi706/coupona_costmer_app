@@ -27,7 +27,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'merchant_invoices_screen.dart';
 import 'merchant_networks_screen.dart';
 import 'merchant_reports_screen.dart';
-import 'gift_management_screen.dart';
+import 'merchant_gift_trigger.dart';
 
 part 'merchant_dashboard/merchant_dashboard_helpers.dart';
 part 'merchant_dashboard/merchant_dashboard_analytics.dart';
@@ -113,6 +113,10 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   List<Map<String, dynamic>> _merchantRewardClaims = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _merchantProducts = <Map<String, dynamic>>[];
   Map<String, dynamic> _analytics = const <String, dynamic>{};
+
+  void _updateFormState(VoidCallback fn) {
+    if (mounted) setState(fn);
+  }
   Map<String, dynamic> _roles = const <String, dynamic>{};
   Map<String, dynamic> _merchantProfile = const <String, dynamic>{};
 
@@ -423,17 +427,69 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   }
 
   Future<void> _bindCashier() async {
+    final branchId = _cashierBranchIdController.text.trim();
+    final input = _cashierUserIdController.text.trim();
+
+    if (branchId.isEmpty) {
+      final msg = _tx('merchant_branch_required', 'الرجاء اختيار أو إدخال الفرع أولاً');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+      setState(() {
+        _result = msg;
+      });
+      return;
+    }
+
+    if (input.isEmpty) {
+      final msg = _tx('cashier_phone_or_id_required', 'الرجاء إدخال رقم هاتف الكاشير أو معرف المستخدم');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+      setState(() {
+        _result = msg;
+      });
+      return;
+    }
+
+    String? cashierUserId;
+    String? cashierPhone;
+
+    final isPhone = RegExp(r'^\+?[0-9]{7,15}$').hasMatch(input) ||
+        input.startsWith('09') ||
+        input.startsWith('05') ||
+        input.startsWith('+');
+
+    if (isPhone) {
+      cashierPhone = input;
+    } else {
+      cashierUserId = input;
+    }
+
     try {
       final data = await CompanyServerService.bindCashierToBranch(
-        branchId: _cashierBranchIdController.text.trim(),
-        cashierUserId: _cashierUserIdController.text.trim(),
+        branchId: branchId,
+        cashierUserId: cashierUserId,
+        cashierPhone: cashierPhone,
       );
+      final successMsg = 'merchant_cashier_bound'.tr(namedArgs: {'id': '${data['id'] ?? ''}'});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(successMsg)));
+      }
       setState(() {
-        _result = 'merchant_cashier_bound'.tr(namedArgs: {'id': '${data['id'] ?? ''}'});
+        _result = successMsg;
+        _cashierUserIdController.clear();
       });
     } catch (e) {
+      String errMsg = e.toString();
+      if (e is StateError && e.message == 'cashierUserId_or_cashierPhone_required') {
+        errMsg = _tx('cashier_phone_or_id_required', 'الرجاء إدخال رقم هاتف الكاشير أو معرف المستخدم بشكل صحيح');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errMsg)));
+      }
       setState(() {
-        _result = e.toString();
+        _result = errMsg;
       });
     }
   }
@@ -986,20 +1042,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.manage_accounts_outlined, color: kTeal),
-              title: Text('merchant_team_title'.tr()),
-              subtitle: Text('merchant_team_open_hint'.tr()),
-              trailing: const Icon(Icons.chevron_left),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => MerchantTeamScreen(branches: _branches),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
           _buildStoreManagementForms(),
         ],
       ),
@@ -1248,7 +1290,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                 ElevatedButton.icon(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => GiftManagementScreen(ownerLabel: 'merchant_owner_label'.tr()),
+                      builder: (_) => const MerchantGiftTrigger(),
                     ),
                   ),
                   style: ElevatedButton.styleFrom(

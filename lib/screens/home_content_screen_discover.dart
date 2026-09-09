@@ -1,52 +1,42 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../theme/design_tokens.dart';
+import '../widgets/stores_map_view.dart';
 import 'store_details_screen.dart';
 
 Widget buildDiscoverMap(dynamic state, List<Map<String, dynamic>> stores) {
-  final center = stores.isNotEmpty
-      ? LatLng(_toDouble(stores.first['lat']), _toDouble(stores.first['lng']))
-      : (state.customerLat == null || state.customerLng == null)
-      ? state.tripoliDefaultCenter
-      : LatLng(state.customerLat!, state.customerLng!);
+  final firstValid = stores.cast<Map<String, dynamic>>().firstWhere(
+    (store) => _safeReadCoordinate(store, ['lat', 'latitude']) != null &&
+        _safeReadCoordinate(store, ['lng', 'longitude']) != null,
+    orElse: () => <String, dynamic>{},
+  );
+
+  final center = (state.customerLat != null && state.customerLng != null)
+      ? LatLng(state.customerLat!, state.customerLng!)
+      : firstValid.isNotEmpty
+      ? LatLng(
+          _safeReadCoordinate(firstValid, ['lat', 'latitude']) ?? 0,
+          _safeReadCoordinate(firstValid, ['lng', 'longitude']) ?? 0,
+        )
+      : state.tripoliDefaultCenter;
+
   return SizedBox(
     height: 260,
     child: ClipRRect(
       borderRadius: BorderRadius.circular(14),
-      child: FlutterMap(
-        options: MapOptions(initialCenter: center, initialZoom: 12),
-        children: [
-          TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.kupuna.coupona',
+      child: StoresMapView(
+        stores: stores,
+        initialCenter: center,
+        initialZoom: 12,
+        markerColor: kGold,
+        onStoreTap: (store) => Navigator.of(state.context).push(
+          MaterialPageRoute(
+            builder: (_) => StoreDetailsScreen(store: store),
           ),
-          MarkerLayer(
-            markers: stores
-                .map(
-                  (store) => Marker(
-                    width: 42,
-                    height: 42,
-                    point: LatLng(
-                      _toDouble(store['lat']),
-                      _toDouble(store['lng']),
-                    ),
-                    child: Tooltip(
-                      message: (store['name'] ?? '').toString(),
-                      child: const Icon(
-                        Icons.location_on,
-                        color: Colors.red,
-                        size: 36,
-                      ),
-                    ),
-                  ),
-                )
-                .toList(growable: false),
-          ),
-        ],
+        ),
       ),
     ),
   );
@@ -292,6 +282,29 @@ String _storePointTierLabel(dynamic tier) {
 double _toDouble(dynamic value) {
   if (value is num) return value.toDouble();
   return double.tryParse((value ?? '').toString()) ?? 0;
+}
+
+double? _safeReadCoordinate(Map<String, dynamic> store, List<String> keys) {
+  for (final key in keys) {
+    final value = store[key];
+    if (value != null) {
+      final parsed = double.tryParse(value.toString());
+      if (parsed != null) return parsed;
+    }
+  }
+
+  final nested = store['location'];
+  if (nested is Map) {
+    for (final key in keys) {
+      final value = nested[key];
+      if (value != null) {
+        final parsed = double.tryParse(value.toString());
+        if (parsed != null) return parsed;
+      }
+    }
+  }
+
+  return null;
 }
 
 double _distanceKm(

@@ -20,5 +20,26 @@ void main() {
     expect(find.text('⚡ وضع الكاشير'), findsOneWidget);
     expect(find.text('منح نقاط'), findsOneWidget);
     expect(find.text('تسليم مكافأة'), findsOneWidget);
+    expect(find.byKey(const Key('cashier_mode_exit_button')), findsOneWidget);
+  });
+
+  testWidgets('cashier mode wrapper triggers onExit when close button is tapped', (tester) async {
+    bool exited = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: KupunaCashierModeScreenWrapper(
+          storeName: 'Store X',
+          onGrantPoints: () {},
+          onRedeemReward: () {},
+          onExit: () {
+            exited = true;
+          },
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('cashier_mode_exit_button')));
+    await tester.pumpAndSettle();
+    expect(exited, isTrue);
   });
 }

@@ -120,8 +120,7 @@
   "hide_chat": "Sohbeti gizle",
   "delete_from_list": "Listemden kaldır",
   "block_user": "Kullanıcıyı engelle",
-  "write_private_message_hint": "Özel mesaj yazın..."
-,
+  "write_private_message_hint": "Özel mesaj yazın...",
   "my_roles_title": "My Roles",
   "my_roles_active_role": "Current mode: {role}",
   "role_customer": "Customer",
@@ -140,8 +139,7 @@
   "role_mode_cashier": "Cashier Mode",
   "role_placeholder_merchant": "Merchant dashboard is under construction in this phase.",
   "role_placeholder_brand": "Brand dashboard is under construction in this phase.",
-  "role_placeholder_cashier": "Cashier tools will be enabled in a later phase."
-,
+  "role_placeholder_cashier": "Cashier tools will be enabled in a later phase.",
   "role_request_business_name": "Business name",
   "role_request_commercial_registration": "Commercial registration",
   "role_request_plan_type": "Plan type",
@@ -161,5 +159,19 @@
   "onboarding_p3_desc": "Daha fazla fırsattan yararlanın ve günlük alışverişlerinizde tasarruf edin.",
   "onboarding_skip": "Atla",
   "onboarding_next": "İleri",
-  "onboarding_start": "Başla"
+  "onboarding_start": "Başla",
+  "store_tab_overview": "Genel Bakış",
+  "store_tab_products": "Ürünler",
+  "store_tab_offers": "Teklifler",
+  "store_tab_rewards": "Ödüller",
+  "store_tab_coalitions": "Koalisyonlar",
+  "store_branches_title": "Mağaza Şubeleri",
+  "store_details_load_error": "Mağaza detayları yüklenemedi.",
+  "store_products_empty": "Bu mağaza için şu anda ürün bulunmamaktadır.",
+  "store_offers_empty": "Bu mağaza için şu anda teklif bulunmamaktadır.",
+  "store_rewards_empty": "Bu mağaza için şu anda ödül bulunmamaktadır.",
+  "store_coalitions_empty": "Bu mağaza şu anda herhangi bir koalisyona dahil değildir.",
+  "store_coalitions_value": "Koalisyonlar: {value}",
+  "store_coalition_public": "Açık Koalisyon",
+  "store_coalition_private": "Özel Koalisyon"
 }

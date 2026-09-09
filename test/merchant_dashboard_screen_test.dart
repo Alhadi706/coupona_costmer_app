@@ -180,4 +180,20 @@ void main() {
     expect(find.textContaining('redeemed'), findsOneWidget);
     expect(find.byTooltip('reward_claim:claim-123456789'), findsOneWidget);
   });
+
+  testWidgets('binding cashier with empty input shows validation message and prevents API crash', (tester) async {
+    await tester.pumpWidget(buildDashboard(cashierActive: false));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Store'));
+    await tester.pumpAndSettle();
+
+    final bindButton = find.text('ربط الكاشير بالفرع');
+    expect(bindButton, findsWidgets);
+    await tester.ensureVisible(bindButton.first);
+    await tester.tap(bindButton.first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('الرجاء اختيار أو إدخال الفرع أولاً'), findsWidgets);
+  });
 }

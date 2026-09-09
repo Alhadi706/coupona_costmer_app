@@ -56,10 +56,10 @@ void main() {
     )));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Invite team member'));
+    await tester.tap(find.byIcon(Icons.person_add_alt_1));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('merchant-team-identifier')), 'staff@example.com');
-    await tester.tap(find.text('canReviewInvoices'));
+    await tester.tap(find.text('مراجعة الفواتير'));
     await tester.pump();
     await tester.tap(find.byKey(const Key('merchant-team-send-invite')));
     await tester.pumpAndSettle();
@@ -120,10 +120,10 @@ void main() {
     )));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('canReviewInvoices'), findsOneWidget);
+    expect(find.textContaining('مراجعة الفواتير'), findsOneWidget);
     await tester.tap(find.byKey(const Key('merchant-team-edit-manager-manager-1')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('canCreateOffers'));
+    await tester.tap(find.text('إنشاء وتعديل العروض'));
     await tester.tap(find.byKey(const Key('merchant-team-save-permissions')));
     await tester.pumpAndSettle();
 

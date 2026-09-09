@@ -130,8 +130,6 @@
   "profile_settings": "Profile Settings",
   "notification_preferences": "Notification Preferences",
   "language_currency": "Language & Currency",
-  "privacy_settings": "Privacy Settings",
-  "location_settings": "Location Settings",
   "data_download": "Data Download",
   "download_my_data": "Download My Data",
   "data_deletion": "Data Deletion",
@@ -465,95 +463,92 @@
   "hide_chat": "Hide chat",
   "delete_from_list": "Remove from my list",
   "block_user": "Block user",
-  "write_private_message_hint": "Write a private message..."
-  ,"login_title": "Login"
-  ,"login_error": "Login error: {error}"
-  ,"enter_email": "Enter email."
-  ,"invalid_email_format": "Invalid email format."
-  ,"enter_password": "Enter password."
-  ,"password_min_length": "Password must be at least 8 characters."
-  ,"login_button": "Login"
-  ,"new_user_create_account": "New user? Create an account"
-  ,"signup_title": "Create new account"
-  ,"passwords_do_not_match": "Passwords do not match!"
-  ,"account_created_success": "Account created successfully."
-  ,"generic_error_with_message": "Error: {error}"
-  ,"confirm_password_prompt": "Confirm the password."
-  ,"signup_button": "Create account"
-  ,"available_offers_now_title": "Offers available now"
-  ,"untitled_offer": "Untitled"
-  ,"location_on_map": "Location on map"
-  ,"no_precise_coordinates_offer": "No precise coordinates for this offer"
-  ,"open_in_maps": "Open in maps"
-  ,"offer_details_title": "Offer details"
-  ,"conditions": "Conditions"
-  ,"phone_number": "Phone number"
-  ,"could_not_open_call": "Could not open call"
-  ,"call": "Call"
-  ,"share_offer": "Share offer"
-  ,"share_via": "Share via:"
-  ,"share_offer_text": "Offer from Coupona:\n{storeName}\n{description}\n{location}"
-  ,"whatsapp": "WhatsApp"
-  ,"facebook": "Facebook"
-  ,"telegram": "Telegram"
-  ,"shared_in_community_success": "Shared in Coupona community!"
-  ,"users_list_title": "Users list"
-  ,"no_users_found": "No users found"
-  ,"message": "Message"
-  ,"profile_no_data": "No profile data available"
-  ,"profile_email_value": "Email: {email}"
-  ,"profile_name_value": "Name: {name}"
-  ,"profile_gender_value": "Gender: {gender}"
-  ,"profile_city_value": "City: {city}"
-  ,"profile_country_value": "Country: {country}"
-  ,"report_issue_title": "Report an issue"
-  ,"report_issue_placeholder": "Report screen (under construction)"
-  ,"pick_location_on_map": "Pick location on map"
-  ,"choose_this_location": "Choose this location"
-  ,"my_points_value": "My points: {points}"
-  ,"day_value": "Day {day}"
-  ,"points_progress_last_7_days": "Your points progress over the last 7 days"
-  ,"reward_redeem_error": "Failed to redeem reward: {error}"
-  ,"complete_profile_title": "Complete profile"
-  ,"full_name": "Full name"
-  ,"male": "Male"
-  ,"female": "Female"
-  ,"gender": "Gender"
-  ,"city": "City"
-  ,"country": "Country"
-  ,"save_data": "Save data"
-  ,"profile_saved_success": "Data saved successfully!"
-  ,"profile_save_error": "Error saving data: {error}"
-  ,"coupon_lifecycle_title": "Coupon lifecycle engine"
-  ,"lifecycle_draft": "Draft"
-  ,"lifecycle_pending_review": "Pending review"
-  ,"lifecycle_approved": "Approved"
-  ,"lifecycle_rejected": "Rejected"
-  ,"lifecycle_active": "Active"
-  ,"lifecycle_redeemed": "Redeemed"
-  ,"lifecycle_expired": "Expired"
-  ,"lifecycle_archived": "Archived"
-  ,"offer_id_required": "Offer ID is required."
-  ,"lifecycle_load_success": "Offer lifecycle loaded successfully."
-  ,"lifecycle_bind_error": "Failed to bind offer: {error}"
-  ,"bind_offer_first": "Bind the offer first."
-  ,"lifecycle_changed_to": "Status changed to {status}."
-  ,"lifecycle_change_error": "Failed to change status: {error}"
-  ,"offer_id_label": "Offer ID"
-  ,"bind_offer": "Bind offer"
-  ,"lifecycle_reason_optional": "Action reason (optional)"
-  ,"offer_value": "Offer: {value}"
-  ,"last_updated_value": "Last updated: {value}"
-  ,"reason_value": "Reason: {value}"
-  ,"send_for_review": "Send for review"
-  ,"approve": "Approve"
-  ,"reject": "Reject"
-  ,"activate": "Activate"
-  ,"confirm_redemption": "Confirm redemption"
-  ,"expire": "Expire"
-  ,"archive": "Archive"
-  ,"lifecycle_note": "Note: this is an admin screen for managing offer states from draft to archive."
-,
+  "write_private_message_hint": "Write a private message...",
+  "login_title": "Login",
+  "login_error": "Login error: {error}",
+  "enter_email": "Enter email.",
+  "invalid_email_format": "Invalid email format.",
+  "enter_password": "Enter password.",
+  "password_min_length": "Password must be at least 8 characters.",
+  "login_button": "Login",
+  "new_user_create_account": "New user? Create an account",
+  "signup_title": "Create new account",
+  "passwords_do_not_match": "Passwords do not match!",
+  "account_created_success": "Account created successfully.",
+  "generic_error_with_message": "Error: {error}",
+  "confirm_password_prompt": "Confirm the password.",
+  "signup_button": "Create account",
+  "available_offers_now_title": "Offers available now",
+  "untitled_offer": "Untitled",
+  "location_on_map": "Location on map",
+  "no_precise_coordinates_offer": "No precise coordinates for this offer",
+  "open_in_maps": "Open in maps",
+  "offer_details_title": "Offer details",
+  "conditions": "Conditions",
+  "phone_number": "Phone number",
+  "could_not_open_call": "Could not open call",
+  "call": "Call",
+  "share_offer": "Share offer",
+  "share_via": "Share via:",
+  "share_offer_text": "Offer from Coupona:\n{storeName}\n{description}\n{location}",
+  "whatsapp": "WhatsApp",
+  "facebook": "Facebook",
+  "telegram": "Telegram",
+  "shared_in_community_success": "Shared in Coupona community!",
+  "users_list_title": "Users list",
+  "no_users_found": "No users found",
+  "profile_no_data": "No profile data available",
+  "profile_email_value": "Email: {email}",
+  "profile_name_value": "Name: {name}",
+  "profile_gender_value": "Gender: {gender}",
+  "profile_city_value": "City: {city}",
+  "profile_country_value": "Country: {country}",
+  "report_issue_title": "Report an issue",
+  "report_issue_placeholder": "Report screen (under construction)",
+  "pick_location_on_map": "Pick location on map",
+  "choose_this_location": "Choose this location",
+  "my_points_value": "My points: {points}",
+  "day_value": "Day {day}",
+  "points_progress_last_7_days": "Your points progress over the last 7 days",
+  "complete_profile_title": "Complete profile",
+  "full_name": "Full name",
+  "male": "Male",
+  "female": "Female",
+  "gender": "Gender",
+  "city": "City",
+  "country": "Country",
+  "save_data": "Save data",
+  "profile_saved_success": "Data saved successfully!",
+  "profile_save_error": "Error saving data: {error}",
+  "coupon_lifecycle_title": "Coupon lifecycle engine",
+  "lifecycle_draft": "Draft",
+  "lifecycle_pending_review": "Pending review",
+  "lifecycle_approved": "Approved",
+  "lifecycle_rejected": "Rejected",
+  "lifecycle_active": "Active",
+  "lifecycle_redeemed": "Redeemed",
+  "lifecycle_expired": "Expired",
+  "lifecycle_archived": "Archived",
+  "offer_id_required": "Offer ID is required.",
+  "lifecycle_load_success": "Offer lifecycle loaded successfully.",
+  "lifecycle_bind_error": "Failed to bind offer: {error}",
+  "bind_offer_first": "Bind the offer first.",
+  "lifecycle_changed_to": "Status changed to {status}.",
+  "lifecycle_change_error": "Failed to change status: {error}",
+  "offer_id_label": "Offer ID",
+  "bind_offer": "Bind offer",
+  "lifecycle_reason_optional": "Action reason (optional)",
+  "offer_value": "Offer: {value}",
+  "last_updated_value": "Last updated: {value}",
+  "reason_value": "Reason: {value}",
+  "send_for_review": "Send for review",
+  "approve": "Approve",
+  "reject": "Reject",
+  "activate": "Activate",
+  "confirm_redemption": "Confirm redemption",
+  "expire": "Expire",
+  "archive": "Archive",
+  "lifecycle_note": "Note: this is an admin screen for managing offer states from draft to archive.",
   "my_roles_title": "My Roles",
   "my_roles_active_role": "Current mode: {role}",
   "role_customer": "Customer",
@@ -572,8 +567,7 @@
   "role_mode_cashier": "Cashier Mode",
   "role_placeholder_merchant": "Merchant dashboard is under construction in this phase.",
   "role_placeholder_brand": "Brand dashboard is under construction in this phase.",
-  "role_placeholder_cashier": "Cashier tools will be enabled in a later phase."
-,
+  "role_placeholder_cashier": "Cashier tools will be enabled in a later phase.",
   "role_request_business_name": "Business name",
   "role_request_commercial_registration": "Commercial registration",
   "role_request_plan_type": "Plan type",
@@ -593,5 +587,19 @@
   "onboarding_p3_desc": "Aproveite mais ofertas e poupe nas suas compras diárias.",
   "onboarding_skip": "Ignorar",
   "onboarding_next": "Seguinte",
-  "onboarding_start": "Começar"
+  "onboarding_start": "Começar",
+  "store_tab_overview": "Visão Geral",
+  "store_tab_products": "Produtos",
+  "store_tab_offers": "Ofertas",
+  "store_tab_rewards": "Recompensas",
+  "store_tab_coalitions": "Coligações",
+  "store_branches_title": "Filiais da loja",
+  "store_details_load_error": "Falha ao carregar os detalhes da loja.",
+  "store_products_empty": "Nenhum produto disponível para esta loja no momento.",
+  "store_offers_empty": "Nenhuma oferta disponível para esta loja no momento.",
+  "store_rewards_empty": "Nenhuma recompensa disponível para esta loja no momento.",
+  "store_coalitions_empty": "Esta loja não faz parte de nenhuma coligação no momento.",
+  "store_coalitions_value": "Coligações: {value}",
+  "store_coalition_public": "Coligação pública",
+  "store_coalition_private": "Coligação privada"
 }

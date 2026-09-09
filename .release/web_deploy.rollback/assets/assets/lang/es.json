@@ -139,8 +139,7 @@
   "hide_chat": "Ocultar chat",
   "delete_from_list": "Eliminar de mi lista",
   "block_user": "Bloquear usuario",
-  "write_private_message_hint": "Escribe un mensaje privado..."
-,
+  "write_private_message_hint": "Escribe un mensaje privado...",
   "my_roles_title": "My Roles",
   "my_roles_active_role": "Current mode: {role}",
   "role_customer": "Customer",
@@ -159,8 +158,7 @@
   "role_mode_cashier": "Cashier Mode",
   "role_placeholder_merchant": "Merchant dashboard is under construction in this phase.",
   "role_placeholder_brand": "Brand dashboard is under construction in this phase.",
-  "role_placeholder_cashier": "Cashier tools will be enabled in a later phase."
-,
+  "role_placeholder_cashier": "Cashier tools will be enabled in a later phase.",
   "role_request_business_name": "Business name",
   "role_request_commercial_registration": "Commercial registration",
   "role_request_plan_type": "Plan type",
@@ -180,5 +178,19 @@
   "onboarding_p3_desc": "Disfruta de más ofertas y ahorra en tus compras diarias.",
   "onboarding_skip": "Omitir",
   "onboarding_next": "Siguiente",
-  "onboarding_start": "Empezar"
+  "onboarding_start": "Empezar",
+  "store_tab_overview": "Resumen",
+  "store_tab_products": "Productos",
+  "store_tab_offers": "Ofertas",
+  "store_tab_rewards": "Recompensas",
+  "store_tab_coalitions": "Coaliciones",
+  "store_branches_title": "Sucursales de la tienda",
+  "store_details_load_error": "Error al cargar los detalles de la tienda.",
+  "store_products_empty": "No hay productos disponibles para esta tienda actualmente.",
+  "store_offers_empty": "No hay ofertas disponibles para esta tienda actualmente.",
+  "store_rewards_empty": "No hay recompensas disponibles para esta tienda actualmente.",
+  "store_coalitions_empty": "Esta tienda no forma parte de ninguna coalición actualmente.",
+  "store_coalitions_value": "Coaliciones: {value}",
+  "store_coalition_public": "Coalición pública",
+  "store_coalition_private": "Coalición privada"
 }

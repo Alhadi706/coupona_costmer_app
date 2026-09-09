@@ -1,22 +1,56 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 import '../../services/company_server_service.dart';
+import '../../services/export_download.dart';
 import '../../theme/design_tokens.dart';
+import 'coalition_clearinghouse_widgets.dart';
+
+typedef ClearinghouseLoader = Future<Map<String, dynamic>> Function();
+typedef ClearinghouseSettler = Future<Map<String, dynamic>> Function({
+  required String coalitionId,
+  required String toMerchantId,
+  required String period,
+});
 
 class CoalitionClearinghouseScreen extends StatefulWidget {
-  const CoalitionClearinghouseScreen({super.key});
+  final ClearinghouseLoader? clearinghouseLoader;
+  final ClearinghouseLoader? ledgerLoader;
+  final ClearinghouseSettler? settler;
+  final Duration requestTimeout;
+
+  const CoalitionClearinghouseScreen({
+    super.key,
+    this.clearinghouseLoader,
+    this.ledgerLoader,
+    this.settler,
+    this.requestTimeout = const Duration(seconds: 15),
+  });
 
   @override
-  State<CoalitionClearinghouseScreen> createState() => _CoalitionClearinghouseScreenState();
+  State<CoalitionClearinghouseScreen> createState() =>
+      _CoalitionClearinghouseScreenState();
 }
 
-class _CoalitionClearinghouseScreenState extends State<CoalitionClearinghouseScreen> {
+class _CoalitionClearinghouseScreenState
+    extends State<CoalitionClearinghouseScreen> {
   bool _loading = true;
+  bool _settling = false;
   String? _error;
-  List<Map<String, dynamic>> _summary = const <Map<String, dynamic>>[];
+  Map<String, dynamic> _summary = const <String, dynamic>{};
+  List<Map<String, dynamic>> _members = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _ledger = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _disputes = const <Map<String, dynamic>>[];
+
+  ClearinghouseLoader get _clearinghouseLoader =>
+      widget.clearinghouseLoader ??
+      CompanyServerService.getMerchantCoalitionClearinghouse;
+
+  ClearinghouseLoader get _ledgerLoader =>
+      widget.ledgerLoader ?? CompanyServerService.getMerchantCoalitionLedger;
 
   @override
   void initState() {
@@ -31,251 +65,199 @@ class _CoalitionClearinghouseScreenState extends State<CoalitionClearinghouseScr
     });
 
     try {
-      final results = await Future.wait(<Future<dynamic>>[
-        CompanyServerService.getMerchantCoalitionClearinghouse(),
-        CompanyServerService.getMerchantCoalitionLedger(),
+      final results = await Future.wait(<Future<Map<String, dynamic>>>[
+        _clearinghouseLoader().timeout(widget.requestTimeout),
+        _ledgerLoader().timeout(widget.requestTimeout),
       ]);
-
       if (!mounted) return;
+      final clearinghouse = results[0];
       setState(() {
-        _summary = List<Map<String, dynamic>>.from((results[0] as Map<String, dynamic>)['statements'] ?? const <dynamic>[]);
-        _disputes = List<Map<String, dynamic>>.from((results[0] as Map<String, dynamic>)['disputes'] ?? const <dynamic>[]);
-        _ledger = List<Map<String, dynamic>>.from((results[1] as Map<String, dynamic>)['ledger'] ?? const <dynamic>[]);
+        _summary = _map(clearinghouse['summary']);
+        _members = _maps(
+          clearinghouse['memberSettlements'] ?? clearinghouse['statements'],
+        );
+        _disputes = _maps(clearinghouse['disputes']);
+        _ledger = _maps(
+          clearinghouse['settlementHistory'] ?? results[1]['ledger'],
+        );
       });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _error = error.toString();
-      });
+    } on TimeoutException {
+      if (mounted) setState(() => _error = 'clearinghouse_timeout'.tr());
+    } catch (_) {
+      if (mounted) setState(() => _error = 'clearinghouse_load_error'.tr());
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _settleMonth(Map<String, dynamic> row) async {
+  Map<String, dynamic> _map(dynamic value) => value is Map
+      ? Map<String, dynamic>.from(value)
+      : const <String, dynamic>{};
+
+  List<Map<String, dynamic>> _maps(dynamic value) => value is List
+      ? value
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList(growable: false)
+      : const <Map<String, dynamic>>[];
+
+  Future<void> _confirmSettlement([Map<String, dynamic>? selected]) async {
+    final pending = selected == null
+        ? _members.where(_canSettle).toList(growable: false)
+        : <Map<String, dynamic>>[selected];
+    if (pending.isEmpty || _settling) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.account_balance_outlined),
+        title: Text('clearinghouse_confirm_title'.tr()),
+        content: Text(
+          'clearinghouse_confirm_body'.tr(
+            namedArgs: {'count': pending.length.toString()},
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('cancel'.tr()),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('confirm'.tr()),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _settling = true);
     try {
-      await CompanyServerService.settleMerchantCoalitionClearinghouse(
-        coalitionId: (row['coalition_id'] ?? row['coalitionId'] ?? '').toString(),
-        toMerchantId: (row['to_merchant_id'] ?? row['toMerchantId'] ?? '').toString(),
-        period: (row['period'] ?? '').toString(),
-      );
+      final settle = widget.settler ??
+          CompanyServerService.settleMerchantCoalitionClearinghouse;
+      for (final row in pending) {
+        await settle(
+          coalitionId: (row['coalition_id'] ?? row['coalitionId'] ?? '')
+              .toString(),
+          toMerchantId:
+              (row['to_merchant_id'] ?? row['toMerchantId'] ?? '').toString(),
+          period: (row['period'] ?? '').toString(),
+        ).timeout(widget.requestTimeout);
+      }
       await _load();
-      if (!mounted) return;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('clearinghouse_settlement_confirmed'.tr())),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('clearinghouse_settlement_error'.tr())),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _settling = false);
+    }
+  }
+
+  bool _canSettle(Map<String, dynamic> row) {
+    final status = (row['status'] ?? '').toString();
+    final net = double.tryParse((row['net_amount'] ?? 0).toString()) ?? 0;
+    return status != 'completed' && row['settled'] != true && net < 0;
+  }
+
+  Future<void> _respondToDispute(
+    Map<String, dynamic> dispute,
+    String status,
+  ) async {
+    var note = '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('settlement_dispute_response'.tr()),
+        content: TextField(onChanged: (value) => note = value, maxLines: 3),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('cancel'.tr()),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('confirm'.tr()),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || note.trim().isEmpty) return;
+    await CompanyServerService.respondToBrandSettlementDispute(
+      disputeId: dispute['id'].toString(),
+      status: status,
+      note: note.trim(),
+    );
+    await _load();
+  }
+
+  Future<void> _downloadReceipt(Map<String, dynamic> row) async {
+    final pdf = pw.Document();
+    final reference = (row['id'] ?? row['reward_claim_id'] ?? '-').toString();
+    pdf.addPage(pw.Page(build: (_) => pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Header(level: 0, child: pw.Text('Kupuna Settlement Receipt')),
+        pw.Text('Reference: $reference'),
+        pw.Text('Coalition: ${row['coalition_name'] ?? '-'}'),
+        pw.Text('From: ${row['from_merchant'] ?? '-'}'),
+        pw.Text('To: ${row['to_merchant'] ?? '-'}'),
+        pw.Text('Net points: ${row['net_points'] ?? row['total_points'] ?? 0}'),
+        pw.Text('Date: ${row['settled_at'] ?? row['created_at'] ?? '-'}'),
+      ],
+    )));
+    final ok = await downloadBytes(
+      bytes: await pdf.save(),
+      fileName: 'settlement-$reference.pdf',
+      mimeType: 'application/pdf',
+    );
+    if (mounted && !ok) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('clearinghouse_settlement_confirmed'.tr())),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
+        SnackBar(content: Text('clearinghouse_pdf_error'.tr())),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_error != null) {
-      return Center(child: Text(_error!, style: const TextStyle(color: kGold)));
-    }
-
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _buildSummaryCards(),
-          const SizedBox(height: 16),
-          _buildUsageGuide(),
-          const SizedBox(height: 16),
-          _buildDisputes(),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'clearinghouse_detailed_ledger'.tr(),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+    return Scaffold(
+      backgroundColor: kMerchantBg,
+      appBar: AppBar(
+        title: Text('merchant_nav_clearinghouse'.tr()),
+        actions: [
+          IconButton(
+            tooltip: 'clearinghouse_refresh'.tr(),
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? ClearinghouseErrorState(message: _error!, onRetry: _load)
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ClearinghouseContent(
+                    summary: _summary,
+                    members: _members,
+                    ledger: _ledger,
+                    disputes: _disputes,
+                    settling: _settling,
+                    canSettle: _canSettle,
+                    onSettleAll: _confirmSettlement,
+                    onSettleRow: (row) => _confirmSettlement(row),
+                    onRespondToDispute: _respondToDispute,
+                    onDownloadReceipt: _downloadReceipt,
+                  ),
                 ),
-              ),
-              TextButton.icon(
-                onPressed: () => _load(),
-                icon: const Icon(Icons.refresh),
-                label: Text('clearinghouse_refresh'.tr()),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (_ledger.isEmpty)
-            Card(child: ListTile(title: Text('clearinghouse_no_ledger'.tr())))
-          else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columns: [
-                  DataColumn(label: Text('coalition_label'.tr())),
-                  DataColumn(label: Text('clearinghouse_from'.tr())),
-                  DataColumn(label: Text('clearinghouse_to'.tr())),
-                  DataColumn(label: Text('clearinghouse_net'.tr())),
-                  DataColumn(label: Text('clearinghouse_date'.tr())),
-                  DataColumn(label: Text('clearinghouse_action'.tr())),
-                ],
-                rows: _ledger.map((row) {
-                  final net = double.tryParse((row['net_points'] ?? row['netPoints'] ?? 0).toString()) ?? 0;
-                  final settlementRow = _summary.firstWhere(
-                    (entry) => (entry['coalition_id'] ?? entry['coalitionId'] ?? '').toString() == (row['coalition_id'] ?? '').toString(),
-                    orElse: () => <String, dynamic>{},
-                  );
-                  return DataRow(
-                    cells: [
-                      DataCell(Text((row['coalition_name'] ?? row['coalitionName'] ?? '').toString())),
-                      DataCell(Text((row['from_merchant'] ?? row['fromMerchant'] ?? '').toString())),
-                      DataCell(Text((row['to_merchant'] ?? row['toMerchant'] ?? '').toString())),
-                      DataCell(Text(net > 0 ? '+$net' : '$net')),
-                      DataCell(Text((row['created_at'] ?? row['createdAt'] ?? '').toString())),
-                      DataCell(
-                        settlementRow.isEmpty
-                            ? const Text('-')
-                            : TextButton(
-                                onPressed: () => _settleMonth(settlementRow),
-                                child: Text('clearinghouse_settle'.tr()),
-                              ),
-                      ),
-                    ],
-                  );
-                }).toList(growable: false),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDisputes() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('brand_clearinghouse_disputes'.tr(), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-      if (_disputes.isEmpty)
-        Text('brand_clearinghouse_disputes_empty'.tr())
-      else
-        ..._disputes.map((dispute) => Card(child: ListTile(
-          title: Text((dispute['brandName'] ?? 'coalition_label'.tr()).toString()),
-          subtitle: Text('${dispute['reason'] ?? ''}${dispute['responseNote'] == null ? '' : '\n${dispute['responseNote']}'}'),
-          trailing: dispute['status'] == 'open'
-              ? PopupMenuButton<String>(
-                  key: Key('settlement-dispute-${dispute['id']}'),
-                  onSelected: (status) => _respondToDispute(dispute, status),
-                  itemBuilder: (_) => [
-                    PopupMenuItem(value: 'resolved', child: Text('settlement_dispute_resolve'.tr())),
-                    PopupMenuItem(value: 'rejected', child: Text('settlement_dispute_reject'.tr())),
-                  ],
-                )
-              : Chip(label: Text((dispute['status'] ?? '').toString())),
-        ))),
-    ]);
-  }
-
-  Future<void> _respondToDispute(Map<String, dynamic> dispute, String status) async {
-    var note = '';
-    final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
-      title: Text('settlement_dispute_response'.tr()),
-      content: TextField(onChanged: (value) => note = value, maxLines: 3),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context, false), child: Text('cancel'.tr())),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text('confirm'.tr())),
-      ],
-    ));
-    if (confirmed != true || note.trim().isEmpty) return;
-    await CompanyServerService.respondToBrandSettlementDispute(
-      disputeId: dispute['id'].toString(), status: status, note: note.trim(),
-    );
-    await _load();
-  }
-
-  Widget _buildSummaryCards() {
-    final cards = <Map<String, dynamic>>[
-      {'label': 'clearinghouse_summary_points_issued'.tr(), 'value': _netValue(_summary, 'points_issued')},
-      {'label': 'clearinghouse_summary_cross_redemptions'.tr(), 'value': _netValue(_summary, 'cross_redemptions')},
-      {'label': 'clearinghouse_summary_net_balance'.tr(), 'value': _netValue(_summary, 'net_balance')},
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: cards.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 1.7,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-      ),
-      itemBuilder: (_, index) {
-        final item = cards[index];
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item['label'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 8),
-                Text(item['value'], style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  String _netValue(List<Map<String, dynamic>> rows, String field) {
-    double total = 0;
-    for (final row in rows) {
-      final value = double.tryParse((row[field] ?? row[field.replaceAll('_', '')] ?? 0).toString()) ?? 0;
-      total += value;
-    }
-    return total.toStringAsFixed(0);
-  }
-
-  Widget _buildUsageGuide() {
-    final steps = <String>[
-      'clearinghouse_how_step_1'.tr(),
-      'clearinghouse_how_step_2'.tr(),
-      'clearinghouse_how_step_3'.tr(),
-      'clearinghouse_how_step_4'.tr(),
-    ];
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.teal.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.teal.withValues(alpha: 0.25)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'clearinghouse_how_title'.tr(),
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'clearinghouse_internal_only_disclosure'.tr(),
-            style: const TextStyle(fontWeight: FontWeight.w700, color: kInk),
-          ),
-          const SizedBox(height: 8),
-          ...steps.map((step) => Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text('• $step'),
-              )),
-        ],
-      ),
     );
   }
 }

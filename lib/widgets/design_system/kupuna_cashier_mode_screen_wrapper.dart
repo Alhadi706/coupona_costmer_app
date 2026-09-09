@@ -7,6 +7,7 @@ class KupunaCashierModeScreenWrapper extends StatelessWidget {
   final String storeName;
   final VoidCallback onGrantPoints;
   final VoidCallback onRedeemReward;
+  final VoidCallback? onExit;
   final Widget? body;
 
   const KupunaCashierModeScreenWrapper({
@@ -14,6 +15,7 @@ class KupunaCashierModeScreenWrapper extends StatelessWidget {
     required this.storeName,
     required this.onGrantPoints,
     required this.onRedeemReward,
+    this.onExit,
     this.body,
   });
 
@@ -32,26 +34,40 @@ class KupunaCashierModeScreenWrapper extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Align(
-                alignment: Alignment.center,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: kTopTabPaddingHorizontal,
-                    vertical: kTopTabPaddingVertical,
-                  ),
-                  decoration: BoxDecoration(
-                    color: kWhite.withValues(alpha: kCashierBadgeAlpha),
-                    borderRadius: BorderRadius.circular(kRadiusPill),
-                  ),
-                  child: Text(
-                    _tx('cashier_mode_badge', '⚡ وضع الكاشير'),
-                    style: kBodyTextStyle(
-                      size: 12,
-                      weight: FontWeight.w600,
-                      color: kWhite,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: kTopTabPaddingHorizontal,
+                      vertical: kTopTabPaddingVertical,
+                    ),
+                    decoration: BoxDecoration(
+                      color: kWhite.withValues(alpha: kCashierBadgeAlpha),
+                      borderRadius: BorderRadius.circular(kRadiusPill),
+                    ),
+                    child: Text(
+                      _tx('cashier_mode_badge', '⚡ وضع الكاشير'),
+                      style: kBodyTextStyle(
+                        size: 12,
+                        weight: FontWeight.w600,
+                        color: kWhite,
+                      ),
                     ),
                   ),
-                ),
+                  IconButton(
+                    key: const Key('cashier_mode_exit_button'),
+                    icon: const Icon(Icons.close, color: kWhite),
+                    tooltip: _tx('exit_cashier_mode', 'خروج من وضع الكاشير'),
+                    onPressed: () {
+                      if (onExit != null) {
+                        onExit!();
+                      } else {
+                        Navigator.of(context).maybePop();
+                      }
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: kGapList),
               Text(

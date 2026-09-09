@@ -1,16 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/company_server_service.dart';
 import 'package:coupona_app/theme/design_tokens.dart';
+import '../widgets/stores_map_view.dart';
 import 'store_details_screen.dart';
 
 class FullMapScreen extends StatefulWidget {
   final bool embedded;
 
-  const FullMapScreen({super.key, this.embedded = false});
+  /// Optional shared stores future. When provided, the screen reuses the
+  /// caller's data source instead of issuing a separate [getStores] call.
+  final Future<List<Map<String, dynamic>>>? storesFuture;
+
+  const FullMapScreen({
+    super.key,
+    this.embedded = false,
+    this.storesFuture,
+  });
 
   @override
   State<FullMapScreen> createState() => _FullMapScreenState();
@@ -30,7 +40,49 @@ class _FullMapScreenState extends State<FullMapScreen> {
   @override
   void initState() {
     super.initState();
-    _storesFuture = CompanyServerService.getStores();
+    _storesFuture = widget.storesFuture ?? CompanyServerService.getStores();
+    _resolveUserLocation();
+  }
+
+  Future<void> _resolveUserLocation() async {
+    try {
+      final stored = await CompanyServerService.getMyCustomerLocation();
+      final storedLat = stored['latitude'] == null
+          ? null
+          : _toDouble(stored['latitude']);
+      final storedLng = stored['longitude'] == null
+          ? null
+          : _toDouble(stored['longitude']);
+      if (storedLat != null && storedLng != null && mounted) {
+        final loc = LatLng(storedLat, storedLng);
+        setState(() {
+          _mapCenter = loc;
+        });
+        _mapController.move(loc, _mapZoom);
+      }
+
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition();
+      if (!mounted) return;
+      final loc = LatLng(position.latitude, position.longitude);
+      setState(() {
+        _mapCenter = loc;
+      });
+      _mapController.move(loc, _mapZoom);
+    } catch (_) {
+      // Keep default center if location cannot be resolved
+    }
   }
 
   void _showStoreDetails(Map<String, dynamic> store) {
@@ -202,9 +254,9 @@ class _FullMapScreenState extends State<FullMapScreen> {
   }
 
   Future<void> _openDirections(Map<String, dynamic> store) async {
-    final lat = _toDouble(store['lat']);
-    final lng = _toDouble(store['lng']);
-    final destination = lat != 0 && lng != 0
+    final lat = readCoordinate(store, ['lat', 'latitude']);
+    final lng = readCoordinate(store, ['lng', 'longitude']);
+    final destination = (lat != null && lng != null && lat != 0 && lng != 0)
         ? '$lat,$lng'
         : Uri.encodeComponent(
             (store['location'] ?? store['name'] ?? '').toString(),
@@ -245,45 +297,19 @@ class _FullMapScreenState extends State<FullMapScreen> {
               ..sort();
         return Stack(
           children: [
-            FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                initialCenter: _mapCenter,
-                initialZoom: _mapZoom,
-                onPositionChanged: (position, hasGesture) {
-                  final LatLng? center = position.center;
-                  if (center == null) return;
-                  _mapCenter = center;
-                  _mapZoom = position.zoom ?? _mapZoom;
-                },
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.kupuna.coupona',
-                ),
-                MarkerLayer(
-                  markers: [
-                    for (final store in filteredStores)
-                      Marker(
-                        width: 40,
-                        height: 40,
-                        point: LatLng(
-                          _toDouble(store['lat']),
-                          _toDouble(store['lng']),
-                        ),
-                        child: GestureDetector(
-                          onTap: () => _showStoreDetails(store),
-                          child: const Icon(
-                            Icons.location_on,
-                            color: kGold,
-                            size: 36,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
+            StoresMapView(
+              controller: _mapController,
+              stores: filteredStores,
+              initialCenter: _mapCenter,
+              initialZoom: _mapZoom,
+              markerColor: kGold,
+              onStoreTap: _showStoreDetails,
+              onPositionChanged: (position, hasGesture) {
+                final LatLng? center = position.center;
+                if (center == null) return;
+                _mapCenter = center;
+                _mapZoom = position.zoom ?? _mapZoom;
+              },
             ),
             Positioned(
               top: 16,

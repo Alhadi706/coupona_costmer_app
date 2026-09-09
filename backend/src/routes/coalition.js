@@ -1018,12 +1018,12 @@ module.exports = function registerCoalitionRoutes(app, deps) {
   });
 
   // ── Monthly clearinghouse summary ─────────────────────────────────────────────
-  app.get('/api/merchant/coalitions/clearinghouse', auth, async (req, res) => {
+  const getMerchantClearinghouse = async (req, res) => {
     const merchantId = await getMerchantProfileIdByUser(pool, req.user.userId);
     if (!merchantId) return res.status(403).json({ error: 'merchant_profile_required' });
 
     const { rows } = await pool.query(`
-      SELECT cc.period, cc.coalition_id, c.name AS coalition_name,
+      SELECT cc.id, cc.period, cc.coalition_id, c.name AS coalition_name,
              cc.from_merchant_id, fm.business_name AS from_merchant,
              cc.to_merchant_id, tm.business_name AS to_merchant,
              cc.total_points, cc.settled, cc.settled_at
@@ -1044,12 +1044,56 @@ module.exports = function registerCoalitionRoutes(app, deps) {
       [merchantId]
     )).rows;
 
-    res.json({ statements: rows, disputes: disputes.map((row) => ({
+    const issuedPoints = rows.reduce((total, row) =>
+      total + (row.from_merchant_id === merchantId ? Number(row.total_points || 0) : 0), 0);
+    const redeemedPoints = rows.reduce((total, row) =>
+      total + (row.to_merchant_id === merchantId ? Number(row.total_points || 0) : 0), 0);
+    const memberSettlements = rows.map((row) => {
+      const isIssuer = row.from_merchant_id === merchantId;
+      const points = Number(row.total_points || 0);
+      return {
+        ...row,
+        partner_merchant_id: isIssuer ? row.to_merchant_id : row.from_merchant_id,
+        partner_merchant: isIssuer ? row.to_merchant : row.from_merchant,
+        exchanged_points: points,
+        net_amount: isIssuer ? -points : points,
+        status: row.settled ? 'completed' : 'pending',
+      };
+    });
+    const matrixByPartner = new Map();
+    for (const settlement of memberSettlements) {
+      const key = `${settlement.coalition_id}:${settlement.partner_merchant_id}`;
+      const current = matrixByPartner.get(key) || {
+        coalitionId: settlement.coalition_id,
+        coalitionName: settlement.coalition_name,
+        partnerMerchantId: settlement.partner_merchant_id,
+        partnerMerchant: settlement.partner_merchant,
+        netBalance: 0,
+      };
+      current.netBalance += Number(settlement.net_amount || 0);
+      matrixByPartner.set(key, current);
+    }
+
+    res.json({
+      summary: {
+        issuedPoints,
+        redeemedPoints,
+        netBalance: redeemedPoints - issuedPoints,
+        pointValue: 1,
+      },
+      memberSettlements,
+      matrix: Array.from(matrixByPartner.values()),
+      settlementHistory: memberSettlements.filter((row) => row.settled),
+      statements: rows,
+      disputes: disputes.map((row) => ({
       id: row.id, claimId: row.claim_id, brandId: row.brand_id,
       brandName: row.brand_name, reason: row.reason, status: row.status,
       responseNote: row.response_note, createdAt: toIso(row.created_at), resolvedAt: toIso(row.resolved_at),
-    })) });
-  });
+      })),
+    });
+  };
+  app.get('/api/merchant/coalitions/clearinghouse', auth, getMerchantClearinghouse);
+  app.get('/api/merchant/coalition/clearing', auth, getMerchantClearinghouse);
 
   // ── Mark clearinghouse period as settled ──────────────────────────────────────
   app.post('/api/merchant/coalitions/clearinghouse/settle', auth, async (req, res) => {
