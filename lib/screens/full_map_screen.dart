@@ -114,21 +114,21 @@ class _FullMapScreenState extends State<FullMapScreen> {
                     _storeFact(
                       Icons.local_offer_outlined,
                       'store_offers_count'.tr(
-                        namedArgs: {'value': '${store['offersCount'] ?? 0}'},
+                        namedArgs: {'count': '${store['offersCount'] ?? 0}'},
                       ),
                       kTeal,
                     ),
                     _storeFact(
                       Icons.card_giftcard_outlined,
                       'store_rewards_count'.tr(
-                        namedArgs: {'value': '${store['rewardsCount'] ?? 0}'},
+                        namedArgs: {'count': '${store['rewardsCount'] ?? 0}'},
                       ),
                       kTeal,
                     ),
                     _storeFact(
                       Icons.inventory_2_outlined,
                       'store_products_count'.tr(
-                        namedArgs: {'value': '${store['productsCount'] ?? 0}'},
+                        namedArgs: {'count': '${store['productsCount'] ?? 0}'},
                       ),
                       kTeal,
                     ),

@@ -22,8 +22,7 @@ Widget buildDiscoverMap(dynamic state, List<Map<String, dynamic>> stores) {
         children: [
           TileLayer(
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-            userAgentPackageName: 'com.example.coupona_app',
-            tileProvider: NetworkTileProvider(),
+            userAgentPackageName: 'com.kupuna.coupona',
           ),
           MarkerLayer(
             markers: stores

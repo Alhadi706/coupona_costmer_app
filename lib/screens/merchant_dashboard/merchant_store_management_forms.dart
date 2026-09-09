@@ -4,6 +4,17 @@ extension _MerchantStoreManagementFormsExt on _MerchantDashboardScreenState {
   Widget _buildStoreManagementForms() {
     return Column(
       children: [
+        if (_result != null && _result!.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Card(
+              color: const Color(0xFFF8FAFC),
+              child: ListTile(
+                leading: const Icon(Icons.info_outline, color: kMerchantBrandGreen),
+                title: Text(_result!),
+              ),
+            ),
+          ),
         _mutableSection(
           ExpansionTile(
             title: Text('merchant_create_branch'.tr()),

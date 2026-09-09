@@ -354,7 +354,7 @@ class _CreateGiftDialogState extends State<_CreateGiftDialog> {
                           );
                           if (picked != null) setState(() => _expiresAt = picked);
                         },
-                        child: const Text('Select'),
+                        child: Text('select'.tr()),
                       )
                     : TextButton(
                         onPressed: () => setState(() => _expiresAt = null),

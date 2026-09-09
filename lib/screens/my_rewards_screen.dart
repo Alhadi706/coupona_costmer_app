@@ -64,6 +64,7 @@ class MyRewardsScreen extends StatefulWidget {
 class _MyRewardsScreenState extends State<MyRewardsScreen> {
   final Map<String, String> _rewardClaimRequestIds = <String, String>{};
   bool _loading = true;
+  bool _hasLoadedOnce = false;
   bool _redeeming = false;
   Map<String, dynamic> _points = const <String, dynamic>{};
   Map<String, dynamic> _tiers = const <String, dynamic>{};
@@ -97,31 +98,35 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _loading = true);
+    // Only blank out the whole screen with a spinner on the very first load;
+    // pull-to-refresh keeps existing content visible while reloading.
+    if (!_hasLoadedOnce) {
+      setState(() => _loading = true);
+    }
     try {
       await CompanyServerService.ensureAccountingDocuments()
-          .timeout(const Duration(milliseconds: 500))
+          .timeout(const Duration(seconds: 8))
           .catchError((_) => null);
       final pointsFuture = CompanyServerService.getPointAccount()
-          .timeout(const Duration(milliseconds: 500))
+          .timeout(const Duration(seconds: 8))
           .catchError((_) => <String, dynamic>{});
       final rewardsFuture = CompanyServerService.getRewards()
-          .timeout(const Duration(milliseconds: 500))
+          .timeout(const Duration(seconds: 8))
           .catchError((_) => <Map<String, dynamic>>[]);
       final ledgerFuture = CompanyServerService.getLedgerEntries(limit: 20)
-          .timeout(const Duration(milliseconds: 500))
+          .timeout(const Duration(seconds: 8))
           .catchError((_) => <Map<String, dynamic>>[]);
       final claimsFuture = CompanyServerService.getMyRewardClaims(limit: 20)
-          .timeout(const Duration(milliseconds: 500))
+          .timeout(const Duration(seconds: 8))
           .catchError((_) => <Map<String, dynamic>>[]);
       final tiersFuture = CompanyServerService.getCustomerPointTiers()
-          .timeout(const Duration(milliseconds: 500))
+          .timeout(const Duration(seconds: 8))
           .catchError((_) => <String, dynamic>{});
       final pendingFuture = CompanyServerService.getCustomerPendingPoints()
-          .timeout(const Duration(milliseconds: 500))
+          .timeout(const Duration(seconds: 8))
           .catchError((_) => <String, dynamic>{});
       final catalogFuture = CompanyServerService.getCustomerGiftCatalog()
-          .timeout(const Duration(milliseconds: 500))
+          .timeout(const Duration(seconds: 8))
           .catchError((_) => <String, dynamic>{});
       final results = await Future.wait<dynamic>([
         pointsFuture,
@@ -171,10 +176,14 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
         );
         _giftLocked = List<Map<String, dynamic>>.from(split['locked'] as List);
         _loading = false;
+        _hasLoadedOnce = true;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() {
+        _loading = false;
+        _hasLoadedOnce = true;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

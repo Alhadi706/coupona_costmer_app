@@ -82,7 +82,7 @@ class _CoalitionImpactReportScreenState extends State<CoalitionImpactReportScree
                   ),
                 )
               : _report == null
-                  ? const Center(child: Text('No data'))
+                  ? Center(child: Text('no_data'.tr()))
                   : RefreshIndicator(
                       onRefresh: _loadReport,
                       child: SingleChildScrollView(

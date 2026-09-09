@@ -41,7 +41,7 @@ extension _MerchantDashboardOverviewExt on _MerchantDashboardScreenState {
             children: [
               Expanded(
                 child: Text(
-                  'أداء المبيعات والاستبدال (آخر 7 أيام)',
+                  'merchant_chart_7day_title'.tr(),
                   style: kBodyTextStyle(size: 13, weight: FontWeight.w700, color: kMerchantDarkCharcoal),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -51,9 +51,9 @@ extension _MerchantDashboardOverviewExt on _MerchantDashboardScreenState {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _chartLegendDot(color: kMerchantBrandGreen, label: 'مبيعات'),
+                  _chartLegendDot(color: kMerchantBrandGreen, label: 'merchant_chart_legend_sales'.tr()),
                   const SizedBox(width: 8),
-                  _chartLegendDot(color: const Color(0xFFD9A441), label: 'نقاط'),
+                  _chartLegendDot(color: const Color(0xFFD9A441), label: 'merchant_chart_legend_points'.tr()),
                 ],
               ),
             ],
@@ -76,7 +76,15 @@ extension _MerchantDashboardOverviewExt on _MerchantDashboardScreenState {
                       reservedSize: 28,
                       interval: 1,
                       getTitlesWidget: (val, meta) {
-                        const days = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
+                        final days = [
+                          'merchant_day_sun'.tr(),
+                          'merchant_day_mon'.tr(),
+                          'merchant_day_tue'.tr(),
+                          'merchant_day_wed'.tr(),
+                          'merchant_day_thu'.tr(),
+                          'merchant_day_fri'.tr(),
+                          'merchant_day_sat'.tr(),
+                        ];
                         final idx = val.round();
                         if (idx < 0 || idx >= days.length) return const SizedBox.shrink();
                         return SideTitleWidget(

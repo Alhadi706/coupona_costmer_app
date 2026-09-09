@@ -1,24 +1,27 @@
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:coupona_app/features/merchant/rewards/create_reward_wizard_dialog.dart';
+import 'package:coupona_app/features/merchant/rewards/merchant_reward_kpis.dart';
+import 'package:coupona_app/features/merchant/rewards/reward_claims_list.dart';
+import 'package:coupona_app/features/merchant/rewards/reward_item_card.dart';
+import 'package:coupona_app/services/company_server_service.dart';
+import 'package:coupona_app/widgets/reward_funding_card.dart';
 
-import '../../../services/company_server_service.dart';
-import '../../../theme/design_tokens.dart';
-import 'merchant_reward_kpis.dart';
-import 'reward_funding_card.dart';
-import 'reward_item_card.dart';
-import 'reward_claims_list.dart';
-import 'create_reward_wizard_dialog.dart';
+typedef MerchantRewardsLoader = Future<List<Map<String, dynamic>>> Function();
 
 class MerchantRewardsScreen extends StatefulWidget {
   final String sourceType;
   final RewardFundingLoader? rewardFundingLoader;
   final RewardFunder? rewardFunder;
+  final MerchantRewardsLoader? rewardsLoader;
+  final MerchantRewardsLoader? claimsLoader;
 
   const MerchantRewardsScreen({
     super.key,
     required this.sourceType,
     this.rewardFundingLoader,
     this.rewardFunder,
+    this.rewardsLoader,
+    this.claimsLoader,
   });
 
   @override
@@ -41,8 +44,8 @@ class _MerchantRewardsScreenState extends State<MerchantRewardsScreen> {
   Future<void> _load() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final rewards = await CompanyServerService.getMerchantRewards(widget.sourceType);
-      final claims = await CompanyServerService.getMerchantRewardClaims(widget.sourceType);
+      final rewards = await (widget.rewardsLoader ?? CompanyServerService.getMerchantRewards)();
+      final claims = await (widget.claimsLoader ?? CompanyServerService.getMerchantRewardClaims)();
       if (mounted) {
         setState(() {
           _rewards = rewards;
@@ -75,7 +78,6 @@ class _MerchantRewardsScreenState extends State<MerchantRewardsScreen> {
       builder: (context) => CreateRewardWizardDialog(
         onSave: (data) async {
           await CompanyServerService.createMerchantReward(
-            widget.sourceType,
             rewardName: data.rewardName,
             points: data.points,
             description: data.description,
@@ -132,7 +134,7 @@ class _MerchantRewardsScreenState extends State<MerchantRewardsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            MerchantRewardKPIs(sourceType: widget.sourceType),
+            MerchantRewardKPIs(rewards: _rewards, claims: _claims),
             const SizedBox(height: 16),
             RewardFundingCard(
               sourceType: widget.sourceType,
@@ -149,19 +151,19 @@ class _MerchantRewardsScreenState extends State<MerchantRewardsScreen> {
                   onSelected: (_) => setState(() => _rewardFilter = 'all'),
                 ),
                 ChoiceChip(
-                  label: const Text('النشطة'),
+                  label: const Text('نشطة'),
                   selected: _rewardFilter == 'active',
                   onSelected: (_) => setState(() => _rewardFilter = 'active'),
                 ),
                 ChoiceChip(
-                  label: const Text('الموقوفة'),
+                  label: const Text('غير نشطة'),
                   selected: _rewardFilter == 'inactive',
                   onSelected: (_) => setState(() => _rewardFilter = 'inactive'),
                 ),
                 FilledButton.icon(
                   onPressed: _createReward,
                   icon: const Icon(Icons.add),
-                  label: const Text('إنشاء جائزة'),
+                  label: const Text('إضافة جائزة'),
                 ),
               ],
             ),

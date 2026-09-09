@@ -1,19 +1,23 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-
-import '../../../theme/design_tokens.dart';
+import 'package:coupona_app/theme/design_tokens.dart';
 
 class RewardClaimsList extends StatelessWidget {
   final List<Map<String, dynamic>> claims;
 
   const RewardClaimsList({super.key, required this.claims});
 
+  String _tx(String key, String fallback) {
+    final value = key.tr();
+    return value == key ? fallback : value;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (claims.isEmpty) {
       return Card(
         child: ListTile(
-          title: Text('merchant_reward_claims_empty'.tr()),
+          title: Text(_tx('merchant_reward_claims_empty', 'لا توجد طلبات استبدال من الزبائن حتى الآن')),
         ),
       );
     }
@@ -23,17 +27,17 @@ class RewardClaimsList extends StatelessWidget {
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: Text(
-            'merchant_reward_claims_title'.tr(),
+            _tx('merchant_reward_claims_title', 'سجل طلبات استبدال الجوائز'),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
           ),
         ),
         const SizedBox(height: 8),
         ...claims.take(10).map((claim) {
           final claimId = (claim['id'] ?? '').toString();
-          final shortId = claimId.length > 8 ? claimId.substring(0, 8) : claimId;
           final status = claim['status'] ?? '-';
           final pointsCost = claim['pointsCost'] ?? 0;
           final customerName = claim['customerName'] ?? 'زبون';
+            final reference = (claim['reference'] ?? '').toString();
           final createdAt = claim['createdAt'] != null
               ? DateTime.parse(claim['createdAt'].toString()).toLocal()
               : null;
@@ -54,13 +58,16 @@ class RewardClaimsList extends StatelessWidget {
                     ),
                 ],
               ),
-              trailing: Chip(
-                label: Text(status),
-                backgroundColor: _getStatusColor(status).withOpacity(0.2),
-                labelStyle: TextStyle(
-                  color: _getStatusColor(status),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+              trailing: Tooltip(
+                message: reference.isEmpty ? claimId : reference,
+                child: Chip(
+                  label: Text(status),
+                  backgroundColor: _getStatusColor(status).withValues(alpha: 0.2),
+                  labelStyle: TextStyle(
+                    color: _getStatusColor(status),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),

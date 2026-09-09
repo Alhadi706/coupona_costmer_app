@@ -1,8 +1,5 @@
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-
-import '../../../services/company_server_service.dart';
-import '../../../theme/design_tokens.dart';
+import 'package:coupona_app/theme/design_tokens.dart';
 
 class RewardItemCard extends StatelessWidget {
   final Map<String, dynamic> reward;
@@ -68,8 +65,8 @@ class RewardItemCard extends StatelessWidget {
               Row(
                 children: [
                   Chip(
-                    label: Text(active ? 'النشطة' : 'الموقوفة'),
-                    backgroundColor: active ? kTeal.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
+                    label: Text(active ? 'نشطة' : 'غير نشطة'),
+                    backgroundColor: active ? kTeal.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.2),
                     labelStyle: TextStyle(
                       color: active ? kTeal : Colors.grey,
                       fontSize: 12,
@@ -95,7 +92,7 @@ class RewardItemCard extends StatelessWidget {
                         ),
                         Text(
                           'تم استبدال $redeemed من $limit',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             color: Colors.grey[600],
                           ),

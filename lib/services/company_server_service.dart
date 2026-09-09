@@ -2214,6 +2214,18 @@ class CompanyServerService {
     String? logoUrl,
     String? commercialRegistration,
     String? taxNumber,
+    String? description,
+    String? whatsapp,
+    String? instagramUrl,
+    String? facebookUrl,
+    String? tiktokUrl,
+    String? workingHours,
+    String? coverUrl,
+    String? locationAddress,
+    double? locationLat,
+    double? locationLng,
+    bool? isOpen,
+    List<String>? galleryUrls,
   }) async {
     final data = await patch('/merchant/profile', {
       if (businessName != null) 'businessName': businessName,
@@ -2222,6 +2234,18 @@ class CompanyServerService {
       if (logoUrl != null) 'logoUrl': logoUrl,
       if (commercialRegistration != null) 'commercialRegistration': commercialRegistration,
       if (taxNumber != null) 'taxNumber': taxNumber,
+      if (description != null) 'description': description,
+      if (whatsapp != null) 'whatsapp': whatsapp,
+      if (instagramUrl != null) 'instagramUrl': instagramUrl,
+      if (facebookUrl != null) 'facebookUrl': facebookUrl,
+      if (tiktokUrl != null) 'tiktokUrl': tiktokUrl,
+      if (workingHours != null) 'workingHours': workingHours,
+      if (coverUrl != null) 'coverUrl': coverUrl,
+      if (locationAddress != null) 'locationAddress': locationAddress,
+      if (locationLat != null) 'locationLat': locationLat,
+      if (locationLng != null) 'locationLng': locationLng,
+      if (isOpen != null) 'isOpen': isOpen,
+      if (galleryUrls != null) 'galleryUrls': galleryUrls,
     }, auth: true);
     return (data as Map).cast<String, dynamic>();
   }

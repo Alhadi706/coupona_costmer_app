@@ -327,6 +327,16 @@ async function createCoreTables() {
   await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS location_lat DOUBLE PRECISION');
   await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS location_lng DOUBLE PRECISION');
   await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS location_address TEXT');
+  await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS logo_url TEXT');
+  await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS cover_url TEXT');
+  await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS description TEXT');
+  await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS whatsapp TEXT');
+  await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS instagram_url TEXT');
+  await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS facebook_url TEXT');
+  await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS tiktok_url TEXT');
+  await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS working_hours TEXT');
+  await pool.query("ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS gallery_urls JSONB NOT NULL DEFAULT '[]'::jsonb");
+  await pool.query('ALTER TABLE merchant_profiles ADD COLUMN IF NOT EXISTS is_open BOOLEAN NOT NULL DEFAULT TRUE');
   await pool.query('ALTER TABLE brand_profiles ADD COLUMN IF NOT EXISTS phone TEXT');
   await pool.query('ALTER TABLE brand_profiles ADD COLUMN IF NOT EXISTS location_lat DOUBLE PRECISION');
   await pool.query('ALTER TABLE brand_profiles ADD COLUMN IF NOT EXISTS location_lng DOUBLE PRECISION');

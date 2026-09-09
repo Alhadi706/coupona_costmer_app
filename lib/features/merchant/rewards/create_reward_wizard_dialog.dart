@@ -1,9 +1,7 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-
-import '../../services/company_server_service.dart';
-import '../../theme/design_tokens.dart';
+import 'package:coupona_app/services/company_server_service.dart';
 
 class CreateRewardWizardDialog extends StatefulWidget {
   final Future<void> Function(RewardCreationData data) onSave;
@@ -76,7 +74,7 @@ class _CreateRewardWizardDialogState extends State<CreateRewardWizardDialog> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _rewardType,
+            initialValue: _rewardType,
             decoration: const InputDecoration(labelText: 'نوع الجائزة'),
             items: _rewardTypes.map((type) {
               return DropdownMenuItem(
@@ -90,7 +88,7 @@ class _CreateRewardWizardDialogState extends State<CreateRewardWizardDialog> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            value: _tierTarget,
+            initialValue: _tierTarget,
             decoration: const InputDecoration(labelText: 'المستويات المستهدفة'),
             items: _tierOptions.map((option) {
               return DropdownMenuItem(
@@ -172,7 +170,9 @@ class _CreateRewardWizardDialogState extends State<CreateRewardWizardDialog> {
                     if (picked != null) setState(() => _image = picked);
                   },
                   icon: const Icon(Icons.camera_alt_outlined),
-                  label: Text('capture_camera_image'.tr()),
+                  label: Text('capture_camera_image'.tr() == 'capture_camera_image'
+                      ? 'التقاط صورة'
+                      : 'capture_camera_image'.tr()),
                 ),
               ),
             ],

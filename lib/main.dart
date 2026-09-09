@@ -89,10 +89,18 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   Future<Map<String, dynamic>> _resolveLaunchState() async {
     try {
-      final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 3));
+      // Run independent lookups in parallel instead of sequentially awaiting
+      // each one, so a slow/hanging call caps the wait at its own timeout
+      // rather than adding up (was up to 3s+2s+2s = 7s worst case).
+      final results = await Future.wait<Object?>([
+        SharedPreferences.getInstance().timeout(const Duration(seconds: 3)),
+        AppSession.token().timeout(const Duration(seconds: 3)),
+        AppSession.role().timeout(const Duration(seconds: 3)),
+      ]);
+      final prefs = results[0] as SharedPreferences;
+      final token = results[1] as String?;
+      final activeRole = results[2] as String?;
       final shouldShowOnboarding = !(prefs.getBool('onboarding_done') ?? false);
-      final token = await AppSession.token().timeout(const Duration(seconds: 2));
-      final activeRole = await AppSession.role().timeout(const Duration(seconds: 2));
       final hasSession = token != null && token.trim().isNotEmpty;
       return <String, dynamic>{
         'shouldShowOnboarding': shouldShowOnboarding,

@@ -16,7 +16,7 @@ extension _MerchantKpiCardsExt on _MerchantDashboardScreenState {
           children: [
             _kpiMetricCard(
               width: itemWidth,
-              title: 'مبيعات اليوم (LYD)',
+              title: 'merchant_kpi_sales_today'.tr(),
               value: salesTotal,
               icon: Icons.payments_outlined,
               iconColor: kMerchantBrandGreen,
@@ -24,7 +24,7 @@ extension _MerchantKpiCardsExt on _MerchantDashboardScreenState {
             ),
             _kpiMetricCard(
               width: itemWidth,
-              title: 'عمليات المسح/الاستبدال',
+              title: 'merchant_kpi_scans_redemptions'.tr(),
               value: '$redemptions',
               icon: Icons.qr_code_2_outlined,
               iconColor: const Color(0xFF0284C7),
@@ -32,7 +32,7 @@ extension _MerchantKpiCardsExt on _MerchantDashboardScreenState {
             ),
             _kpiMetricCard(
               width: itemWidth,
-              title: 'النقاط الممنوحة',
+              title: 'merchant_kpi_points_granted'.tr(),
               value: '$pointsSpent',
               icon: Icons.stars_outlined,
               iconColor: const Color(0xFFD97706),
@@ -40,7 +40,7 @@ extension _MerchantKpiCardsExt on _MerchantDashboardScreenState {
             ),
             _kpiMetricCard(
               width: itemWidth,
-              title: 'العملاء النشطون اليوم',
+              title: 'merchant_kpi_active_customers'.tr(),
               value: '$activeCustomers',
               icon: Icons.people_alt_outlined,
               iconColor: const Color(0xFF7C3AED),

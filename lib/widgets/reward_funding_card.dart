@@ -50,12 +50,12 @@ class _RewardFundingCardState extends State<RewardFundingCard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(_tx('reward_funding_action', 'Fund reward escrow')),
+        title: Text(_tx('reward_funding_action', 'شحن رصيد الجوائز')),
         content: TextField(
           key: const Key('reward-funding-amount'),
           keyboardType: TextInputType.number,
           onChanged: (value) => amountText = value,
-          decoration: InputDecoration(labelText: _tx('reward_funding_amount', 'Points to reserve')),
+          decoration: InputDecoration(labelText: _tx('reward_funding_amount', 'النقاط المطلوب حجزها')),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_tx('cancel', 'Cancel'))),
@@ -76,7 +76,7 @@ class _RewardFundingCardState extends State<RewardFundingCard> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_tx('reward_funding_failed', 'Unable to fund reward escrow.'))),
+        SnackBar(content: Text(_tx('reward_funding_failed', 'تعذر شحن رصيد الجوائز'))),
       );
       showDialog(
         context: context,
@@ -128,20 +128,20 @@ class _RewardFundingCardState extends State<RewardFundingCard> {
             : _error != null
                 ? ListTile(
                     leading: const Icon(Icons.error_outline),
-                    title: Text(_tx('reward_funding_load_failed', 'Unable to load reward funding.')),
+                    title: Text(_tx('reward_funding_load_failed', 'تعذر تحميل بيانات تمويل الجوائز')),
                     trailing: IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(_tx('reward_funding_title', 'Reward funding'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                      Text(_tx('reward_funding_title', 'تمويل ورصيد الجوائز'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 16,
                         runSpacing: 8,
                         children: [
-                          Text('${_tx('reward_funding_wallet', 'Wallet')}: ${_summary['walletBalance'] ?? 0}'),
-                          Text('${_tx('reward_funding_escrow', 'Escrow')}: ${_summary['escrowBalance'] ?? 0}'),
+                          Text('${_tx('reward_funding_wallet', 'المحفظة')}: ${_summary['walletBalance'] ?? 0}'),
+                          Text('${_tx('reward_funding_escrow', 'رصيد الضمان')}: ${_summary['escrowBalance'] ?? 0}'),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -149,7 +149,7 @@ class _RewardFundingCardState extends State<RewardFundingCard> {
                         key: Key('reward-funding-open-${widget.sourceType}'),
                         onPressed: _fund,
                         icon: const Icon(Icons.savings_outlined),
-                        label: Text(_tx('reward_funding_action', 'Fund reward escrow')),
+                        label: Text(_tx('reward_funding_action', 'شحن رصيد الجوائز')),
                       ),
                     ],
                   ),

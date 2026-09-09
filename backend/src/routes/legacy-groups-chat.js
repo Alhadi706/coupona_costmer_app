@@ -176,7 +176,9 @@ app.get('/api/stores/:merchantId/details', auth, async (req, res) => {
   const merchant = (await pool.query(
     `SELECT id, user_id, business_name, commercial_registration, phone,
             location_lat, location_lng, location_address, point_value,
-            is_public_coalition_active, status
+            is_public_coalition_active, status,
+            description, whatsapp, instagram_url, facebook_url, tiktok_url,
+            working_hours, logo_url, cover_url, gallery_urls, is_open
        FROM merchant_profiles
       WHERE id = $1 AND status = 'active'
       LIMIT 1`,
@@ -251,6 +253,16 @@ app.get('/api/stores/:merchantId/details', auth, async (req, res) => {
       pointValue: Number(merchant.point_value || 0),
       pointTier,
       isPublicCoalitionActive: merchant.is_public_coalition_active === true,
+      description: merchant.description || '',
+      whatsapp: merchant.whatsapp || '',
+      instagramUrl: merchant.instagram_url || '',
+      facebookUrl: merchant.facebook_url || '',
+      tiktokUrl: merchant.tiktok_url || '',
+      workingHours: merchant.working_hours || '',
+      logoUrl: merchant.logo_url || '',
+      coverUrl: merchant.cover_url || '',
+      galleryUrls: Array.isArray(merchant.gallery_urls) ? merchant.gallery_urls : [],
+      isOpen: merchant.is_open !== false,
     },
     branches: branches.rows.map((row) => ({
       id: row.id,

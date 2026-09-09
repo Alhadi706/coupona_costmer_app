@@ -3,27 +3,25 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:pdf/pdf.dart' as pdf_color;
 import 'package:pdf/widgets.dart' as pw;
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../services/company_server_service.dart';
 import '../services/export_download.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/analytics_map_panel.dart';
-import '../widgets/design_system/kupuna_loyalty_health_ring.dart';
-import '../widgets/design_system/kupuna_offer_card.dart';
-import '../widgets/design_system/kupuna_status_pill.dart';
-import '../widgets/reward_creation_dialog.dart';
 import '../widgets/reward_funding_card.dart';
+import '../widgets/store_digital_identity_card.dart';
+import '../features/merchant/rewards/create_reward_wizard_dialog.dart';
 import '../features/merchant/rewards/merchant_rewards_screen.dart';
 import 'map_picker_screen.dart';
-import 'add_coupon_screen.dart';
 import 'community_screen.dart';
+import 'community/community_tab_request.dart';
 import 'cashier_dashboard_screen.dart';
 import 'merchant_ads_screen.dart';
 import 'merchant_team_screen.dart';
-import 'points_conversion_screen.dart';
-import 'reward_qr_code_screen.dart';
 import 'login_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'merchant_invoices_screen.dart';
@@ -111,13 +109,9 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   String _analyticsBranchId = '';
   bool _loadingAnalytics = false;
   List<Map<String, dynamic>> _branches = <Map<String, dynamic>>[];
-  List<Map<String, dynamic>> _invoices = <Map<String, dynamic>>[];
-  List<Map<String, dynamic>> _offers = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _merchantRewards = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _merchantRewardClaims = <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _merchantProducts = <Map<String, dynamic>>[];
-  String _rewardFilter = 'all';
-  Map<String, dynamic> _loyalty = const <String, dynamic>{};
   Map<String, dynamic> _analytics = const <String, dynamic>{};
   Map<String, dynamic> _roles = const <String, dynamic>{};
   Map<String, dynamic> _merchantProfile = const <String, dynamic>{};
@@ -156,31 +150,31 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
               CompanyServerService.getMyInvoices(limit: 20),
               CompanyServerService.getMerchantProfile(),
               CompanyServerService.getOffers(),
-              CompanyServerService.getMerchantRewards(),
               CompanyServerService.getMyRoles(),
               CompanyServerService.getMerchantAnalytics(
                 range: _analyticsRange,
                 branchId: branchId,
               ).catchError((_) => <String, dynamic>{}),
-              CompanyServerService.getMerchantRewardClaims(),
               CompanyServerService.getMerchantProducts().catchError((_) => <Map<String, dynamic>>[]),
             ]);
       if (!mounted) return;
+      final rolesIndex = widget.dashboardLoader != null ? 6 : 5;
+      final analyticsIndex = widget.dashboardLoader != null ? 7 : 6;
+      final productsIndex = widget.dashboardLoader != null ? 9 : 7;
       final profile = Map<String, dynamic>.from(results[3] as Map<dynamic, dynamic>);
-      final rawAnalytics = results[7];
+      final rawAnalytics = results[analyticsIndex];
       setState(() {
         _branches = List<Map<String, dynamic>>.from(results[0] as List<dynamic>);
-        _loyalty = Map<String, dynamic>.from(results[1] as Map<dynamic, dynamic>);
-        _invoices = List<Map<String, dynamic>>.from(results[2] as List<dynamic>);
-        _offers = List<Map<String, dynamic>>.from(results[4] as List<dynamic>);
-        _merchantRewards = List<Map<String, dynamic>>.from(results[5] as List<dynamic>);
-        _merchantRewardClaims = results.length > 8
+        _merchantRewards = widget.dashboardLoader != null && results.length > 5
+          ? List<Map<String, dynamic>>.from(results[5] as List<dynamic>)
+          : <Map<String, dynamic>>[];
+        _merchantRewardClaims = widget.dashboardLoader != null && results.length > 8
           ? List<Map<String, dynamic>>.from(results[8] as List<dynamic>)
           : <Map<String, dynamic>>[];
-        _merchantProducts = results.length > 9
-          ? List<Map<String, dynamic>>.from(results[9] as List<dynamic>)
+        _merchantProducts = results.length > productsIndex
+          ? List<Map<String, dynamic>>.from(results[productsIndex] as List<dynamic>)
           : <Map<String, dynamic>>[];
-        _roles = Map<String, dynamic>.from(results[6] as Map<dynamic, dynamic>);
+        _roles = Map<String, dynamic>.from(results[rolesIndex] as Map<dynamic, dynamic>);
         _merchantProfile = profile;
         _analytics = rawAnalytics is Map ? Map<String, dynamic>.from(rawAnalytics) : const <String, dynamic>{};
       });
@@ -227,17 +221,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     }
   }
 
-  StatusPillKind _branchStatusToPill(dynamic rawStatus) {
-    final String status = (rawStatus ?? '').toString().toLowerCase();
-    if (status == 'active') {
-      return StatusPillKind.approvedMint;
-    }
-    if (status == 'pending' || status == 'under_review') {
-      return StatusPillKind.pending;
-    }
-    return StatusPillKind.rejected;
-  }
-
   double _toDouble(dynamic value) {
     if (value is num) {
       return value.toDouble();
@@ -251,8 +234,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   }
 
   String _localizeSubscriptionStatus(String raw) => _MerchantDashboardHelpers.localizeSubscriptionStatus(raw);
-
-  String _localizeGenericStatus(dynamic rawStatus) => _MerchantDashboardHelpers.localizeGenericStatus(rawStatus);
 
   Widget _buildSubscriptionNotice() {
     final subscription = _merchantSubscription();
@@ -301,17 +282,6 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
       opacity: 0.58,
       child: AbsorbPointer(child: child),
     );
-  }
-
-  StatusPillKind _invoiceStatusToPill(dynamic rawStatus) {
-    final String status = (rawStatus ?? '').toString().toLowerCase();
-    if (status == 'approved' || status == 'active') {
-      return StatusPillKind.approvedMint;
-    }
-    if (status == 'processing' || status == 'pending_review' || status == 'under_review') {
-      return StatusPillKind.pending;
-    }
-    return StatusPillKind.rejected;
   }
 
   Widget _buildIndigoSection({
@@ -482,83 +452,34 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
   }
 
   Widget _buildRewardsTab() {
-    return const MerchantRewardsScreen(
+    return MerchantRewardsScreen(
       sourceType: 'merchant',
       rewardFundingLoader: widget.rewardFundingLoader,
       rewardFunder: widget.rewardFunder,
-    );
-  }
-          const SizedBox(height: 12),
-          if (rewards.isEmpty)
-            Card(child: ListTile(title: Text('merchant_no_rewards'.tr())))
-          else
-            ...rewards.map((reward) {
-              final active = reward['isActive'] == true;
-              final limit = reward['quantityLimit'];
-              final redeemed = reward['quantityRedeemed'] ?? 0;
-              return Card(
-                child: ListTile(
-                  leading: const Icon(Icons.card_giftcard_outlined, color: kTeal),
-                  title: Text('${reward['reward_name'] ?? ''}'),
-                  subtitle: Text('${reward['value'] ?? 0} ${'points_value'.tr(namedArgs: {'points': ''})} | ${active ? 'active'.tr() : 'inactive'.tr()}${limit == null ? '' : ' | $redeemed/$limit'}'),
-                  trailing: Switch(value: active, onChanged: (value) async {
-                    await CompanyServerService.updateMerchantReward(reward['id'].toString(), isActive: value, quantityLimit: limit is num ? limit.toInt() : null);
-                    await _load();
-                  }),
-                ),
-              );
-            }),
-          const SizedBox(height: 16),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              'merchant_reward_claims_title'.tr(),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (_merchantRewardClaims.isEmpty)
-            Card(child: ListTile(title: Text('merchant_reward_claims_empty'.tr())))
-          else
-            ..._merchantRewardClaims.take(10).map((claim) {
-              final claimId = (claim['id'] ?? '').toString();
-              final shortId = claimId.substring(0, claimId.length.clamp(0, 8));
-              return Card(
-                child: ListTile(
-                  key: Key('merchant-reward-claim-$claimId'),
-                  leading: const Icon(Icons.confirmation_number_outlined),
-                  title: Text((claim['rewardName'] ?? 'reward_generic'.tr()).toString()),
-                  subtitle: Text('${claim['status'] ?? '-'} • ${claim['pointsCost'] ?? 0}'),
-                  trailing: Tooltip(
-                    message: (claim['reference'] ?? '').toString(),
-                    child: Text('#$shortId'),
-                  ),
-                ),
-              );
-            }),
-        ],
-      ),
+      rewardsLoader: widget.dashboardLoader == null ? null : () async => _merchantRewards,
+      claimsLoader: widget.dashboardLoader == null ? null : () async => _merchantRewardClaims,
     );
   }
 
   Future<void> _showCreateRewardSheet() async {
-    await showRewardCreationDialog(
+    await showDialog(
       context: context,
-      onSave: (data) async {
-        await CompanyServerService.createMerchantReward(
-          rewardName: data.rewardName,
-          points: data.points,
-          description: data.description,
-          imageUrl: data.imageUrl,
-          kind: data.kind,
-          expiresAt: data.expiresAt,
-          quantityLimit: data.quantityLimit,
-          pickupInstructions: data.pickupInstructions,
-          drawEnabled: data.drawEnabled,
-          drawAt: data.expiresAt,
-        );
-        await _load();
-      },
+      builder: (context) => CreateRewardWizardDialog(
+        onSave: (data) async {
+          await CompanyServerService.createMerchantReward(
+            rewardName: data.rewardName,
+            points: data.points,
+            description: data.description,
+            imageUrl: data.imageUrl,
+            kind: data.kind,
+            expiresAt: data.expiresAt,
+            quantityLimit: data.quantityLimit,
+            pickupInstructions: data.pickupInstructions,
+            drawEnabled: data.drawEnabled,
+          );
+          await _load();
+        },
+      ),
     );
   }
 
@@ -580,6 +501,19 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
               subtitle: Text('${_intValue(groupMetrics['members'])}'),
               trailing: const Icon(Icons.open_in_new),
               onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CommunityScreen())),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.shopping_bag_outlined, color: kMerchantBrandGreen),
+              title: Text('merchant_browse_customer_offers'.tr()),
+              trailing: const Icon(Icons.open_in_new),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const CommunityScreen(initialTabIndex: CommunityHubTabs.marketplace),
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -614,21 +548,21 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    product == null ? 'إضافة منتج للمتجر' : 'تعديل المنتج',
+                    product == null ? 'merchant_product_add_title'.tr() : 'merchant_product_edit_title'.tr(),
                     style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
                   ),
                   TextField(
                     controller: name,
-                    decoration: const InputDecoration(labelText: 'اسم المنتج *'),
+                    decoration: InputDecoration(labelText: 'merchant_product_name_label'.tr()),
                   ),
                   TextField(
                     controller: price,
-                    decoration: const InputDecoration(labelText: 'السعر (اختياري)'),
+                    decoration: InputDecoration(labelText: 'merchant_product_price_label'.tr()),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   ),
                   TextField(
                     controller: description,
-                    decoration: const InputDecoration(labelText: 'وصف المنتج (اختياري)'),
+                    decoration: InputDecoration(labelText: 'merchant_product_desc_label'.tr()),
                   ),
                   TextField(
                     controller: imageUrl,
@@ -660,8 +594,8 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                   if (product != null)
                     SwitchListTile(
                       value: active,
-                      title: const Text('المنتج نشط'),
-                      subtitle: const Text('سيظهر للعملاء في التطبيق عند تفعيله'),
+                      title: Text('merchant_product_active'.tr()),
+                      subtitle: Text('merchant_product_active_hint'.tr()),
                       onChanged: (value) => setSheetState(() => active = value),
                     ),
                   const SizedBox(height: 12),
@@ -672,7 +606,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                         final parsedPrice = double.tryParse(price.text.trim());
                         if (name.text.trim().isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('اسم المنتج مطلوب')),
+                            SnackBar(content: Text('merchant_product_name_required'.tr())),
                           );
                           return;
                         }
@@ -713,6 +647,80 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     }
   }
 
+  Future<void> _shareStoreLink(String businessName, String qrData) async {
+    await SharePlus.instance.share(
+      ShareParams(text: '$businessName\n$qrData'),
+    );
+  }
+
+  Future<void> _downloadStoreQrPdf(String businessName, String branchName, String qrData) async {
+    try {
+      final pdf = pw.Document();
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pdf_color.PdfPageFormat.a4,
+          build: (pw.Context context) => pw.Center(
+            child: pw.Container(
+              padding: const pw.EdgeInsets.all(32),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: pdf_color.PdfColors.teal, width: 3),
+                borderRadius: pw.BorderRadius.circular(16),
+              ),
+              child: pw.Column(
+                mainAxisSize: pw.MainAxisSize.min,
+                children: [
+                  pw.Text(
+                    businessName,
+                    style: pw.TextStyle(fontSize: 28, fontWeight: pw.FontWeight.bold, color: pdf_color.PdfColors.teal800),
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Text(
+                    '${'merchant_branch'.tr()}: $branchName',
+                    style: const pw.TextStyle(fontSize: 18, color: pdf_color.PdfColors.grey800),
+                  ),
+                  pw.SizedBox(height: 24),
+                  pw.BarcodeWidget(data: qrData, barcode: pw.Barcode.qrCode(), width: 220, height: 220),
+                  pw.SizedBox(height: 24),
+                  pw.Text(
+                    'merchant_store_qr_hint'.tr(),
+                    textAlign: pw.TextAlign.center,
+                    style: const pw.TextStyle(fontSize: 14, color: pdf_color.PdfColors.grey700),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      final fileName = 'kupuna-store-qr-${businessName.replaceAll(' ', '_')}.pdf';
+      await downloadBytes(bytes: await pdf.save(), fileName: fileName, mimeType: 'application/pdf');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('store_qr_pdf_done'.tr()), backgroundColor: kTeal),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${'store_qr_pdf_failed'.tr()}: $e'), backgroundColor: Colors.redAccent),
+      );
+    }
+  }
+
+  Future<void> _toggleProductActive(Map<String, dynamic> product, bool value) async {
+    final productId = (product['id'] ?? '').toString();
+    if (productId.isEmpty) return;
+    setState(() => product['isActive'] = value);
+    try {
+      await CompanyServerService.updateMerchantProduct(productId: productId, isActive: value);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => product['isActive'] = !value);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
+      );
+    }
+  }
+
   Widget _buildStoreTab() {
     final selectedBranch = _branches.isEmpty
         ? const <String, dynamic>{}
@@ -736,6 +744,12 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          StoreDigitalIdentityCard(
+            merchantProfile: _merchantProfile,
+            readOnly: _merchantReadOnly,
+            onSaved: _load,
+          ),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -755,6 +769,35 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                   Text(
                     branchId.isEmpty ? 'merchant_all_branches'.tr() : '${selectedBranch['name'] ?? ''}',
                     style: const TextStyle(fontWeight: FontWeight.w600, color: kTeal),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: merchantId.isEmpty
+                            ? null
+                            : () => _downloadStoreQrPdf(
+                                  (_merchantProfile['businessName'] ?? 'merchant_name'.tr()).toString(),
+                                  branchId.isEmpty ? 'merchant_all_branches'.tr() : '${selectedBranch['name'] ?? ''}',
+                                  storeQrData,
+                                ),
+                        icon: const Icon(Icons.picture_as_pdf_outlined, color: kTeal),
+                        label: Text('store_qr_download_pdf'.tr(), style: const TextStyle(color: kTeal)),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: merchantId.isEmpty
+                            ? null
+                            : () => _shareStoreLink(
+                                  (_merchantProfile['businessName'] ?? '').toString(),
+                                  storeQrData,
+                                ),
+                        icon: const Icon(Icons.share_outlined, color: kTeal),
+                        label: Text('store_share_link'.tr(), style: const TextStyle(color: kTeal)),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -816,7 +859,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
           ),
           const SizedBox(height: 12),
           _buildIndigoSection(
-            title: 'منتجات المتجر',
+            title: 'merchant_store_products'.tr(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -825,22 +868,22 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                   child: TextButton.icon(
                     onPressed: () => _editMerchantProduct(),
                     icon: const Icon(Icons.add_circle_outline, color: kTeal),
-                    label: const Text('إضافة منتج جديد', style: TextStyle(color: kTeal)),
+                    label: Text('merchant_product_add_new'.tr(), style: const TextStyle(color: kTeal)),
                   ),
                 ),
                 if (_merchantProducts.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Center(
                       child: Text(
-                        'لا توجد منتجات مضافة لهذا المتجر حاليًا.',
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
+                        'merchant_products_empty'.tr(),
+                        style: const TextStyle(color: Colors.grey, fontSize: 13),
                       ),
                     ),
                   )
                 else
                   SizedBox(
-                    height: 160,
+                    height: 195,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       itemCount: _merchantProducts.length,
@@ -849,6 +892,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                         final pName = (product['name'] ?? '').toString();
                         final pImage = (product['imageUrl'] ?? product['image_url'] ?? '').toString();
                         final pPrice = product['price'];
+                        final pActive = product['isActive'] != false;
 
                         return Container(
                           width: 140,
@@ -894,13 +938,39 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                                         ),
                                         if (pPrice != null)
                                           Text(
-                                            '$pPrice د.ل',
+                                            '$pPrice ${'currency_lyd'.tr()}',
                                             style: const TextStyle(
                                               color: kTealDark,
                                               fontSize: 12,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                pActive ? 'store_product_on'.tr() : 'store_product_off'.tr(),
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: pActive ? kTealDark : Colors.grey,
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              height: 26,
+                                              width: 34,
+                                              child: Transform.scale(
+                                                scale: 0.6,
+                                                child: Switch(
+                                                  value: pActive,
+                                                  onChanged: _merchantReadOnly
+                                                      ? null
+                                                      : (v) => _toggleProductActive(product, v),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1149,7 +1219,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'إجراءات سريعة للمحل',
+            'merchant_quick_actions'.tr(),
             style: kBodyTextStyle(size: 13, weight: FontWeight.w700, color: kMerchantMuted),
           ),
           const SizedBox(height: 10),
@@ -1170,7 +1240,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                   ),
                   icon: const Icon(Icons.qr_code_scanner, size: 16),
                   label: Text(
-                    cashierActive ? '📸 مسح QR كاشير' : '📸 تجربة كاشير (معاينة)',
+                    cashierActive ? 'merchant_pos_scan_qr'.tr() : 'merchant_pos_preview'.tr(),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
@@ -1207,14 +1277,18 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                     elevation: 0,
                   ),
                   icon: const Icon(Icons.card_giftcard, size: 16),
-                  label: const Text(
-                    '🎁 إرسال هدية مستهدفة',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  label: Text(
+                    'merchant_reward_add'.tr(),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton.icon(
-                  onPressed: () => setState(() => _merchantTabIndex = 4),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const CommunityScreen(initialTabIndex: CommunityHubTabs.marketplace),
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF1F5F9),
                     foregroundColor: kMerchantDarkCharcoal,
@@ -1224,9 +1298,9 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
                     elevation: 0,
                   ),
                   icon: const Icon(Icons.shopping_bag_outlined, size: 16),
-                  label: const Text(
-                    '🛒 تصفح عروض الزبائن',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  label: Text(
+                    'merchant_browse_customer_offers'.tr(),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
               ],
@@ -1262,13 +1336,13 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
           ),
         ),
         title: Text(
-          cashierActive ? 'حالة POS مفعلة وجاهزة للاستخدام' : 'حالة نظام الكاشير (POS) غير مفعلة',
+          cashierActive ? 'merchant_pos_status_active'.tr() : 'merchant_pos_status_inactive'.tr(),
           style: kBodyTextStyle(size: 13, weight: FontWeight.w700, color: kMerchantDarkCharcoal),
         ),
         subtitle: Text(
           cashierActive
-              ? 'يمكنك إجراء عمليات المسح واستبدال النقاط مباشرة'
-              : 'قم بتفعيل ربط كاشير المحل للبدء في استقبال واستبدال نقاط العملاء',
+              ? 'merchant_pos_subtitle_active'.tr()
+              : 'merchant_pos_subtitle_inactive'.tr(),
           style: kBodyTextStyle(size: 12, color: kMerchantMuted),
         ),
         trailing: ElevatedButton.icon(
@@ -1286,7 +1360,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
           ),
           icon: Icon(cashierActive ? Icons.login : Icons.link, size: 16),
           label: Text(
-            cashierActive ? 'فتح POS' : '🔗 تفعيل POS',
+            cashierActive ? 'merchant_pos_open'.tr() : 'merchant_pos_activate'.tr(),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),
@@ -1298,21 +1372,21 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('تفعيل ربط كاشير POS'),
+        title: Text('merchant_pos_dialog_title'.tr()),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('لتفعيل حاسب الكاشير الخاص بالفرع:'),
+            Text('merchant_pos_dialog_intro'.tr()),
             const SizedBox(height: 8),
-            const Text('1. اختر الفرع المراد ربطه.'),
-            const Text('2. أدخل معرف المستخدم الخاص بالكاشير.'),
+            Text('merchant_pos_dialog_step_1'.tr()),
+            Text('merchant_pos_dialog_step_2'.tr()),
             const SizedBox(height: 12),
             TextField(
               controller: _cashierUserIdController,
-              decoration: const InputDecoration(
-                labelText: 'معرف مستخدم الكاشير',
-                hintText: 'مثال: user-cashier-101',
+              decoration: InputDecoration(
+                labelText: 'merchant_pos_cashier_id_label'.tr(),
+                hintText: 'merchant_pos_cashier_id_hint'.tr(),
               ),
             ),
           ],
@@ -1325,7 +1399,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
               await _bindCashier();
             },
             style: ElevatedButton.styleFrom(backgroundColor: kMerchantBrandGreen, foregroundColor: Colors.white),
-            child: const Text('تأكيد التفعيل'),
+            child: Text('merchant_pos_confirm_activation'.tr()),
           ),
         ],
       ),
@@ -1350,12 +1424,12 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'التحليلات التفصيلية للعملاء والأداء',
+                'merchant_analytics_banner_title'.tr(),
                 style: kBodyTextStyle(size: 14, weight: FontWeight.w700, color: kMerchantDarkCharcoal),
               ),
               const SizedBox(height: 2),
               Text(
-                'معدلات الاستدامة، التوزيع الجغرافي والديموغرافي مع خيارات التصدير',
+                'merchant_analytics_banner_subtitle'.tr(),
                 style: kBodyTextStyle(size: 11, color: kMerchantMuted),
               ),
             ],
@@ -1372,7 +1446,7 @@ class _MerchantDashboardScreenState extends State<MerchantDashboardScreen> {
               elevation: 0,
             ),
             icon: const Icon(Icons.analytics_outlined, size: 16),
-            label: const Text('فتح التحليلات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            label: Text('merchant_analytics_open'.tr(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           );
 
           if (isNarrow) {

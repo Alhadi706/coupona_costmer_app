@@ -270,7 +270,7 @@ extension _MyRewardsCards on _MyRewardsScreenState {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  '🎯 متبقي لك $remaining نقطة لفتح الجائزة',
+                  '\u{1F512} ${'reward_needs_more_points_badge'.tr(namedArgs: {'points': '$remaining'})}',
                   style: const TextStyle(
                     fontSize: 9.5,
                     fontWeight: FontWeight.bold,

@@ -46,7 +46,10 @@ app.get('/api/merchant/profile', auth, async (req, res) => {
     if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
 
     const row = (await client.query(
-      `SELECT id, user_id, business_name, commercial_registration, status, point_value
+      `SELECT id, user_id, business_name, commercial_registration, status, point_value,
+              phone, category, description, whatsapp, instagram_url, facebook_url, tiktok_url,
+              working_hours, logo_url, cover_url, gallery_urls, is_open,
+              location_lat, location_lng, location_address
          FROM merchant_profiles
         WHERE id = $1
         LIMIT 1`,
@@ -62,9 +65,95 @@ app.get('/api/merchant/profile', auth, async (req, res) => {
       status: row.status,
       pointValue: SYSTEM_POINT_VALUE,
       pointValueManagedBySystem: true,
+      phone: row.phone || '',
+      category: row.category || '',
+      description: row.description || '',
+      whatsapp: row.whatsapp || '',
+      instagramUrl: row.instagram_url || '',
+      facebookUrl: row.facebook_url || '',
+      tiktokUrl: row.tiktok_url || '',
+      workingHours: row.working_hours || '',
+      logoUrl: row.logo_url || '',
+      coverUrl: row.cover_url || '',
+      galleryUrls: Array.isArray(row.gallery_urls) ? row.gallery_urls : [],
+      isOpen: row.is_open !== false,
+      locationLat: row.location_lat == null ? null : Number(row.location_lat),
+      locationLng: row.location_lng == null ? null : Number(row.location_lng),
+      locationAddress: row.location_address || '',
     });
   } catch (e) {
     return res.status(500).json({ error: 'merchant_profile_fetch_failed', details: String(e.message || e) });
+  } finally {
+    client.release();
+  }
+});
+
+app.patch('/api/merchant/profile', auth, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+    if (!merchantId) return res.status(403).json({ error: 'merchant_role_required' });
+    await assertMerchantSubscriptionWritable(client, merchantId);
+    const p = req.body || {};
+    const text = (v, max = 500) => (v == null ? null : String(v).trim().slice(0, max));
+    const url = (v) => {
+      const s = text(v, 1000);
+      if (s == null) return null;
+      if (s === '') return '';
+      return /^https?:\/\//i.test(s) || s.startsWith('/') ? s : null;
+    };
+    const lat = p.locationLat == null ? null : Number(p.locationLat);
+    const lng = p.locationLng == null ? null : Number(p.locationLng);
+    if (lat != null && !Number.isFinite(lat)) return res.status(400).json({ error: 'invalid_latitude' });
+    if (lng != null && !Number.isFinite(lng)) return res.status(400).json({ error: 'invalid_longitude' });
+    const gallery = Array.isArray(p.galleryUrls)
+      ? p.galleryUrls.map((u) => url(u)).filter((u) => typeof u === 'string' && u !== '').slice(0, 12)
+      : null;
+    const result = await client.query(
+      `UPDATE merchant_profiles
+          SET business_name = COALESCE($2, business_name),
+              phone = COALESCE($3, phone),
+              category = COALESCE($4, category),
+              description = COALESCE($5, description),
+              whatsapp = COALESCE($6, whatsapp),
+              instagram_url = COALESCE($7, instagram_url),
+              facebook_url = COALESCE($8, facebook_url),
+              tiktok_url = COALESCE($9, tiktok_url),
+              working_hours = COALESCE($10, working_hours),
+              logo_url = COALESCE($11, logo_url),
+              cover_url = COALESCE($12, cover_url),
+              location_address = COALESCE($13, location_address),
+              location_lat = COALESCE($14, location_lat),
+              location_lng = COALESCE($15, location_lng),
+              is_open = COALESCE($16, is_open),
+              gallery_urls = COALESCE($17, gallery_urls)
+        WHERE id = $1
+        RETURNING id`,
+      [
+        merchantId,
+        p.businessName == null ? null : text(p.businessName, 200),
+        text(p.phone, 40),
+        text(p.category, 120),
+        text(p.description, 2000),
+        text(p.whatsapp, 40),
+        url(p.instagramUrl),
+        url(p.facebookUrl),
+        url(p.tiktokUrl),
+        text(p.workingHours, 500),
+        url(p.logoUrl),
+        url(p.coverUrl),
+        text(p.locationAddress, 500),
+        lat,
+        lng,
+        typeof p.isOpen === 'boolean' ? p.isOpen : null,
+        gallery == null ? null : JSON.stringify(gallery),
+      ]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'merchant_profile_not_found' });
+    return res.json({ ok: true });
+  } catch (e) {
+    if (isMerchantSubscriptionReadOnlyError(e)) return res.status(403).json({ error: 'merchant_subscription_read_only' });
+    return res.status(500).json({ error: 'merchant_profile_update_failed', details: String(e.message || e) });
   } finally {
     client.release();
   }
