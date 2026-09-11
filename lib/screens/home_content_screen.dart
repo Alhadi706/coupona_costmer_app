@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../dialogs/create_banner_dialog.dart';
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/compact_tier_card.dart';
@@ -11,6 +12,9 @@ import '../widgets/home_rewards_path_widget.dart';
 import 'home_content_screen_banner.dart';
 import 'home_content_screen_offers.dart';
 import 'home_store_discovery_section.dart';
+import 'category_products_screen.dart';
+import 'role_activation_request_screen.dart';
+import 'store_details_screen.dart';
 
 class HomeContentScreen extends StatefulWidget {
   final VoidCallback onOpenOffersTab;
@@ -22,6 +26,7 @@ class HomeContentScreen extends StatefulWidget {
   final VoidCallback? onOpenCustomerOffers;
   final VoidCallback? onScanReceipt;
   final Future<List<Map<String, dynamic>>> Function()? billboardAdsLoader;
+  final String currentRole;
 
   /// Optional shared stores future. When provided, the section reuses the
   /// caller's data source instead of issuing a separate [getStores] call.
@@ -38,6 +43,7 @@ class HomeContentScreen extends StatefulWidget {
     this.onOpenCustomerOffers,
     this.onScanReceipt,
     this.billboardAdsLoader,
+    this.currentRole = 'customer',
     this.storesFuture,
   });
 
@@ -54,7 +60,6 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   double? _customerLng;
   late Future<List<Map<String, dynamic>>> _storesFuture;
   late Future<List<Map<String, dynamic>>> _billboardAdsFuture;
-  late Future<List<Map<String, dynamic>>> _customerBannersFuture;
   late Future<Map<String, dynamic>> _pointsFuture;
   late Future<Map<String, dynamic>> _tiersFuture;
   late Future<Map<String, dynamic>> _pendingFuture;
@@ -70,8 +75,6 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   Future<Map<String, dynamic>> get sourcesFuture => _sourcesFuture;
   Future<List<Map<String, dynamic>>> get billboardAdsFuture =>
       _billboardAdsFuture;
-  Future<List<Map<String, dynamic>>> get customerBannersFuture =>
-      _customerBannersFuture;
   bool get discoverMapMode => _discoverMapMode;
   String get selectedDiscoverCategory => _selectedDiscoverCategory;
   double? get customerLat => _customerLat;
@@ -79,6 +82,7 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
   LatLng get tripoliDefaultCenter => _tripoliDefaultCenter;
 
   void handleBillboardTap(Map<String, dynamic> ad) => _handleBillboardTap(ad);
+  void handleBookingBannerTap() => _handleBookingBannerTap();
   void handleCategoryChanged(String cat) =>
       setState(() => _selectedDiscoverCategory = cat);
   void handleMapModeChanged(bool val) => setState(() => _discoverMapMode = val);
@@ -95,8 +99,6 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
         (widget.billboardAdsLoader?.call() ??
                 CompanyServerService.getBillboardAds())
             .catchError((_) => const <Map<String, dynamic>>[]);
-    _customerBannersFuture = CompanyServerService.getCustomerBanners()
-        .catchError((_) => const <Map<String, dynamic>>[]);
     _pointsFuture = CompanyServerService.getPointAccount().catchError(
       (_) => <String, dynamic>{},
     );
@@ -294,16 +296,103 @@ class _HomeContentScreenState extends State<HomeContentScreen> {
         await CompanyServerService.trackBillboardClick(id);
       } catch (_) {}
     }
-    final ctaType = (ad['ctaType'] ?? 'store').toString();
-    final ctaValue = (ad['ctaValue'] ?? '').toString().trim();
-    if (ctaType == 'external' && ctaValue.isNotEmpty) {
-      final uri = Uri.tryParse(ctaValue);
+    final targetType = (ad['target_type'] ??
+            ad['targetType'] ??
+            ad['cta_type'] ??
+            ad['ctaType'] ??
+            'store')
+        .toString()
+        .toLowerCase();
+    final targetId = (ad['target_id'] ??
+            ad['targetId'] ??
+            ad['cta_value'] ??
+            ad['ctaValue'] ??
+            '')
+        .toString()
+        .trim();
+    if (!mounted) return;
+    if (targetType == 'store' && targetId.isNotEmpty) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => StoreDetailsScreen(
+            store: <String, dynamic>{'id': targetId, 'merchantId': targetId},
+          ),
+        ),
+      );
+      return;
+    }
+    if (targetType == 'category' && targetId.isNotEmpty) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => CategoryProductsScreen(categoryId: targetId),
+        ),
+      );
+      return;
+    }
+    if ((targetType == 'external_link' || targetType == 'external') &&
+        targetId.isNotEmpty) {
+      final uri = Uri.tryParse(targetId);
       if (uri != null && await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
         return;
       }
     }
     if (mounted) _showBillboardDetails(ad);
+  }
+
+  Future<void> _handleBookingBannerTap() async {
+    if (const {'merchant', 'brand'}.contains(widget.currentRole)) {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (dialogContext) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(dialogContext).viewInsets.bottom,
+          ),
+          child: CreateBannerDialog(onAdd: (_) {}),
+        ),
+      );
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.campaign_rounded, size: 48, color: kTeal),
+              const SizedBox(height: 12),
+              const Text(
+                'حوّل نشاطك إلى حضور أقوى أمام عملاء كوبونا.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const RoleActivationRequestScreen(
+                          roleType: 'merchant',
+                        ),
+                      ),
+                    );
+                  },
+                  child: const Text('سجل كتاجر وانشر إعلانك'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   double _toDouble(dynamic value) {

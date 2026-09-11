@@ -10,8 +10,9 @@ const Color kMerchantGold = Color(0xFFD9A441);
 /// Merchant Ads & Campaigns Tab Widget (merchant_ads_v2)
 class MerchantAdsTab extends StatefulWidget {
   final Future<List<Map<String, dynamic>>> Function()? adsLoader;
+  final BannerAdSubmitter? bannerSubmitter;
 
-  const MerchantAdsTab({super.key, this.adsLoader});
+  const MerchantAdsTab({super.key, this.adsLoader, this.bannerSubmitter});
 
   @override
   State<MerchantAdsTab> createState() => _MerchantAdsTabState();
@@ -116,8 +117,13 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('تأكيد الحذف', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('هل أنت أثق برغبتك في حذف/أرشفة الحملة "${campaign['title'] ?? ''}"؟'),
+        title: const Text(
+          'تأكيد الحذف',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'هل أنت أثق برغبتك في حذف/أرشفة الحملة "${campaign['title'] ?? ''}"؟',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -126,7 +132,9 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('حذف', style: TextStyle(color: Colors.white)),
@@ -153,10 +161,9 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: CreateBannerDialog(
+          submitter: widget.bannerSubmitter,
           onAdd: (newBanner) {
             setState(() {
               _campaigns.insert(0, newBanner);
@@ -169,9 +176,9 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
   }
 
   void _openTargetedCampaignWizard() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const MerchantCampaignScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const MerchantCampaignScreen()));
   }
 
   @override
@@ -261,8 +268,13 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kMerchantPrimary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
               OutlinedButton.icon(
@@ -273,8 +285,13 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: kMerchantPrimary,
                   side: const BorderSide(color: kMerchantPrimary),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ],
@@ -369,11 +386,13 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              if (imageUrl.isNotEmpty && imageUrl.startsWith('http'))
+                              if (imageUrl.isNotEmpty &&
+                                  imageUrl.startsWith('http'))
                                 Image.network(
                                   imageUrl,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => _defaultBannerImage(),
+                                  errorBuilder: (_, __, ___) =>
+                                      _defaultBannerImage(),
                                 )
                               else
                                 _defaultBannerImage(),
@@ -381,14 +400,20 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
                                 top: 8,
                                 right: 8,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.black.withValues(alpha: 0.6),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
                                     '🎯 $audience',
-                                    style: const TextStyle(color: Colors.white, fontSize: 10),
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -413,17 +438,27 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
                               const SizedBox(height: 4),
                               Text(
                                 '🔗 الرابط/المنتج المربوط: $targetLink',
-                                style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF475569),
+                                ),
                               ),
                               const SizedBox(height: 6),
                               Row(
                                 children: [
-                                  const Icon(Icons.timer_outlined, size: 13, color: Colors.orange),
+                                  const Icon(
+                                    Icons.timer_outlined,
+                                    size: 13,
+                                    color: Colors.orange,
+                                  ),
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Text(
                                       'صالح لغاية: $endsAt',
-                                      style: const TextStyle(fontSize: 11, color: Colors.orange),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.orange,
+                                      ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -456,7 +491,11 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
             SizedBox(height: 4),
             Text(
               '🖼️ [ صورة الإعلان المعروضة ]',
-              style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -497,25 +536,70 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
           dataRowMaxHeight: 56,
           headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
           columns: const [
-            DataColumn(label: Text('اسم الحملة', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('النوع', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('المشاهدة', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('النقرات', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('نسبة النقرات CTR', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(
+              label: Text(
+                'اسم الحملة',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'النوع',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'الحالة',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'المشاهدة',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'النقرات',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'نسبة النقرات CTR',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            DataColumn(
+              label: Text(
+                'الإجراءات',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
           rows: _campaigns.map((campaign) {
             final isSelected = _selectedCampaign?['id'] == campaign['id'];
             final String title = campaign['title'] ?? 'حملة إعلانية';
-            final String rawType = (campaign['campaign_type'] ?? 'BANNER').toString();
-            final String typeLabel = (rawType == 'BANNER' || rawType == 'banner')
+            final String rawType = (campaign['campaign_type'] ?? 'BANNER')
+                .toString();
+            final String typeLabel =
+                (rawType == 'BANNER' || rawType == 'banner')
                 ? 'بانر رئيسي'
                 : 'هدية مستهدفة';
             final String status = (campaign['status'] ?? 'active').toString();
 
-            final int views = num.tryParse(campaign['issued_count']?.toString() ?? '0')?.toInt() ?? 0;
-            final int clicks = num.tryParse(campaign['redeemed_count']?.toString() ?? '0')?.toInt() ?? 0;
+            final int views =
+                num.tryParse(
+                  campaign['issued_count']?.toString() ?? '0',
+                )?.toInt() ??
+                0;
+            final int clicks =
+                num.tryParse(
+                  campaign['redeemed_count']?.toString() ?? '0',
+                )?.toInt() ??
+                0;
             final double ctr = views > 0 ? (clicks / views) * 100 : 0.0;
 
             return DataRow(
@@ -528,23 +612,34 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
                   Text(
                     title,
                     style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? kMerchantPrimary : const Color(0xFF1A202C),
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: isSelected
+                          ? kMerchantPrimary
+                          : const Color(0xFF1A202C),
                     ),
                   ),
                 ),
                 DataCell(
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: rawType.contains('BANNER') ? const Color(0xFFEBF8FF) : const Color(0xFFFEFCBF),
+                      color: rawType.contains('BANNER')
+                          ? const Color(0xFFEBF8FF)
+                          : const Color(0xFFFEFCBF),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       typeLabel,
                       style: TextStyle(
                         fontSize: 12,
-                        color: rawType.contains('BANNER') ? const Color(0xFF2B6CB0) : const Color(0xFF975A16),
+                        color: rawType.contains('BANNER')
+                            ? const Color(0xFF2B6CB0)
+                            : const Color(0xFF975A16),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -559,16 +654,25 @@ class _MerchantAdsTabState extends State<MerchantAdsTab> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        tooltip: status == 'active' ? 'pause_campaign'.tr() : 'activate_campaign'.tr(),
+                        tooltip: status == 'active'
+                            ? 'pause_campaign'.tr()
+                            : 'activate_campaign'.tr(),
                         icon: Icon(
-                          status == 'active' ? Icons.pause_circle_filled : Icons.play_circle_fill,
-                          color: status == 'active' ? Colors.orange : Colors.green,
+                          status == 'active'
+                              ? Icons.pause_circle_filled
+                              : Icons.play_circle_fill,
+                          color: status == 'active'
+                              ? Colors.orange
+                              : Colors.green,
                         ),
                         onPressed: () => _toggleCampaignStatus(campaign),
                       ),
                       IconButton(
                         tooltip: 'delete_campaign'.tr(),
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
                         onPressed: () => _deleteCampaign(campaign),
                       ),
                     ],

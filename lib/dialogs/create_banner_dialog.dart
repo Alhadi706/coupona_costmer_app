@@ -9,11 +9,34 @@ import '../services/company_server_service.dart';
 const Color kMerchantPrimary = Color(0xFF0A5C43);
 const Color kMerchantGold = Color(0xFFD9A441);
 
+typedef BannerAdSubmitter = Future<void> Function(Map<String, dynamic> payload);
+typedef BannerImagePicker = Future<BannerImageSelection?> Function();
+typedef BannerImageUploader = Future<String?> Function(
+  Uint8List bytes,
+  String mimeType,
+);
+
+class BannerImageSelection {
+  final Uint8List bytes;
+  final String mimeType;
+
+  const BannerImageSelection(this.bytes, {this.mimeType = 'image/jpeg'});
+}
+
 /// Dialog / Modal sheet for creating a new Ad Banner with local image upload & live interactive preview.
 class CreateBannerDialog extends StatefulWidget {
   final ValueChanged<Map<String, dynamic>> onAdd;
+  final BannerAdSubmitter? submitter;
+  final BannerImagePicker? imagePicker;
+  final BannerImageUploader? imageUploader;
 
-  const CreateBannerDialog({super.key, required this.onAdd});
+  const CreateBannerDialog({
+    super.key,
+    required this.onAdd,
+    this.submitter,
+    this.imagePicker,
+    this.imageUploader,
+  });
 
   @override
   State<CreateBannerDialog> createState() => _CreateBannerDialogState();
@@ -27,6 +50,7 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
   final _externalUrlController = TextEditingController();
 
   Uint8List? _selectedImageBytes;
+  String _selectedImageMimeType = 'image/jpeg';
 
   String _targetType = 'category'; // 'category', 'offer', 'external'
   String _selectedCategory = 'قسم العصائر';
@@ -34,6 +58,7 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
 
   String _selectedAudience = 'كافة الزبائن';
   DateTime _expiryDate = DateTime.now().add(const Duration(days: 30));
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -74,14 +99,26 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
 
   Future<void> _pickBannerImage() async {
     try {
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-      if (pickedFile != null) {
-        final bytes = await pickedFile.readAsBytes();
+      BannerImageSelection? selection;
+      if (widget.imagePicker != null) {
+        selection = await widget.imagePicker!();
+      } else {
+        final pickedFile = await ImagePicker().pickImage(
+          source: ImageSource.gallery,
+        );
+        if (pickedFile != null) {
+          selection = BannerImageSelection(
+            await pickedFile.readAsBytes(),
+            mimeType: pickedFile.mimeType ?? 'image/jpeg',
+          );
+        }
+      }
+      if (selection != null && mounted) {
         setState(() {
-          _selectedImageBytes = bytes;
+          _selectedImageBytes = selection!.bytes;
+          _selectedImageMimeType = selection.mimeType;
           _imageUrlController.text =
-              'data:image/jpeg;base64,${base64Encode(bytes)}';
+              'data:${selection.mimeType};base64,${base64Encode(selection.bytes)}';
         });
       }
     } catch (e) {
@@ -107,12 +144,18 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
   }
 
   Future<void> _submitForm() async {
+    if (_isSubmitting) return;
+
     final titleText = _titleController.text.trim();
-    final hasImage = _selectedImageBytes != null ||
+    final hasImage =
+        _selectedImageBytes != null ||
         _imageUrlController.text.trim().isNotEmpty;
 
-    if (titleText.isEmpty && !hasImage) {
+    if (!hasImage) {
       _formKey.currentState?.validate();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى اختيار صورة البانر أولاً')),
+      );
       return;
     }
 
@@ -120,19 +163,70 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
       return;
     }
 
+    setState(() => _isSubmitting = true);
     _updateLinkController();
-    String finalImageUrl = _imageUrlController.text.trim();
+    var finalImageUrl = _imageUrlController.text.trim();
 
     if (_selectedImageBytes != null) {
       try {
-        final uploadedUrl =
-            await CompanyServerService.uploadImageBytes(_selectedImageBytes!);
+        final uploadedUrl = widget.imageUploader != null
+            ? await widget.imageUploader!(
+                _selectedImageBytes!,
+                _selectedImageMimeType,
+              )
+            : await CompanyServerService.uploadImageBytes(
+                _selectedImageBytes!,
+                mimeType: _selectedImageMimeType,
+              );
         if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
           finalImageUrl = uploadedUrl;
+        } else {
+          throw StateError('image_upload_returned_empty_url');
         }
       } catch (e) {
-        debugPrint('Image upload failed, falling back to data URL: $e');
+        if (!mounted) return;
+        setState(() => _isSubmitting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تعذر رفع صورة الإعلان. حاول مرة أخرى.'),
+          ),
+        );
+        return;
       }
+    }
+
+    final now = DateTime.now().toUtc();
+    final payload = <String, dynamic>{
+      'offerType': 'BANNER',
+      'category': _targetType,
+      'titleType': 'custom',
+      'description': titleText.isNotEmpty ? titleText : 'بانر إعلاني جديد',
+      'startDate': now.toIso8601String(),
+      'endDate': _expiryDate.toUtc().toIso8601String(),
+      'location': _selectedAudience,
+      'imageUrl': finalImageUrl,
+      'createdAt': now.toIso8601String(),
+      'ctaType': _targetType,
+      'ctaValue': _linkController.text.trim(),
+    };
+
+    try {
+      await (widget.submitter ?? CompanyServerService.createBillboardAd)(
+        payload,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().contains('insufficient_gold_points')
+                ? 'رصيدك الذهبي غير كافٍ لإطلاق البانر'
+                : 'تعذر إرسال الإعلان للمراجعة. حاول مرة أخرى.',
+          ),
+        ),
+      );
+      return;
     }
 
     final newBanner = {
@@ -142,7 +236,8 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
           ? _linkController.text.trim()
           : 'الصفحة الرئيسية',
       'campaign_type': 'BANNER',
-      'status': 'active',
+      'status': 'pending_review',
+      'lifecycleStatus': 'pending_review',
       'issued_count': 0,
       'redeemed_count': 0,
       'ends_at': _expiryDate.toString().split(' ').first,
@@ -151,6 +246,24 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
     };
 
     widget.onAdd(newBanner);
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('تم إرسال الإعلان بنجاح!'),
+          content: const Text(
+            'تم خصم نقاط الإعلان وحفظ الطلب، وهو الآن قيد مراجعة وتفعيل إدارة المنصة.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('حسناً'),
+            ),
+          ],
+        ),
+      );
+    }
     if (mounted) {
       Navigator.of(context).pop();
     }
@@ -170,7 +283,10 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
               // Header
               Row(
                 children: [
-                  const Icon(Icons.add_photo_alternate, color: kMerchantPrimary),
+                  const Icon(
+                    Icons.add_photo_alternate,
+                    color: kMerchantPrimary,
+                  ),
                   const SizedBox(width: 8),
                   const Text(
                     'إضافة بانر إعلاني رئيسي جديد',
@@ -204,7 +320,8 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
                   prefixIcon: Icon(Icons.title, color: kMerchantPrimary),
                 ),
                 validator: (val) {
-                  final hasImg = _selectedImageBytes != null ||
+                  final hasImg =
+                      _selectedImageBytes != null ||
                       _imageUrlController.text.trim().isNotEmpty;
                   if ((val == null || val.trim().isEmpty) && !hasImg) {
                     return 'يرجى إدخال عنوان الإعلان';
@@ -228,12 +345,18 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
                   prefixIcon: Icon(Icons.groups, color: kMerchantPrimary),
                 ),
                 items: const [
-                  DropdownMenuItem(value: 'كافة الزبائن', child: Text('كافة الزبائن')),
                   DropdownMenuItem(
-                      value: 'أفضل العملاء', child: Text('أفضل العملاء (Top Spenders)')),
+                    value: 'كافة الزبائن',
+                    child: Text('كافة الزبائن'),
+                  ),
                   DropdownMenuItem(
-                      value: 'العملاء غير النشطين',
-                      child: Text('العملاء غير النشطين (Inactive)')),
+                    value: 'أفضل العملاء',
+                    child: Text('أفضل العملاء (Top Spenders)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'العملاء غير النشطين',
+                    child: Text('العملاء غير النشطين (Inactive)'),
+                  ),
                 ],
                 onChanged: (val) {
                   if (val != null) setState(() => _selectedAudience = val);
@@ -243,14 +366,20 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
 
               // Expiry Date Selection
               ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                   side: BorderSide(color: Colors.grey.shade400),
                 ),
                 title: const Text('تاريخ انتهاء الإعلان'),
                 subtitle: Text(_expiryDate.toString().split(' ').first),
-                trailing: const Icon(Icons.calendar_today, color: kMerchantPrimary),
+                trailing: const Icon(
+                  Icons.calendar_today,
+                  color: kMerchantPrimary,
+                ),
                 onTap: _selectExpiryDate,
               ),
               const SizedBox(height: 20),
@@ -258,17 +387,31 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
               // Submit Button
               ElevatedButton(
                 key: const Key('submit-banner-btn'),
-                onPressed: _submitForm,
+                onPressed: _isSubmitting ? null : _submitForm,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kMerchantPrimary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                child: const Text(
-                  'إطلاق البانر الإعلاني',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'إطلاق البانر الإعلاني',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ],
           ),
@@ -287,7 +430,10 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kMerchantPrimary.withOpacity(0.3), width: 1.5),
+        border: Border.all(
+          color: kMerchantPrimary.withOpacity(0.3),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.06),
@@ -307,7 +453,11 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
             ),
             child: const Row(
               children: [
-                Icon(Icons.remove_red_eye_outlined, color: Colors.white, size: 16),
+                Icon(
+                  Icons.remove_red_eye_outlined,
+                  color: Colors.white,
+                  size: 16,
+                ),
                 SizedBox(width: 6),
                 Text(
                   'معاينة تفاعلية للإعلان (شاشة العميل)',
@@ -327,16 +477,18 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.grey.shade200,
-                  borderRadius:
-                      const BorderRadius.vertical(bottom: Radius.circular(10)),
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(10),
+                  ),
                 ),
                 child: _buildBannerPreviewImage(),
               ),
               Positioned.fill(
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius:
-                        const BorderRadius.vertical(bottom: Radius.circular(10)),
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(10),
+                    ),
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
@@ -371,8 +523,10 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
                 child: Row(
                   children: [
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: kMerchantGold,
                         borderRadius: BorderRadius.circular(6),
@@ -388,8 +542,10 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.9),
                         borderRadius: BorderRadius.circular(6),
@@ -416,6 +572,7 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
   Widget _buildBannerPreviewImage() {
     if (_selectedImageBytes != null) {
       return Image.memory(
+        key: const Key('banner-live-preview-image'),
         _selectedImageBytes!,
         fit: BoxFit.cover,
         width: double.infinity,
@@ -439,10 +596,7 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            kMerchantPrimary,
-            kMerchantPrimary.withOpacity(0.7),
-          ],
+          colors: [kMerchantPrimary, kMerchantPrimary.withOpacity(0.7)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -497,7 +651,11 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
                     child: IconButton(
                       key: const Key('remove-banner-image-btn'),
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.close, color: Colors.white, size: 16),
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 16,
+                      ),
                       onPressed: _clearSelectedImage,
                     ),
                   ),
@@ -587,14 +745,32 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
             decoration: const InputDecoration(
               labelText: 'اختر قسم المتجر المربوط',
               border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.category_outlined, color: kMerchantPrimary),
+              prefixIcon: Icon(
+                Icons.category_outlined,
+                color: kMerchantPrimary,
+              ),
             ),
             items: const [
-              DropdownMenuItem(value: 'قسم العصائر', child: Text('قسم العصائر')),
-              DropdownMenuItem(value: 'قسم الحلويات', child: Text('قسم الحلويات')),
-              DropdownMenuItem(value: 'قسم المخبوزات', child: Text('قسم المخبوزات')),
-              DropdownMenuItem(value: 'المأكولات الرئيسية', child: Text('المأكولات الرئيسية')),
-              DropdownMenuItem(value: 'قسم العروض الخاصة', child: Text('قسم العروض الخاصة')),
+              DropdownMenuItem(
+                value: 'قسم العصائر',
+                child: Text('قسم العصائر'),
+              ),
+              DropdownMenuItem(
+                value: 'قسم الحلويات',
+                child: Text('قسم الحلويات'),
+              ),
+              DropdownMenuItem(
+                value: 'قسم المخبوزات',
+                child: Text('قسم المخبوزات'),
+              ),
+              DropdownMenuItem(
+                value: 'المأكولات الرئيسية',
+                child: Text('المأكولات الرئيسية'),
+              ),
+              DropdownMenuItem(
+                value: 'قسم العروض الخاصة',
+                child: Text('قسم العروض الخاصة'),
+              ),
             ],
             onChanged: (val) {
               if (val != null) {
@@ -613,7 +789,10 @@ class _CreateBannerDialogState extends State<CreateBannerDialog> {
             decoration: const InputDecoration(
               labelText: 'اختر العرض / الكوبون المربوط',
               border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.local_offer_outlined, color: kMerchantPrimary),
+              prefixIcon: Icon(
+                Icons.local_offer_outlined,
+                color: kMerchantPrimary,
+              ),
             ),
             items: const [
               DropdownMenuItem(

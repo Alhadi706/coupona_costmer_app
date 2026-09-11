@@ -6,12 +6,14 @@ class AdsBannerSlider extends StatefulWidget {
   final double height;
   final ValueChanged<Map<String, dynamic>>? onAdTap;
   final ValueChanged<Map<String, dynamic>>? onAdImpression;
+  final VoidCallback? onBookingTap;
 
   const AdsBannerSlider({
     required this.ads,
     required this.height,
     this.onAdTap,
     this.onAdImpression,
+    this.onBookingTap,
     super.key,
   });
 
@@ -33,11 +35,12 @@ class _AdsBannerSliderState extends State<AdsBannerSlider> {
   }
 
   void _startAutoSlide() {
-    if (widget.ads.length < 2) return;
-    _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    _timer?.cancel();
+    if (widget.ads.isEmpty) return;
+    _timer = Timer.periodic(const Duration(seconds: 4), (timer) {
       if (_pageController.hasClients) {
         int nextPage = _currentPage + 1;
-        if (nextPage >= widget.ads.length) nextPage = 0;
+        if (nextPage >= widget.ads.length + 1) nextPage = 0;
         _pageController.animateToPage(
           nextPage,
           duration: const Duration(milliseconds: 400),
@@ -46,6 +49,10 @@ class _AdsBannerSliderState extends State<AdsBannerSlider> {
       }
     });
   }
+
+  void _pauseAutoSlide(PointerDownEvent _) => _timer?.cancel();
+
+  void _resumeAutoSlide(PointerEvent _) => _startAutoSlide();
 
   @override
   void dispose() {
@@ -59,16 +66,25 @@ class _AdsBannerSliderState extends State<AdsBannerSlider> {
     return SizedBox(
       height: widget.height,
       width: double.infinity,
-      child: PageView.builder(
-        controller: _pageController,
-        itemCount: widget.ads.length,
-        onPageChanged: (index) {
-          widget.onAdImpression?.call(widget.ads[index]);
-          setState(() {
-            _currentPage = index;
-          });
-        },
-        itemBuilder: (context, index) {
+      child: Listener(
+        onPointerDown: _pauseAutoSlide,
+        onPointerUp: _resumeAutoSlide,
+        onPointerCancel: _resumeAutoSlide,
+        child: PageView.builder(
+          controller: _pageController,
+          itemCount: widget.ads.length + 1,
+          onPageChanged: (index) {
+            if (index < widget.ads.length) {
+              widget.onAdImpression?.call(widget.ads[index]);
+            }
+            setState(() {
+              _currentPage = index;
+            });
+          },
+          itemBuilder: (context, index) {
+            if (index == widget.ads.length) {
+              return _bookingCard();
+            }
           final ad = widget.ads[index];
           final imageUrl = (ad['imageUrl'] ?? ad['image'] ?? '').toString();
           final assetPath = imageUrl;
@@ -128,7 +144,61 @@ class _AdsBannerSliderState extends State<AdsBannerSlider> {
               ),
             ),
           );
-        },
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _bookingCard() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: InkWell(
+        key: const ValueKey<String>('booking_banner_cta'),
+        onTap: widget.onBookingTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [Color(0xFF006D77), Color(0xFFE09F3E)],
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+            child: Row(
+              children: [
+                Icon(Icons.campaign_rounded, color: Colors.white, size: 44),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'احجز مساحتك الإعلانية هنا',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        'انشر علاماتك التجارية وتواصل مع عملاء كوبونا بفعالية',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -38,6 +38,15 @@ module.exports = function registerOffersBillboardRoutes(app, deps) {
     analyticsAgeBucket, analyticsCountEntries, analyticsTopEntries,
   } = deps;
 
+  function absoluteImageUrl(req, imageUrl) {
+    const value = String(imageUrl || '').trim();
+    if (!value || /^https?:\/\//i.test(value)) return value;
+    const forwardedProto = String(req.headers?.['x-forwarded-proto'] || '').split(',')[0].trim();
+    const protocol = forwardedProto || req.protocol || 'http';
+    const host = typeof req.get === 'function' ? req.get('host') : req.headers?.host;
+    return host ? `${protocol}://${host}${value.startsWith('/') ? value : `/${value}`}` : value;
+  }
+
 app.post('/api/offers/targeted', auth, async (req, res) => {
   const client = await pool.connect();
   try {
@@ -374,7 +383,85 @@ app.post('/api/offers', auth, async (req, res) => {
   res.json({ id: offerId, ok: true });
 });
 
-app.get('/api/billboard-ads', auth, async (_req, res) => {
+app.post('/api/merchant/billboard-ads', auth, async (req, res) => {
+  const p = req.body || {};
+  const imageUrl = String(p.imageUrl || p.image || '').trim();
+  if (!imageUrl) return res.status(400).json({ error: 'billboard_image_required' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const merchantId = await getMerchantProfileIdByUser(client, req.user.userId);
+    if (!merchantId) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'merchant_profile_required' });
+    }
+
+    const pointsCost = await getIntSetting(client, 'billboard_ad_gold_cost', 100);
+    const wallet = (await client.query(
+      `SELECT balance FROM merchant_token_wallets
+        WHERE merchant_id = $1
+        FOR UPDATE`,
+      [merchantId]
+    )).rows[0];
+    const availablePoints = Number(wallet?.balance || 0);
+    if (availablePoints < pointsCost) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'insufficient_gold_points',
+        requiredPoints: pointsCost,
+        availablePoints,
+      });
+    }
+
+    const balanceAfter = availablePoints - pointsCost;
+    await client.query(
+      `UPDATE merchant_token_wallets
+          SET balance = $2, last_updated_at = NOW()
+        WHERE merchant_id = $1`,
+      [merchantId, balanceAfter]
+    );
+
+    const offerId = id();
+    await client.query(
+      `INSERT INTO offers (
+        id, owner_id, offer_type, category, title_type, discount_type, discount_value, price,
+        description, start_date, end_date, location, image_url, created_at,
+        lifecycle_status, lifecycle_updated_at, lifecycle_reason, cta_type, cta_value
+      ) VALUES (
+        $1,$2,$3,$4,$5,NULL,NULL,NULL,$6,$7,$8,$9,$10,NOW(),
+        'pending_review',NOW(),'billboard_pending_admin_review',$11,$12
+      )`,
+      [
+        offerId, req.user.userId, p.offerType || 'BANNER', p.category || 'general',
+        p.titleType || 'custom', p.description || null, p.startDate || null,
+        p.endDate || null, p.location || null, imageUrl,
+        String(p.ctaType || 'store'), String(p.ctaValue || '').trim() || null,
+      ]
+    );
+    await client.query(
+      `INSERT INTO merchant_token_ledger
+        (id, merchant_id, customer_user_id, receipt_id, type, amount, balance_after, created_at)
+       VALUES ($1, $2, NULL, $3, 'billboard_ad', $4, $5, NOW())`,
+      [id(), merchantId, offerId, -pointsCost, balanceAfter]
+    );
+    await client.query('COMMIT');
+    return res.status(201).json({
+      ok: true,
+      id: offerId,
+      status: 'pending_review',
+      pointsDeducted: pointsCost,
+      balance: balanceAfter,
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    return res.status(500).json({ error: 'billboard_creation_failed', details: String(error.message || error) });
+  } finally {
+    client.release();
+  }
+});
+
+async function listActiveBillboardAds(req, res) {
   const rows = (await pool.query(
     `SELECT id, offer_type, category, description, location, image_url, start_date, end_date,
             created_at, published_at
@@ -393,13 +480,16 @@ app.get('/api/billboard-ads', auth, async (_req, res) => {
     category: row.category,
     description: row.description,
     location: row.location,
-    imageUrl: `/api/billboard-ads/${row.id}/image`,
+    imageUrl: absoluteImageUrl(req, `/api/billboard-ads/${row.id}/image`),
     startDate: toIso(row.start_date),
     endDate: toIso(row.end_date),
     createdAt: toIso(row.created_at),
     publishedAt: toIso(row.published_at),
   })));
-});
+}
+
+app.get('/api/billboard-ads', auth, listActiveBillboardAds);
+app.get('/api/billboard-ads/active', auth, listActiveBillboardAds);
 
 app.get('/api/billboard-ads/:id/image', async (req, res) => {
   const row = (await pool.query(
@@ -473,7 +563,7 @@ app.get('/api/admin/billboard-ads', auth, requireAdmin, async (req, res) => {
     category: row.category,
     description: row.description,
     location: row.location,
-    imageUrl: row.image_url,
+    imageUrl: absoluteImageUrl(req, row.image_url),
     lifecycleStatus: row.lifecycle_status,
     lifecycleReason: row.lifecycle_reason,
     startDate: toIso(row.start_date),

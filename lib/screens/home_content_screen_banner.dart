@@ -1,4 +1,3 @@
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../services/company_server_service.dart';
@@ -93,10 +92,6 @@ int _toInt(dynamic value) {
 Map<String, dynamic> _asMap(dynamic value) =>
     value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{};
 
-List<Map<String, dynamic>> _asMapList(dynamic value) => value is List
-    ? value.whereType<Map>().map(_asMap).toList(growable: false)
-    : const <Map<String, dynamic>>[];
-
 Future<Map<String, dynamic>> _safePointsFuture(dynamic state) async {
   try {
     return _asMap(await state.pointsFuture);
@@ -106,68 +101,25 @@ Future<Map<String, dynamic>> _safePointsFuture(dynamic state) async {
 }
 
 Widget buildBanner(dynamic state) {
-  return FutureBuilder<List<dynamic>>(
-    future: Future.wait<dynamic>([
-      state.billboardAdsFuture,
-      state.customerBannersFuture,
-    ]).catchError((_) => <dynamic>[]),
+  return FutureBuilder<List<Map<String, dynamic>>>(
+    future: state.billboardAdsFuture,
     builder: (context, snapshot) {
-      final results = snapshot.hasError
-          ? const <dynamic>[]
-          : (snapshot.data ?? const <dynamic>[]);
-      final billboardAds = _asMapList(results.isNotEmpty ? results[0] : null);
-      final customerBanners = _asMapList(
-        results.length > 1 ? results[1] : null,
-      );
-      final combined = <Map<String, dynamic>>[
-        for (final ad in [...customerBanners, ...billboardAds])
-          {
-            ...ad,
-            'title': (ad['title']?.toString() == 'merchant test offer')
-                ? 'عروض رائعة مميزة بانتظارك'
-                : ad['title'],
-            'description':
-                (ad['description']?.toString() == 'merchant test offer')
-                ? 'خصومات كبرى وعروض حصرية وفريدة لعملاء كوبونا!'
-                : ad['description'],
-          },
-      ];
-      if (combined.isNotEmpty) {
-        return AdsBannerSlider(
-          ads: combined,
-          height: 164,
-          onAdTap: state.handleBillboardTap,
-          onAdImpression: (ad) {
-            final id = (ad['id'] ?? '').toString();
-            if (id.isNotEmpty) {
-              CompanyServerService.trackBillboardImpression(
-                id,
-              ).catchError((_) {});
-            }
-          },
-        );
-      }
-      final defaultBanners = <Map<String, dynamic>>[
-        {
-          'id': 'default_banner_1',
-          'title': 'home_banner_title'.tr(),
-          'description': 'home_banner_1'.tr(),
-        },
-        {
-          'id': 'default_banner_2',
-          'title': 'home_banner_title'.tr(),
-          'description': 'home_banner_2'.tr(),
-        },
-        {
-          'id': 'default_banner_3',
-          'title': 'home_banner_title'.tr(),
-          'description': 'home_banner_3'.tr(),
-        },
-      ];
+      final billboardAds = snapshot.hasError
+          ? const <Map<String, dynamic>>[]
+          : (snapshot.data ?? const <Map<String, dynamic>>[]);
       return AdsBannerSlider(
-        ads: defaultBanners,
+        ads: billboardAds,
         height: 164,
-        onAdTap: (ad) {},
+        onAdTap: state.handleBillboardTap,
+        onBookingTap: state.handleBookingBannerTap,
+        onAdImpression: (ad) {
+          final id = (ad['id'] ?? '').toString();
+          if (id.isNotEmpty) {
+            CompanyServerService.trackBillboardImpression(id).catchError(
+              (_) {},
+            );
+          }
+        },
       );
     },
   );

@@ -111,6 +111,7 @@ List<Widget> _buildCustomerTabs(
   return <Widget>[
     HomeContentScreen(
       storesFuture: storesFuture,
+      currentRole: state._activeRole,
       onOpenOffersTab: () => state._onItemTapped(0),
       onOpenPeerAdsTab: () => state._onItemTapped(2),
       onOpenMap: () => state._onItemTapped(1),

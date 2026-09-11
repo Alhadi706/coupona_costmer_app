@@ -851,9 +851,13 @@ class CompanyServerService {
     await post('/offers', payload, auth: true);
   }
 
+  static Future<void> createBillboardAd(Map<String, dynamic> payload) async {
+    await post('/merchant/billboard-ads', payload, auth: true);
+  }
+
   static Future<List<Map<String, dynamic>>> getBillboardAds() async {
     try {
-      final data = await get('/billboard-ads', auth: true);
+      final data = await get('/billboard-ads/active', auth: true);
       final apiUri = Uri.parse(_baseUrl);
       final ads = (data as List).map((e) {
         final ad = (e as Map).cast<String, dynamic>();
@@ -865,21 +869,10 @@ class CompanyServerService {
         }
         return ad;
       }).toList();
-      if (ads.isNotEmpty) return ads;
+      return ads;
     } catch (_) {
-      // Older deployed API instances may not have the dedicated feed yet.
+      return const <Map<String, dynamic>>[];
     }
-
-    final offers = await getOffers();
-    return offers
-        .where((offer) {
-          final status = (offer['lifecycleStatus'] ?? '')
-              .toString()
-              .toLowerCase();
-          final image = (offer['imageUrl'] ?? offer['image'] ?? '').toString();
-          return status == 'active' && image.isNotEmpty;
-        })
-        .toList(growable: false);
   }
 
   static Future<void> trackBillboardImpression(String adId) async {

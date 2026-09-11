@@ -83,9 +83,7 @@
       var observer;
       var readinessCheck = setInterval(function() {
         var flutterView = document.querySelector('flutter-view');
-        var sceneHost = flutterView && flutterView.shadowRoot &&
-          flutterView.shadowRoot.querySelector('flt-scene-host');
-        if (!sceneHost) return;
+        if (!flutterView || flutterView.children.length === 0) return;
 
         var splash = document.getElementById('loading-splash');
         if (splash) {

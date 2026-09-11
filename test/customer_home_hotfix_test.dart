@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:coupona_app/dialogs/create_banner_dialog.dart';
 import 'package:coupona_app/screens/home_content_screen.dart';
 import 'package:coupona_app/screens/home_screen.dart';
 import 'package:coupona_app/screens/ads_banner_slider.dart';
-import 'package:coupona_app/widgets/design_system/kupuna_top_tabs.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -93,7 +93,7 @@ Future<void> main() async {
     expect(find.byType(FloatingActionButton), findsNothing);
   });
 
-  testWidgets('customer home has a rotating banner and three required tabs', (
+  testWidgets('customer home has a rotating banner and store discovery', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -112,15 +112,8 @@ Future<void> main() async {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byType(KupunaTopTabs), findsOneWidget);
-    final tabs = tester.widget<KupunaTopTabs>(find.byType(KupunaTopTabs));
-    expect(tabs.tabs, <String>[
-      'home_tab_discover',
-      'home_tab_offers',
-      'home_tab_peer_ads',
-    ]);
-    expect(find.text('home_view_rewards'), findsOneWidget);
-    expect(find.text('home_coalition_network'), findsWidgets);
+    expect(find.byType(AdsBannerSlider), findsOneWidget);
+    expect(find.text('home_explore_title'), findsOneWidget);
     expect(find.text('home_quick_scan'), findsNothing);
     expect(find.text('home_quick_map'), findsNothing);
     expect(find.text('home_quick_community'), findsNothing);
@@ -155,5 +148,61 @@ Future<void> main() async {
     expect(find.byType(AdsBannerSlider), findsOneWidget);
     expect(find.text('إعلان معتمد للزبون'), findsOneWidget);
     expect(find.text('1/3'), findsNothing);
+  });
+
+  testWidgets('two active ads are followed by exactly one booking CTA', (
+    tester,
+  ) async {
+    var bookingTapped = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdsBannerSlider(
+            height: 164,
+            ads: const <Map<String, dynamic>>[
+              <String, dynamic>{'id': 'ad-1', 'title': 'Ad 1'},
+              <String, dynamic>{'id': 'ad-2', 'title': 'Ad 2'},
+            ],
+            onBookingTap: () => bookingTapped = true,
+          ),
+        ),
+      ),
+    );
+
+    final pageView = tester.widget<PageView>(find.byType(PageView));
+    expect(pageView.childrenDelegate.estimatedChildCount, 3);
+    expect(find.text('Ad 1'), findsOneWidget);
+
+    await tester.drag(find.byType(PageView), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('Ad 2'), findsOneWidget);
+
+    await tester.drag(find.byType(PageView), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('booking_banner_cta')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('booking_banner_cta')));
+    expect(bookingTapped, isTrue);
+  });
+
+  testWidgets('merchant booking CTA opens banner creation directly', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      app(
+        HomeContentScreen(
+          currentRole: 'merchant',
+          onOpenOffersTab: () {},
+          onOpenPeerAdsTab: () {},
+          billboardAdsLoader: () async => <Map<String, dynamic>>[],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.tap(find.byKey(const Key('booking_banner_cta')));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CreateBannerDialog), findsOneWidget);
   });
 }
