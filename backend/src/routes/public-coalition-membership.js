@@ -117,7 +117,7 @@ module.exports = function registerPublicCoalitionMembershipRoutes(app, deps) {
       pool,
       row.applicant_user_id,
       'public_coalition_payment_required',
-      'Public coalition application approved',
+      'تمت الموافقة على طلب عضوية الائتلاف العام',
       adminMessage,
       { requestId: row.id, applicantType: row.applicant_type, paymentUrl: paymentUrl || null, targetScreen: 'public_coalition_membership' }
     );
@@ -140,7 +140,7 @@ module.exports = function registerPublicCoalitionMembershipRoutes(app, deps) {
       pool,
       row.applicant_user_id,
       'public_coalition_request_rejected',
-      'Public coalition application update',
+      'تحديث طلب عضوية الائتلاف العام',
       reason,
       { requestId: row.id, applicantType: row.applicant_type, targetScreen: 'public_coalition_membership' }
     );
@@ -149,7 +149,10 @@ module.exports = function registerPublicCoalitionMembershipRoutes(app, deps) {
 
   app.post('/api/admin/public-coalition/membership-requests/:id/activate', auth, requireAdmin, async (req, res) => {
     const paymentReference = String(req.body?.paymentReference || '').trim();
-    if (!paymentReference) return res.status(400).json({ error: 'payment_reference_required' });
+    const goldPoints = Number(req.body?.goldPoints ?? 1000);
+    if (!Number.isInteger(goldPoints) || goldPoints <= 0) {
+      return res.status(400).json({ error: 'invalid_gold_points' });
+    }
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -171,6 +174,23 @@ module.exports = function registerPublicCoalitionMembershipRoutes(app, deps) {
           `UPDATE merchant_profiles SET is_public_coalition_active = TRUE WHERE id = $1`,
           [row.applicant_profile_id]
         );
+        const wallet = (await client.query(
+          `INSERT INTO merchant_token_wallets
+             (merchant_id, balance, currency, is_local_mode, last_updated_at)
+           VALUES ($1, $2, 'LYD', FALSE, NOW())
+           ON CONFLICT (merchant_id) DO UPDATE
+             SET balance = merchant_token_wallets.balance + EXCLUDED.balance,
+                 is_local_mode = FALSE,
+                 last_updated_at = NOW()
+           RETURNING balance`,
+          [row.applicant_profile_id, goldPoints]
+        )).rows[0];
+        await client.query(
+          `INSERT INTO merchant_token_ledger
+             (id, merchant_id, customer_user_id, receipt_id, type, amount, balance_after, created_at)
+           VALUES ($1, $2, NULL, $3, 'admin_coalition_activation', $4, $5, NOW())`,
+          [id(), row.applicant_profile_id, paymentReference || null, goldPoints, wallet.balance]
+        );
       } else {
         await client.query(
           `INSERT INTO brand_coalition_members (coalition_id, brand_id)
@@ -183,18 +203,21 @@ module.exports = function registerPublicCoalitionMembershipRoutes(app, deps) {
             SET status = 'active', payment_reference = $2, activation_source = 'manual_admin',
                 activated_by_user_id = $3, activated_at = NOW(), updated_at = NOW()
           WHERE id = $1 RETURNING *`,
-        [row.id, paymentReference, req.user.userId]
+        [row.id, paymentReference || null, req.user.userId]
       )).rows[0];
       await insertNotification(
         client,
         row.applicant_user_id,
-        'public_coalition_membership_active',
-        'Public coalition membership active',
-        'Your Coupona public coalition membership is now active.',
-        { requestId: row.id, applicantType: row.applicant_type, targetScreen: 'public_coalition_membership' }
+        'coalition_activated',
+        'تم تفعيل عضوية الائتلاف العام',
+        'مبارك! تم تفعيل عضويتك في الائتلاف العام بنجاح واستلام الرصيد.',
+        { requestId: row.id, applicantType: row.applicant_type, targetScreen: 'clearing_house', action_url: '/clearing_house' }
       );
       await client.query('COMMIT');
-      return res.json(mapRequest(activeRow));
+      return res.json({
+        ...mapRequest(activeRow),
+        goldPointsAdded: row.applicant_type === 'merchant' ? goldPoints : 0,
+      });
     } catch (error) {
       await client.query('ROLLBACK');
       return res.status(500).json({ error: 'public_coalition_activation_failed', details: String(error.message || error) });

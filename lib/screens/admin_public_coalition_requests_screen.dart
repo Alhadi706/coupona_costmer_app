@@ -20,6 +20,7 @@ typedef AdminPublicCoalitionActivateAction =
     Future<Map<String, dynamic>> Function(
       String requestId, {
       required String paymentReference,
+      required num goldPoints,
     });
 
 class AdminPublicCoalitionRequestsScreen extends StatefulWidget {
@@ -167,15 +168,30 @@ class _AdminPublicCoalitionRequestsScreenState
 
   Future<void> _activate(Map<String, dynamic> request) async {
     String reference = '';
+    String goldPoints = '1000';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('public_coalition_admin_activate'.tr()),
-        content: TextField(
-          onChanged: (value) => reference = value,
-          decoration: InputDecoration(
-            labelText: 'public_coalition_payment_reference'.tr(),
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              onChanged: (value) => reference = value,
+              decoration: InputDecoration(
+                labelText: 'public_coalition_payment_reference'.tr(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              initialValue: goldPoints,
+              keyboardType: TextInputType.number,
+              onChanged: (value) => goldPoints = value,
+              decoration: InputDecoration(
+                labelText: 'public_coalition_gold_points'.tr(),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -189,13 +205,17 @@ class _AdminPublicCoalitionRequestsScreenState
         ],
       ),
     );
-    if (confirmed != true || reference.trim().isEmpty) return;
+    final parsedGoldPoints = num.tryParse(goldPoints.trim());
+    if (confirmed != true || parsedGoldPoints == null || parsedGoldPoints <= 0) {
+      return;
+    }
     final requestId = request['id'].toString();
     await _runRequestAction(requestId, () async {
       await (widget.activateAction ??
           CompanyServerService.activatePublicCoalitionMembershipRequest)(
         requestId,
         paymentReference: reference.trim(),
+        goldPoints: parsedGoldPoints,
       );
     });
   }

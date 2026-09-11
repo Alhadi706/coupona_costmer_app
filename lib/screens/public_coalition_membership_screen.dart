@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/company_server_service.dart';
+import 'coalitions/coalition_clearinghouse_screen.dart';
 
 typedef PublicCoalitionRequestLoader = Future<Map<String, dynamic>?> Function(String applicantType);
 typedef PublicCoalitionRequestAction = Future<Map<String, dynamic>> Function(String applicantType);
@@ -182,7 +183,8 @@ class _PublicCoalitionMembershipScreenState extends State<PublicCoalitionMembers
               ),
             ),
             const SizedBox(height: 12),
-            if (widget.applicantType == 'merchant') ...[
+            if (widget.applicantType == 'merchant' &&
+                _request?['status'] != 'active') ...[
               _buildActivationCodeCard(),
               const SizedBox(height: 12),
             ],
@@ -313,6 +315,7 @@ class _PublicCoalitionMembershipScreenState extends State<PublicCoalitionMembers
     final status = request['status']?.toString() ?? '';
     final adminMessage = request['adminMessage']?.toString() ?? '';
     final awaitingReview = status == 'pending_admin_review' || status == 'approved_pending_payment';
+    final isActive = status == 'active';
     return Card(
       key: Key('public-coalition-status-$status'),
       child: Padding(
@@ -320,14 +323,59 @@ class _PublicCoalitionMembershipScreenState extends State<PublicCoalitionMembers
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(_statusLabel(status), style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-            if (adminMessage.isNotEmpty) ...[
+            if (isActive)
+              Row(
+                children: [
+                  Icon(
+                    Icons.verified_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _tx(
+                        'public_coalition_active_message',
+                        'عضويتك في الائتلاف العام نشطة وجاهزة للاستخدام',
+                      ),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Text(
+                _statusLabel(status),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            if (!isActive && adminMessage.isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(_tx('public_coalition_admin_message', 'Private message from administration')),
               const SizedBox(height: 4),
               SelectableText(adminMessage),
             ],
             if (awaitingReview) _buildPendingGuidance(),
+            if (isActive) ...[
+              const SizedBox(height: 14),
+              FilledButton.icon(
+                key: const Key('public-coalition-open-clearinghouse'),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const CoalitionClearinghouseScreen(),
+                  ),
+                ),
+                icon: const Icon(Icons.account_balance_outlined),
+                label: Text(
+                  _tx(
+                    'public_coalition_open_clearinghouse',
+                    'الانتقال لغرفة المقاصة والائتلافات',
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

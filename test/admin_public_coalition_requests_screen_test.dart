@@ -67,4 +67,48 @@ void main() {
     expect(submittedMessage, 'Payment instructions');
     expect(find.text('Action completed successfully.'), findsOneWidget);
   });
+
+  testWidgets('Activation accepts an empty reference and credits 1000 Gold points', (
+    tester,
+  ) async {
+    String? submittedReference;
+    num? submittedGoldPoints;
+    var loads = 0;
+    await tester.pumpWidget(
+      app(
+        AdminPublicCoalitionRequestsScreen(
+          embedded: true,
+          requestsLoader: (_) async {
+            loads++;
+            return loads == 1
+                ? <Map<String, dynamic>>[
+                    <String, dynamic>{
+                      'id': 'coalition-1',
+                      'applicantName': 'Demo Merchant',
+                      'applicantType': 'merchant',
+                      'status': 'approved_pending_payment',
+                    },
+                  ]
+                : <Map<String, dynamic>>[];
+          },
+          activateAction:
+              (requestId, {required paymentReference, required goldPoints}) async {
+                submittedReference = paymentReference;
+                submittedGoldPoints = goldPoints;
+                return <String, dynamic>{'id': requestId};
+              },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('public_coalition_admin_activate'));
+    await tester.pumpAndSettle();
+    expect(find.text('1000'), findsOneWidget);
+    await tester.tap(find.text('public_coalition_confirm_activation'));
+    await tester.pumpAndSettle();
+
+    expect(submittedReference, '');
+    expect(submittedGoldPoints, 1000);
+  });
 }

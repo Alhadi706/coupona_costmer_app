@@ -32,10 +32,10 @@ async function runSubscriptionTransitions() {
           [
             id(),
             row.user_id,
-            'subscription_trial_reminder',
-            'Trial ending soon',
-            `Trial ends in ${daysLeft} day(s).`,
-            JSON.stringify({ subscriptionId: row.id, daysLeft }),
+            'trial_ending',
+            'اقتراب انتهاء الفترة التجريبية',
+            `ستنتهي فترتك التجريبية خلال ${daysLeft} ${daysLeft === 1 ? 'يوم' : 'أيام'}. يرجى مراجعة الرصيد لتجنب الإيقاف.`,
+            JSON.stringify({ subscriptionId: row.id, daysLeft, targetScreen: 'wallet_top_up', action_url: '/wallet/top-up' }),
           ]
         );
       }

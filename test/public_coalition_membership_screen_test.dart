@@ -22,6 +22,28 @@ void main() {
     );
   });
 
+  test('notification target handles coalition and trial deep links', () {
+    expect(
+      notificationTarget(const <String, dynamic>{
+        'type': 'coalition_activated',
+        'targetScreen': 'public_coalition_membership',
+      }),
+      'clearing_house',
+    );
+    expect(
+      notificationTarget(const <String, dynamic>{
+        'type': 'subscription_warning',
+      }),
+      'wallet_top_up',
+    );
+    expect(
+      notificationTarget(const <String, dynamic>{
+        'payload': <String, dynamic>{'action_url': '/wallet/top-up'},
+      }),
+      'wallet_top_up',
+    );
+  });
+
   testWidgets('merchant and brand applications submit the correct applicant type', (tester) async {
     for (final applicantType in ['merchant', 'brand']) {
       String? submittedType;
@@ -80,6 +102,28 @@ void main() {
     expect(find.text('Activation is handled via a platform-issued code.'), findsOneWidget);
     expect(find.byKey(const Key('public-coalition-open-payment')), findsNothing);
     expect(find.byKey(const Key('public-coalition-contact-support')), findsOneWidget);
+  });
+
+  testWidgets('active membership hides payment guidance and opens clearinghouse', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: PublicCoalitionMembershipScreen(
+        applicantType: 'merchant',
+        requestLoader: (_) async => <String, dynamic>{
+          'id': 'request-1',
+          'status': 'active',
+          'adminMessage': 'قم بالدفع للحصول على اشتراك وسيتوقف لاحقاً',
+        },
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('عضويتك في الائتلاف العام نشطة وجاهزة للاستخدام'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('قم بالدفع'), findsNothing);
+    expect(find.byKey(const Key('public-coalition-activation-code-input')), findsNothing);
+    expect(find.byKey(const Key('public-coalition-open-clearinghouse')), findsOneWidget);
   });
 
   testWidgets('merchant can redeem an activation code; brand does not see the code card', (tester) async {

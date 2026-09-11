@@ -119,15 +119,18 @@ test('activation is rejected before admin approval and payment stage', async () 
 test('manual activation adds the correct applicant membership atomically', async () => {
   for (const applicantType of ['merchant', 'brand']) {
     const statements = [];
+    const statementParams = [];
     const notifications = [];
     const client = {
-      async query(sql) {
+      async query(sql, params) {
         statements.push(sql);
+        statementParams.push(params);
         if (sql.includes('SELECT *')) return {rows: [{
           id: 'request-1', applicant_type: applicantType,
           applicant_profile_id: `${applicantType}-1`, applicant_user_id: `${applicantType}-user`,
           status: 'approved_pending_payment',
         }]};
+        if (sql.includes('RETURNING balance')) return {rows: [{balance: 1000}]};
         if (sql.includes("SET status = 'active'")) return {rows: [{
           id: 'request-1', applicant_type: applicantType,
           applicant_profile_id: `${applicantType}-1`, applicant_user_id: `${applicantType}-user`,
@@ -140,11 +143,21 @@ test('manual activation adds the correct applicant membership atomically', async
     const pool = {async connect() { return client; }};
     const handler = register({pool, notifications}).get('POST /api/admin/public-coalition/membership-requests/:id/activate');
     const res = response();
-    await handler({user: {userId: 'admin-1'}, params: {id: 'request-1'}, body: {paymentReference: 'PAY-1'}}, res);
+    await handler({
+      user: {userId: 'admin-1'}, params: {id: 'request-1'},
+      body: {paymentReference: applicantType === 'merchant' ? '' : 'PAY-1', goldPoints: 1000},
+    }, res);
 
     assert.equal(res.statusCode, 200);
     assert.equal(res.body.status, 'active');
     assert.equal(statements.some((sql) => sql.includes(applicantType === 'merchant' ? 'coalition_members (' : 'brand_coalition_members (')), true);
+    if (applicantType === 'merchant') {
+      const walletIndex = statements.findIndex((sql) => sql.includes('INSERT INTO merchant_token_wallets'));
+      const ledgerIndex = statements.findIndex((sql) => sql.includes('INSERT INTO merchant_token_ledger'));
+      assert.deepEqual(statementParams[walletIndex], ['merchant-1', 1000]);
+      assert.deepEqual(statementParams[ledgerIndex], ['request-1', 'merchant-1', null, 1000, 1000]);
+      assert.equal(res.body.goldPointsAdded, 1000);
+    }
     assert.equal(statements.at(-1), 'COMMIT');
     assert.equal(notifications.length, 1);
   }

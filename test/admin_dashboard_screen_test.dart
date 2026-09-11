@@ -10,6 +10,38 @@ void main() {
     return MaterialApp(home: child);
   }
 
+  testWidgets('Uses explicit high-contrast admin tab colors', (tester) async {
+    await tester.pumpWidget(
+      app(
+        AdminDashboardScreen(
+          roleRequestsLoader: (_) async => <Map<String, dynamic>>[],
+          peerAdsLoader: (_) async => <Map<String, dynamic>>[],
+          summaryLoader: () async => <String, dynamic>{},
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabBar.labelColor, const Color(0xFF0F766E));
+    expect(tabBar.unselectedLabelColor, const Color(0xFF0F172A));
+    expect(
+      tabBar.indicator,
+      const UnderlineTabIndicator(
+        borderSide: BorderSide(width: 3, color: Color(0xFF0F766E)),
+      ),
+    );
+    final container = tester.widget<Container>(
+      find
+          .ancestor(of: find.byType(TabBar), matching: find.byType(Container))
+          .first,
+    );
+    expect(
+      (container.decoration as BoxDecoration).color,
+      const Color(0xFFE2E8F0),
+    );
+  });
+
   testWidgets('Renders role requests and calls approve action', (tester) async {
     String? approvedRequestId;
 
@@ -100,6 +132,41 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(rejectedAdId, 'ad-1');
+  });
+
+  testWidgets('Renders a newly submitted pending billboard ad', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      app(
+        AdminDashboardScreen(
+          roleRequestsLoader: (_) async => <Map<String, dynamic>>[],
+          peerAdsLoader: (_) async => <Map<String, dynamic>>[],
+          billboardAdsLoader: (_) async => <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': 'banner-1',
+              'businessName': 'New Merchant',
+              'description': 'Launch banner',
+              'lifecycleStatus': 'pending',
+              'startDate': '2026-09-12T00:00:00Z',
+              'endDate': '2026-09-20T00:00:00Z',
+            },
+          ],
+          summaryLoader: () async => <String, dynamic>{},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Home Billboard Ads'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New Merchant'), findsOneWidget);
+    expect(find.text('Description: Launch banner'), findsOneWidget);
+    expect(find.text('Display range: 2026-09-12 → 2026-09-20'), findsOneWidget);
   });
 
   testWidgets('Disables both row actions while a request action is running', (

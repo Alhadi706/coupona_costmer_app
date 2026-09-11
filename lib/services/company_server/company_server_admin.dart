@@ -217,10 +217,11 @@ class _CompanyServerAdmin {
   static Future<Map<String, dynamic>> activatePublicCoalitionMembershipRequest(
     String requestId, {
     required String paymentReference,
+    required num goldPoints,
   }) async {
     final data = await _CompanyServerCore.post(
       '/admin/public-coalition/membership-requests/$requestId/activate',
-      {'paymentReference': paymentReference},
+      {'paymentReference': paymentReference, 'goldPoints': goldPoints},
       auth: true,
     );
     return (data as Map).cast<String, dynamic>();

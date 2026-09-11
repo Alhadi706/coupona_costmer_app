@@ -444,13 +444,12 @@ app.post('/api/billboard-ads/:id/click', auth, async (req, res) => {
 
 app.get('/api/admin/billboard-ads', auth, requireAdmin, async (req, res) => {
   const status = String(req.query.status || '').trim();
-  // Banner bookings are stored in `offers` (rows with an image). `pending`
-  // maps to the internal `pending_review` lifecycle status.
-  const normalizedStatus = status === 'pending' ? 'pending_review' : status;
   const params = [];
   let statusClause = '';
-  if (normalizedStatus) {
-    params.push(normalizedStatus);
+  if (status === 'pending' || status === 'pending_review') {
+    statusClause = `AND o.lifecycle_status IN ('pending', 'pending_review')`;
+  } else if (status) {
+    params.push(status);
     statusClause = `AND o.lifecycle_status = $${params.length}`;
   }
   const rows = (await pool.query(
@@ -503,7 +502,7 @@ app.post('/api/admin/billboard-ads/:id/approve', auth, requireAdmin, async (req,
       WHERE id = $1
         AND image_url IS NOT NULL
         AND (
-          lifecycle_status = 'pending_review'
+          lifecycle_status IN ('pending', 'pending_review')
           OR (lifecycle_status = 'active' AND end_date IS NOT NULL AND end_date <= NOW())
         )
       RETURNING id, start_date, end_date`,
@@ -523,7 +522,8 @@ app.post('/api/admin/billboard-ads/:id/reject', auth, requireAdmin, async (req, 
   const result = await pool.query(
     `UPDATE offers
         SET lifecycle_status = 'rejected', lifecycle_updated_at = NOW(), lifecycle_reason = $2
-      WHERE id = $1 AND image_url IS NOT NULL AND lifecycle_status = 'pending_review'
+      WHERE id = $1 AND image_url IS NOT NULL
+        AND lifecycle_status IN ('pending', 'pending_review')
       RETURNING id`,
     [req.params.id, reason]
   );

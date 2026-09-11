@@ -692,6 +692,15 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
+  static Future<Map<String, dynamic>> activateCoalitionCode({
+    required String code,
+  }) async {
+    final data = await post('/merchant/coalition/activate-code', {
+      'code': code,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
   static Future<Map<String, dynamic>?> getPublicCoalitionMembershipRequest({
     required String applicantType,
   }) async {
@@ -755,10 +764,11 @@ class CompanyServerService {
   static Future<Map<String, dynamic>> activatePublicCoalitionMembershipRequest(
     String requestId, {
     required String paymentReference,
+    required num goldPoints,
   }) async {
     final data = await post(
       '/admin/public-coalition/membership-requests/$requestId/activate',
-      {'paymentReference': paymentReference},
+      {'paymentReference': paymentReference, 'goldPoints': goldPoints},
       auth: true,
     );
     return (data as Map).cast<String, dynamic>();

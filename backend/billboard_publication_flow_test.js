@@ -48,7 +48,7 @@ test('admin approval shifts an expired review window and preserves a minimum dur
   assert.match(approvalSql, /end_date <= NOW\(\)/);
   assert.match(approvalSql, /INTERVAL '1 day'/);
   assert.match(approvalSql, /published_at = NOW\(\)/);
-  assert.match(approvalSql, /lifecycle_status = 'pending_review'/);
+  assert.match(approvalSql, /lifecycle_status IN \('pending', 'pending_review'\)/);
   assert.match(approvalSql, /lifecycle_status = 'active'/);
 });
 
@@ -65,7 +65,33 @@ test('admin rejection only transitions an ad pending review', async () => {
   await handler({params: {id: 'ad-1'}, body: {reason: 'Not suitable'}}, res);
 
   assert.equal(res.body.status, 'rejected');
-  assert.match(rejectionSql, /lifecycle_status = 'pending_review'/);
+  assert.match(rejectionSql, /lifecycle_status IN \('pending', 'pending_review'\)/);
+});
+
+test('admin pending queue includes both status variants and card fields', async () => {
+  let querySql = '';
+  let queryParams;
+  const pool = {
+    async query(sql, params) {
+      querySql = sql;
+      queryParams = params;
+      return {rows: [{
+        id: 'ad-1', owner_id: 'merchant-1', business_name: 'Demo Store',
+        image_url: '/api/uploads/banner.jpg', lifecycle_status: 'pending',
+        start_date: 'start', end_date: 'end', created_at: 'created',
+      }]};
+    },
+  };
+  const handler = register(pool).get('GET /api/admin/billboard-ads');
+  const res = response();
+  await handler({query: {status: 'pending_review'}}, res);
+
+  assert.match(querySql, /o\.lifecycle_status IN \('pending', 'pending_review'\)/);
+  assert.deepEqual(queryParams, []);
+  assert.equal(res.body[0].businessName, 'Demo Store');
+  assert.equal(res.body[0].imageUrl, '/api/uploads/banner.jpg');
+  assert.equal(res.body[0].startDate, 'start');
+  assert.equal(res.body[0].endDate, 'end');
 });
 
 test('customer billboard feed returns a dedicated public image URL', async () => {

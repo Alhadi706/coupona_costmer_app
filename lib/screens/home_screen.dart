@@ -9,6 +9,7 @@ import '../theme/design_tokens.dart';
 import 'admin_dashboard_screen.dart';
 import 'brand_dashboard_screen.dart';
 import 'cashier_dashboard_screen.dart';
+import 'coalitions/coalition_clearinghouse_screen.dart';
 import 'community/community_tab_request.dart';
 import 'community_screen.dart';
 import 'customer_coalitions_screen.dart';
@@ -39,6 +40,47 @@ String? publicCoalitionApplicantType(
       : null;
   final candidate = (payloadType ?? activeRole).toLowerCase();
   return const {'merchant', 'brand'}.contains(candidate) ? candidate : null;
+}
+
+String notificationTarget(Map<String, dynamic> notification) {
+  final type = (notification['type'] ?? '').toString().toLowerCase();
+  if (const {
+    'coalition_activated',
+    'coalition_status',
+    'public_coalition_membership_active',
+  }.contains(type)) {
+    return 'clearing_house';
+  }
+  if (const {
+    'trial_ending',
+    'subscription_warning',
+    'subscription_trial_reminder',
+  }.contains(type)) {
+    return 'wallet_top_up';
+  }
+
+  final payload = notification['payload'];
+  final payloadMap = payload is Map ? payload : const <String, dynamic>{};
+  final rawTarget = notification['targetScreen'] ??
+      notification['action_url'] ??
+      payloadMap['targetScreen'] ??
+      payloadMap['target_screen'] ??
+      payloadMap['action_url'] ??
+      '';
+  final target = rawTarget
+      .toString()
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'^/+'), '')
+      .replaceAll('/', '_')
+      .replaceAll('-', '_');
+  if (target.isNotEmpty) return target;
+
+  if (type.contains('group')) return 'community';
+  if (type.contains('report')) return 'reports';
+  if (type.contains('invoice')) return 'invoices';
+  if (type.contains('point')) return 'wallet';
+  return '';
 }
 
 class HomeScreen extends StatefulWidget {
@@ -165,19 +207,21 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openNotificationTarget(
     Map<String, dynamic> notification,
   ) async {
-    final targetScreen = (notification['targetScreen'] ?? '')
-        .toString()
-        .toLowerCase();
-    final type = (notification['type'] ?? '').toString().toLowerCase();
-    final target = targetScreen.isNotEmpty
-        ? targetScreen
-        : (type.contains('group')
-              ? 'community'
-              : (type.contains('report')
-                    ? 'reports'
-                    : (type.contains('invoice')
-                          ? 'invoices'
-                          : (type.contains('point') ? 'wallet' : ''))));
+    final target = notificationTarget(notification);
+
+    if (target == 'clearing_house' || target == 'coalition_dashboard') {
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const CoalitionClearinghouseScreen()),
+      );
+      return;
+    }
+
+    if (target == 'wallet_top_up' || target == 'wallet_topup') {
+      if (!mounted) return;
+      await _showMerchantBalanceDialog(notification);
+      return;
+    }
 
     if (target == 'wallet' || target == 'rewards' || target == 'points') {
       if (!mounted) return;
@@ -248,6 +292,59 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _selectedIndex = index);
   }
 
+  Future<void> _showMerchantBalanceDialog(
+    Map<String, dynamic> notification,
+  ) async {
+    final balanceFuture = CompanyServerService.getPublicCoalitionWalletBalance();
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('merchant_balance_dialog_title'.tr()),
+        content: FutureBuilder<Map<String, dynamic>>(
+          future: balanceFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const SizedBox(
+                height: 64,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (snapshot.hasError) {
+              return Text('merchant_balance_load_failed'.tr());
+            }
+            final data = snapshot.data ?? const <String, dynamic>{};
+            final balance = data['balance'] ?? data['tokenBalance'] ?? 0;
+            return Text(
+              'merchant_balance_dialog_body'.tr(
+                namedArgs: {'balance': '$balance'},
+              ),
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text('close'.tr()),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const PublicCoalitionMembershipScreen(
+                    applicantType: 'merchant',
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            label: Text('merchant_balance_recharge_action'.tr()),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openNotificationsSheet() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -300,7 +397,21 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                         onTap: () async {
                           final id = (n['id'] ?? '').toString();
-                          if (id.isNotEmpty && !isRead) {
+                          if (!isRead && mounted) {
+                            setState(() {
+                              _notifications = _notifications
+                                  .map((item) => identical(item, n)
+                                      ? <String, dynamic>{...item, 'isRead': true}
+                                      : item)
+                                  .toList(growable: false);
+                              _unreadNotifications =
+                                  (_unreadNotifications - 1).clamp(0, 1 << 31);
+                            });
+                          }
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+                          if (id.isNotEmpty) {
                             try {
                               await CompanyServerService.markNotificationRead(
                                 id,
@@ -308,9 +419,6 @@ class _HomeScreenState extends State<HomeScreen> {
                             } catch (_) {
                               // Navigation should still work if read-state sync fails.
                             }
-                          }
-                          if (context.mounted) {
-                            Navigator.of(context).pop();
                           }
                           await _openNotificationTarget(n);
                         },

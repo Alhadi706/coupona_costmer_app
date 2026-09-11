@@ -13,6 +13,8 @@ typedef AdminRoleRequestsLoader =
     Future<List<Map<String, dynamic>>> Function(String status);
 typedef AdminPeerAdsLoader =
     Future<List<Map<String, dynamic>>> Function(String status);
+typedef AdminBillboardAdsLoader =
+    Future<List<Map<String, dynamic>>> Function(String status);
 typedef AdminSummaryLoader = Future<Map<String, dynamic>> Function();
 typedef AdminRoleRequestAction =
     Future<Map<String, dynamic>> Function(String requestId);
@@ -22,6 +24,7 @@ class AdminDashboardScreen extends StatefulWidget {
   final bool embedded;
   final AdminRoleRequestsLoader? roleRequestsLoader;
   final AdminPeerAdsLoader? peerAdsLoader;
+  final AdminBillboardAdsLoader? billboardAdsLoader;
   final AdminSummaryLoader? summaryLoader;
   final AdminRoleRequestAction? approveRoleRequest;
   final AdminRoleRequestAction? rejectRoleRequest;
@@ -33,6 +36,7 @@ class AdminDashboardScreen extends StatefulWidget {
     this.embedded = false,
     this.roleRequestsLoader,
     this.peerAdsLoader,
+    this.billboardAdsLoader,
     this.summaryLoader,
     this.approveRoleRequest,
     this.rejectRoleRequest,
@@ -44,6 +48,7 @@ class AdminDashboardScreen extends StatefulWidget {
     super.key,
     this.roleRequestsLoader,
     this.peerAdsLoader,
+    this.billboardAdsLoader,
     this.summaryLoader,
     this.approveRoleRequest,
     this.rejectRoleRequest,
@@ -89,9 +94,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     _peerAdsFuture = widget.peerAdsLoader != null
         ? widget.peerAdsLoader!('pending_admin_review')
         : CompanyServerService.getAdminPeerAds(status: 'pending_admin_review');
-    _billboardAdsFuture = CompanyServerService.getAdminBillboardAds(
-      status: 'pending_review',
-    );
+    _billboardAdsFuture = widget.billboardAdsLoader != null
+        ? widget.billboardAdsLoader!('pending_review')
+        : CompanyServerService.getAdminBillboardAds(status: 'pending_review');
     _summaryFuture =
         (widget.summaryLoader ??
         CompanyServerService.getAdminDashboardSummary)();
@@ -148,9 +153,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(
-            _tx('gold_topup_title', 'تعبئة رصيد الائتلاف الذهبي'),
-          ),
+          title: Text(_tx('gold_topup_title', 'تعبئة رصيد الائتلاف الذهبي')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,9 +210,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         SnackBar(
           content: Text(
             _tx(
-              'gold_topup_success',
-              'تمت التعبئة بنجاح. الرصيد الجديد: {balance}{gold}',
-            )
+                  'gold_topup_success',
+                  'تمت التعبئة بنجاح. الرصيد الجديد: {balance}{gold}',
+                )
                 .replaceAll('{balance}', '$balance')
                 .replaceAll(
                   '{gold}',
@@ -462,18 +465,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                         foregroundColor: const Color(0xFF0F766E),
                         side: const BorderSide(color: Color(0xFF0F766E)),
                       ),
-                      onPressed: _pendingActions.contains(
-                        'topup:${row['roleProfileId']}',
-                      )
+                      onPressed:
+                          _pendingActions.contains(
+                            'topup:${row['roleProfileId']}',
+                          )
                           ? null
                           : () => _showGoldTopUpDialog(row),
                       icon: const Icon(
                         Icons.account_balance_wallet_outlined,
                         size: 18,
                       ),
-                      label: _pendingActions.contains(
-                        'topup:${row['roleProfileId']}',
-                      )
+                      label:
+                          _pendingActions.contains(
+                            'topup:${row['roleProfileId']}',
+                          )
                           ? const SizedBox.square(
                               dimension: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
@@ -580,9 +585,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         }
         final rows = snapshot.data!
             .where(
-              (row) =>
-                  (row['lifecycleStatus'] ?? 'pending_review') ==
-                  'pending_review',
+              (row) => const {
+                'pending',
+                'pending_review',
+              }.contains(row['lifecycleStatus'] ?? 'pending_review'),
             )
             .toList();
         if (rows.isEmpty) {
@@ -592,9 +598,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         }
         return ListView.builder(
           itemCount: rows.length,
-          itemBuilder: (context, index) => _buildBannerAdApprovalCard(
-            rows[index],
-          ),
+          itemBuilder: (context, index) =>
+              _buildBannerAdApprovalCard(rows[index]),
         );
       },
     );
@@ -651,10 +656,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       const Icon(Icons.broken_image_outlined),
                       const SizedBox(height: 4),
                       Text(
-                        _tx(
-                          'billboard_image_unavailable',
-                          'Image unavailable',
-                        ),
+                        _tx('billboard_image_unavailable', 'Image unavailable'),
                       ),
                     ],
                   ),
@@ -664,16 +666,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           const SizedBox(height: 8),
           if (merchantName.isNotEmpty)
             Text(
-              _tx('billboard_ad_description_label', 'Description: {value}')
-                  .replaceAll('{value}', description),
+              _tx(
+                'billboard_ad_description_label',
+                'Description: {value}',
+              ).replaceAll('{value}', description),
             ),
           Text(
-            _tx('billboard_display_range', 'Display range: {value}')
-                .replaceAll('{value}', displayRange),
+            _tx(
+              'billboard_display_range',
+              'Display range: {value}',
+            ).replaceAll('{value}', displayRange),
           ),
           Text(
-            _tx('billboard_placement_tier', 'Placement tier: {value}')
-                .replaceAll('{value}', placementTier),
+            _tx(
+              'billboard_placement_tier',
+              'Placement tier: {value}',
+            ).replaceAll('{value}', placementTier),
           ),
           const SizedBox(height: 8),
           Row(
@@ -1376,12 +1384,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   Widget _buildBody() {
-    const tabAccent = Color(0xFF0F766E);
     return Column(
       children: [
         Container(
           decoration: const BoxDecoration(
-            color: Color(0xFFF1EFE9),
+            color: Color(0xFFE2E8F0),
             border: Border(
               bottom: BorderSide(color: Color(0xFFD6D2C4), width: 1),
             ),
@@ -1389,12 +1396,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           child: TabBar(
             controller: _tabController,
             isScrollable: true,
-            labelColor: tabAccent,
-            unselectedLabelColor: const Color(0xFF334155),
+            labelColor: const Color(0xFF0F766E),
+            unselectedLabelColor: const Color(0xFF0F172A),
             labelStyle: const TextStyle(fontWeight: FontWeight.w700),
             unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-            indicatorColor: tabAccent,
-            indicatorWeight: 3,
+            indicator: const UnderlineTabIndicator(
+              borderSide: BorderSide(width: 3.0, color: Color(0xFF0F766E)),
+            ),
             indicatorSize: TabBarIndicatorSize.label,
             tabs: [
               Tab(text: _tx('admin_tab_analytics', 'Overview')),
@@ -1403,7 +1411,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               Tab(text: _tx('admin_tab_peer_ads', 'Peer Ads')),
               Tab(text: _tx('billboard_review_title', 'Home Billboard Ads')),
               Tab(text: _tx('public_coalition_admin_tab', 'Public Coalition')),
-              Tab(text: _tx('admin_subscriptions_tab', 'Subscriptions')),
+              Tab(text: 'admin_tab_subscriptions'.tr()),
             ],
           ),
         ),
