@@ -10,7 +10,6 @@ extension _MyRewardsGridCard on _MyRewardsScreenState {
         .toString();
     final category = _getRewardCategoryKey(reward);
     final fallbackIcon = _getCategoryIcon(category);
-    final isCoalition = reward['origin'] == 'coalition';
 
     return Container(
       decoration: BoxDecoration(
@@ -189,16 +188,16 @@ extension _MyRewardsGridCard on _MyRewardsScreenState {
                     width: double.infinity,
                     height: 34,
                     child: FilledButton(
-                      onPressed: _redeeming
-                          ? null
-                          : (isCoalition
-                                ? () => Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          const CustomerCoalitionsScreen(),
-                                    ),
-                                  )
-                                : () => _redeemReward(reward)),
+                      onPressed: () => showModalBottomSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        showDragHandle: true,
+                        builder: (_) => ClaimRewardModal(
+                          reward: reward,
+                          userPoints: _toInt(_points['availablePoints']),
+                          onClaimed: _loadData,
+                        ),
+                      ),
                       style: FilledButton.styleFrom(
                         backgroundColor: const Color(0xFF0A5C43),
                         padding: EdgeInsets.zero,

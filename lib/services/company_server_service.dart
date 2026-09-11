@@ -889,11 +889,27 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
-  static Future<List<Map<String, dynamic>>> getAdminBillboardAds() async {
-    final data = await get('/admin/billboard-ads', auth: true);
-    return (data as List)
-        .map((e) => (e as Map).cast<String, dynamic>())
-        .toList();
+  static Future<List<Map<String, dynamic>>> getAdminBillboardAds({
+    String? status,
+  }) async {
+    final data = await get(
+      '/admin/billboard-ads',
+      query: (status != null && status.trim().isNotEmpty)
+          ? {'status': status.trim()}
+          : null,
+      auth: true,
+    );
+    final apiUri = Uri.parse(_baseUrl);
+    return (data as List).map((e) {
+      final ad = (e as Map).cast<String, dynamic>();
+      final imageUrl = (ad['imageUrl'] ?? '').toString();
+      if (imageUrl.startsWith('/')) {
+        ad['imageUrl'] = apiUri
+            .replace(path: imageUrl, query: null)
+            .toString();
+      }
+      return ad;
+    }).toList();
   }
 
   static Future<Map<String, dynamic>> approveAdminBillboardAd(
@@ -913,6 +929,21 @@ class CompanyServerService {
   }) async {
     final data = await post('/admin/billboard-ads/$adId/reject', {
       'reason': reason,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  /// App Store compliant admin action: manually credits a merchant's
+  /// prepaid Gold coalition balance (no in-app payment involved).
+  static Future<Map<String, dynamic>> topUpMerchantGoldWallet(
+    String merchantId, {
+    required num pointsAmount,
+    String? note,
+  }) async {
+    final data = await post('/admin/merchant/$merchantId/topup-gold-wallet', {
+      'points_amount': pointsAmount,
+      'amount': pointsAmount,
+      if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
     }, auth: true);
     return (data as Map).cast<String, dynamic>();
   }
@@ -1081,9 +1112,19 @@ class CompanyServerService {
     return (data as Map).cast<String, dynamic>();
   }
 
-  static Future<Map<String, dynamic>>
-  getMerchantCoalitionClearinghouse() async {
-    final data = await get('/merchant/coalitions/clearinghouse', auth: true);
+  static Future<Map<String, dynamic>> getMerchantCoalitionClearinghouse({
+    String? type,
+    String? coalitionId,
+  }) async {
+    final data = await get(
+      '/merchant/coalitions/clearinghouse',
+      query: <String, dynamic>{
+        if (type != null) 'type': type,
+        if (coalitionId != null && coalitionId.isNotEmpty)
+          'coalition_id': coalitionId,
+      },
+      auth: true,
+    );
     return (data as Map).cast<String, dynamic>();
   }
 
@@ -2385,6 +2426,15 @@ class CompanyServerService {
       'sourceId': sourceId,
       'rewardKind': rewardKind,
       if ((idempotencyKey ?? '').isNotEmpty) 'idempotencyKey': idempotencyKey,
+    }, auth: true);
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> claimReward({
+    required String rewardId,
+  }) async {
+    final data = await post('/customer/rewards/claim', {
+      'reward_id': rewardId,
     }, auth: true);
     return (data as Map).cast<String, dynamic>();
   }

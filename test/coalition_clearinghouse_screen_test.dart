@@ -53,7 +53,8 @@ Future<void> main() async {
 
   testWidgets('request timeout leaves spinner and shows retry state', (tester) async {
     await tester.pumpWidget(app(
-      clearinghouseLoader: () => Completer<Map<String, dynamic>>().future,
+      clearinghouseLoader: ({String? coalitionId, String? type}) =>
+          Completer<Map<String, dynamic>>().future,
       timeout: const Duration(milliseconds: 10),
     ));
     await tester.pump(const Duration(milliseconds: 20));
@@ -66,7 +67,8 @@ Future<void> main() async {
 
   testWidgets('renders API KPIs and opens settlement confirmation', (tester) async {
     await tester.pumpWidget(app(
-      clearinghouseLoader: () async => <String, dynamic>{
+      clearinghouseLoader: ({String? coalitionId, String? type}) async =>
+          <String, dynamic>{
         'summary': <String, dynamic>{
           'issuedPoints': 80,
           'redeemedPoints': 120,
@@ -97,5 +99,62 @@ Future<void> main() async {
     await tester.tap(find.byKey(const Key('clearinghouse-settle-all')));
     await tester.pumpAndSettle();
     expect(find.text('تأكيد التسوية الصافية'), findsOneWidget);
+  });
+
+  testWidgets('gold tab hides P2P matrix and shows instant settlements',
+      (tester) async {
+    await tester.pumpWidget(app(
+      clearinghouseLoader: ({String? coalitionId, String? type}) async =>
+          <String, dynamic>{
+        'mode': type ?? 'silver',
+        'summary': <String, dynamic>{
+          'issuedPoints': 500,
+          'redeemedPoints': 300,
+          'netBalance': 200,
+          'pointValue': 1,
+        },
+        'silverCoalitions': <Map<String, dynamic>>[
+          <String, dynamic>{'id': 'co-1', 'name': 'ائتلاف طرابلس'},
+        ],
+        'instantSettlements': type == 'gold'
+            ? <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'id': 's1',
+                  'type': 'GOLD_REDEMPTION_SETTLED',
+                  'amount': 300,
+                  'balance_after': 300,
+                  'created_at': '2026-09-01',
+                },
+              ]
+            : <dynamic>[],
+        'memberSettlements': type == 'silver'
+            ? <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'coalition_id': 'co-1',
+                  'to_merchant_id': 'm-2',
+                  'partner_merchant': 'متجر ب',
+                  'exchanged_points': 80,
+                  'net_amount': -80,
+                  'period': '2026-09',
+                  'status': 'pending',
+                },
+              ]
+            : <dynamic>[],
+        'disputes': <dynamic>[],
+      },
+    ));
+    await tester.pumpAndSettle();
+
+    // Default Silver view: P2P member matrix visible with per-coalition net.
+    expect(find.byType(DataTable), findsOneWidget);
+    expect(find.text('متجر ب'), findsOneWidget);
+
+    // Switch to Gold: matrix hidden, instant settlement ledger shown.
+    await tester.tap(find.text('الائتلاف الذهبي'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DataTable), findsNothing);
+    expect(find.text('GOLD_REDEMPTION_SETTLED'), findsOneWidget);
+    expect(find.text('إجمالي النقاط الذهبية المصدرة'), findsOneWidget);
+    expect(find.text('الرصيد المُسوّى (جاهز للسحب)'), findsOneWidget);
   });
 }

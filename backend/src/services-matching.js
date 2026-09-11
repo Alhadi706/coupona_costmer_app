@@ -58,7 +58,7 @@ async function applyInvoiceApprovalRewards(client, invoiceId, ownerId, merchantP
         const calc = calculatePointsWithFraction(invoiceTotalAmount, pointValue, before);
         await client.query(
           `INSERT INTO merchant_token_wallets (merchant_id, balance, currency, is_local_mode, last_updated_at)
-           VALUES ($1, 0, 'SAR', FALSE, NOW())
+           VALUES ($1, 0, 'LYD', FALSE, NOW())
            ON CONFLICT (merchant_id) DO NOTHING`,
           [merchantProfileId]
         );

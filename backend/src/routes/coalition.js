@@ -1022,18 +1022,17 @@ module.exports = function registerCoalitionRoutes(app, deps) {
     const merchantId = await getMerchantProfileIdByUser(pool, req.user.userId);
     if (!merchantId) return res.status(403).json({ error: 'merchant_profile_required' });
 
-    const { rows } = await pool.query(`
-      SELECT cc.id, cc.period, cc.coalition_id, c.name AS coalition_name,
-             cc.from_merchant_id, fm.business_name AS from_merchant,
-             cc.to_merchant_id, tm.business_name AS to_merchant,
-             cc.total_points, cc.settled, cc.settled_at
-        FROM coalition_clearinghouse cc
-        JOIN coalitions c ON c.id = cc.coalition_id
-        JOIN merchant_profiles fm ON fm.id = cc.from_merchant_id
-        JOIN merchant_profiles tm ON tm.id = cc.to_merchant_id
-       WHERE cc.from_merchant_id = $1 OR cc.to_merchant_id = $1
-       ORDER BY cc.period DESC, cc.total_points DESC
-    `, [merchantId]);
+    const type = String(req.query?.type || '').trim().toLowerCase(); // 'gold' | 'silver' | '' (legacy)
+    const coalitionId = String(req.query?.coalition_id || '').trim();
+
+    // Silver (local) coalitions the merchant belongs to — powers the UI selector.
+    const silverCoalitions = (await pool.query(`
+      SELECT c.id, c.name
+        FROM coalition_members cm
+        JOIN coalitions c ON c.id = cm.coalition_id
+       WHERE cm.merchant_id = $1 AND c.type <> 'public' AND c.is_active = TRUE
+       ORDER BY c.name ASC
+    `, [merchantId])).rows;
 
     const disputes = (await pool.query(
       `SELECT d.id, d.claim_id, d.brand_id, bp.business_name AS brand_name,
@@ -1043,6 +1042,92 @@ module.exports = function registerCoalitionRoutes(app, deps) {
         WHERE d.merchant_id = $1 ORDER BY d.created_at DESC`,
       [merchantId]
     )).rows;
+    const disputesJson = disputes.map((row) => ({
+      id: row.id, claimId: row.claim_id, brandId: row.brand_id,
+      brandName: row.brand_name, reason: row.reason, status: row.status,
+      responseNote: row.response_note, createdAt: toIso(row.created_at), resolvedAt: toIso(row.resolved_at),
+    }));
+
+    // ── Gold global coalition: instant prepaid settlements (no P2P matrix) ─────
+    if (type === 'gold') {
+      const instantLedger = (await pool.query(`
+        SELECT id, reference, type, amount, balance_after, created_at
+          FROM merchant_settlement_ledger
+         WHERE merchant_id = $1
+         ORDER BY created_at DESC LIMIT 200
+      `, [merchantId])).rows;
+
+      const { rows: [wallet] } = await pool.query(
+        `SELECT settled_balance FROM merchant_settlement_wallets WHERE merchant_id = $1`,
+        [merchantId]
+      );
+      const { rows: [issuedRow] } = await pool.query(
+        `SELECT COALESCE(SUM(amount), 0) AS issued
+           FROM merchant_token_ledger
+          WHERE merchant_id = $1 AND type = 'ISSUANCE_GOLD'`,
+        [merchantId]
+      );
+
+      const redeemedPoints = instantLedger
+        .filter((row) => row.type === 'GOLD_REDEMPTION_SETTLED')
+        .reduce((total, row) => total + Number(row.amount || 0), 0);
+      const withdrawnPoints = instantLedger
+        .filter((row) => row.type !== 'GOLD_REDEMPTION_SETTLED')
+        .reduce((total, row) => total + Number(row.amount || 0), 0);
+
+      return res.json({
+        mode: 'gold',
+        summary: {
+          issuedPoints: Number(issuedRow?.issued || 0),
+          redeemedPoints,
+          withdrawnPoints,
+          netBalance: Number(wallet?.settled_balance || 0), // ready for withdrawal
+          pointValue: 1,
+        },
+        instantSettlements: instantLedger.map((row) => ({
+          id: row.id,
+          reference: row.reference,
+          type: row.type,
+          amount: Number(row.amount || 0),
+          balance_after: Number(row.balance_after || 0),
+          created_at: toIso(row.created_at),
+        })),
+        memberSettlements: [],
+        matrix: [],
+        settlementHistory: [],
+        statements: [],
+        silverCoalitions,
+        disputes: disputesJson,
+      });
+    }
+
+    // ── Silver local coalitions: P2P net clearing ──────────────────────────────
+    const params = [merchantId];
+    let coalitionFilter = '';
+    if (type === 'silver' && coalitionId) {
+      const { rowCount } = await pool.query(
+        `SELECT 1 FROM coalition_members WHERE coalition_id = $1 AND merchant_id = $2`,
+        [coalitionId, merchantId]
+      );
+      if (rowCount === 0) return res.status(403).json({ error: 'not_a_coalition_member' });
+      coalitionFilter = 'AND cc.coalition_id = $2';
+      params.push(coalitionId);
+    } else if (type === 'silver') {
+      coalitionFilter = `AND cc.coalition_id IN (SELECT id FROM coalitions WHERE type <> 'public')`;
+    }
+
+    const { rows } = await pool.query(`
+      SELECT cc.id, cc.period, cc.coalition_id, c.name AS coalition_name,
+             cc.from_merchant_id, fm.business_name AS from_merchant,
+             cc.to_merchant_id, tm.business_name AS to_merchant,
+             cc.total_points, cc.settled, cc.settled_at
+        FROM coalition_clearinghouse cc
+        JOIN coalitions c ON c.id = cc.coalition_id
+        JOIN merchant_profiles fm ON fm.id = cc.from_merchant_id
+        JOIN merchant_profiles tm ON tm.id = cc.to_merchant_id
+       WHERE (cc.from_merchant_id = $1 OR cc.to_merchant_id = $1) ${coalitionFilter}
+       ORDER BY cc.period DESC, cc.total_points DESC
+    `, params);
 
     const issuedPoints = rows.reduce((total, row) =>
       total + (row.from_merchant_id === merchantId ? Number(row.total_points || 0) : 0), 0);
@@ -1075,6 +1160,7 @@ module.exports = function registerCoalitionRoutes(app, deps) {
     }
 
     res.json({
+      mode: 'silver',
       summary: {
         issuedPoints,
         redeemedPoints,
@@ -1085,11 +1171,9 @@ module.exports = function registerCoalitionRoutes(app, deps) {
       matrix: Array.from(matrixByPartner.values()),
       settlementHistory: memberSettlements.filter((row) => row.settled),
       statements: rows,
-      disputes: disputes.map((row) => ({
-      id: row.id, claimId: row.claim_id, brandId: row.brand_id,
-      brandName: row.brand_name, reason: row.reason, status: row.status,
-      responseNote: row.response_note, createdAt: toIso(row.created_at), resolvedAt: toIso(row.resolved_at),
-      })),
+      silverCoalitions,
+      selectedCoalitionId: type === 'silver' && coalitionId ? coalitionId : null,
+      disputes: disputesJson,
     });
   };
   app.get('/api/merchant/coalitions/clearinghouse', auth, getMerchantClearinghouse);

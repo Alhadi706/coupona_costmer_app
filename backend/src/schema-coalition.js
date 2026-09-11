@@ -89,6 +89,23 @@ module.exports = async function createCoalitionTables(pool) {
     CREATE INDEX IF NOT EXISTS idx_public_coalition_requests_status
       ON public_coalition_membership_requests(status, created_at ASC);
 
+    -- Prepaid activation codes: platform issues codes off-store; merchants redeem
+    -- them in-app to top up their Gold prepaid balance (App Store compliant, no IAP).
+    CREATE TABLE IF NOT EXISTS coalition_activation_codes (
+      id TEXT PRIMARY KEY,
+      code TEXT NOT NULL UNIQUE,
+      points_amount INTEGER NOT NULL CHECK (points_amount > 0),
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'redeemed', 'cancelled')),
+      note TEXT,
+      created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+      redeemed_by_merchant_id TEXT REFERENCES merchant_profiles(id) ON DELETE SET NULL,
+      redeemed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_coalition_activation_codes_status
+      ON coalition_activation_codes(status, created_at DESC);
+
     CREATE INDEX IF NOT EXISTS idx_brand_coalition_members_brand
       ON brand_coalition_members(brand_id);
 
@@ -275,6 +292,8 @@ module.exports = async function createCoalitionTables(pool) {
         END IF;
       END $$;
   `);
+
+  await pool.query("UPDATE merchant_token_wallets SET currency = 'LYD' WHERE currency = 'SAR'");
 
   await pool.query(`
     INSERT INTO coalitions (id, name, type, category, region, is_active)

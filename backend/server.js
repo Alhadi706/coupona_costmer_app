@@ -53,6 +53,7 @@ const { getIntSetting } = accessControl;
   './src/routes/merchant-token-wallet',
   './src/routes/brand-token-wallet',
   './src/routes/public-coalition-membership',
+  './src/routes/coalition-activation',
   './src/routes/coalition',
   './src/routes/coalition-tier-wallet',
   './src/routes/campaigns',

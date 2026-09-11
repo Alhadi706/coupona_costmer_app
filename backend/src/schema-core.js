@@ -491,7 +491,7 @@ async function createCoreTables() {
     CREATE TABLE IF NOT EXISTS merchant_token_wallets (
       merchant_id TEXT PRIMARY KEY REFERENCES merchant_profiles(id) ON DELETE CASCADE,
       balance INTEGER NOT NULL DEFAULT 0,
-      currency TEXT NOT NULL DEFAULT 'SAR',
+      currency TEXT NOT NULL DEFAULT 'LYD',
       is_local_mode BOOLEAN NOT NULL DEFAULT FALSE,
       last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )

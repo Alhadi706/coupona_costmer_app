@@ -52,8 +52,8 @@ async function main() {
   const merchantName = `Wallet Merchant ${stamp}`;
 
   await pool.query(`
-    INSERT INTO merchant_profiles (id, user_id, business_name, status, point_value)
-    VALUES ($1, $2, $3, 'active', 10)
+    INSERT INTO merchant_profiles (id, user_id, business_name, status, point_value, is_public_coalition_active)
+    VALUES ($1, $2, $3, 'active', 10, TRUE)
     ON CONFLICT (id) DO NOTHING
   `, [merchantId, userId, merchantName]);
 

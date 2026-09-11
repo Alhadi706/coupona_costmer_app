@@ -442,18 +442,34 @@ app.post('/api/billboard-ads/:id/click', auth, async (req, res) => {
   return res.json({ ok: true, clicks: Number(result.rows[0].clicks || 0), ctaType: result.rows[0].cta_type || 'store', ctaValue: result.rows[0].cta_value });
 });
 
-app.get('/api/admin/billboard-ads', auth, requireAdmin, async (_req, res) => {
+app.get('/api/admin/billboard-ads', auth, requireAdmin, async (req, res) => {
+  const status = String(req.query.status || '').trim();
+  // Banner bookings are stored in `offers` (rows with an image). `pending`
+  // maps to the internal `pending_review` lifecycle status.
+  const normalizedStatus = status === 'pending' ? 'pending_review' : status;
+  const params = [];
+  let statusClause = '';
+  if (normalizedStatus) {
+    params.push(normalizedStatus);
+    statusClause = `AND o.lifecycle_status = $${params.length}`;
+  }
   const rows = (await pool.query(
-    `SELECT id, owner_id, offer_type, category, description, location, image_url,
-            lifecycle_status, lifecycle_reason, created_at
-       FROM offers
-      WHERE image_url IS NOT NULL AND image_url <> ''
-      ORDER BY created_at DESC
-      LIMIT 200`
+    `SELECT o.id, o.owner_id, o.offer_type, o.category, o.description, o.location, o.image_url,
+            o.lifecycle_status, o.lifecycle_reason, o.created_at, o.start_date, o.end_date,
+            COALESCE(mp.business_name, bp.business_name) AS business_name
+       FROM offers o
+       LEFT JOIN merchant_profiles mp ON mp.user_id = o.owner_id
+       LEFT JOIN brand_profiles bp ON bp.user_id = o.owner_id
+      WHERE o.image_url IS NOT NULL AND o.image_url <> ''
+      ${statusClause}
+      ORDER BY o.created_at DESC
+      LIMIT 200`,
+    params
   )).rows;
   return res.json(rows.map((row) => ({
     id: row.id,
     ownerId: row.owner_id,
+    businessName: row.business_name,
     offerType: row.offer_type,
     category: row.category,
     description: row.description,
@@ -461,6 +477,8 @@ app.get('/api/admin/billboard-ads', auth, requireAdmin, async (_req, res) => {
     imageUrl: row.image_url,
     lifecycleStatus: row.lifecycle_status,
     lifecycleReason: row.lifecycle_reason,
+    startDate: toIso(row.start_date),
+    endDate: toIso(row.end_date),
     createdAt: toIso(row.created_at),
   })));
 });

@@ -9,7 +9,11 @@ import '../../services/export_download.dart';
 import '../../theme/design_tokens.dart';
 import 'coalition_clearinghouse_widgets.dart';
 
-typedef ClearinghouseLoader = Future<Map<String, dynamic>> Function();
+typedef ClearinghouseLoader = Future<Map<String, dynamic>> Function({
+  String? type,
+  String? coalitionId,
+});
+typedef ClearinghouseLedgerLoader = Future<Map<String, dynamic>> Function();
 typedef ClearinghouseSettler = Future<Map<String, dynamic>> Function({
   required String coalitionId,
   required String toMerchantId,
@@ -18,7 +22,7 @@ typedef ClearinghouseSettler = Future<Map<String, dynamic>> Function({
 
 class CoalitionClearinghouseScreen extends StatefulWidget {
   final ClearinghouseLoader? clearinghouseLoader;
-  final ClearinghouseLoader? ledgerLoader;
+  final ClearinghouseLedgerLoader? ledgerLoader;
   final ClearinghouseSettler? settler;
   final Duration requestTimeout;
 
@@ -40,16 +44,20 @@ class _CoalitionClearinghouseScreenState
   bool _loading = true;
   bool _settling = false;
   String? _error;
+  String _filterType = 'silver'; // 'gold' | 'silver'
+  String? _selectedCoalitionId;
   Map<String, dynamic> _summary = const <String, dynamic>{};
   List<Map<String, dynamic>> _members = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _ledger = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _disputes = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _silverCoalitions = const <Map<String, dynamic>>[];
+  List<Map<String, dynamic>> _instantSettlements = const <Map<String, dynamic>>[];
 
   ClearinghouseLoader get _clearinghouseLoader =>
       widget.clearinghouseLoader ??
       CompanyServerService.getMerchantCoalitionClearinghouse;
 
-  ClearinghouseLoader get _ledgerLoader =>
+  ClearinghouseLedgerLoader get _ledgerLoader =>
       widget.ledgerLoader ?? CompanyServerService.getMerchantCoalitionLedger;
 
   @override
@@ -66,7 +74,10 @@ class _CoalitionClearinghouseScreenState
 
     try {
       final results = await Future.wait(<Future<Map<String, dynamic>>>[
-        _clearinghouseLoader().timeout(widget.requestTimeout),
+        _clearinghouseLoader(
+          type: _filterType,
+          coalitionId: _filterType == 'silver' ? _selectedCoalitionId : null,
+        ).timeout(widget.requestTimeout),
         _ledgerLoader().timeout(widget.requestTimeout),
       ]);
       if (!mounted) return;
@@ -80,6 +91,8 @@ class _CoalitionClearinghouseScreenState
         _ledger = _maps(
           clearinghouse['settlementHistory'] ?? results[1]['ledger'],
         );
+        _silverCoalitions = _maps(clearinghouse['silverCoalitions']);
+        _instantSettlements = _maps(clearinghouse['instantSettlements']);
       });
     } on TimeoutException {
       if (mounted) setState(() => _error = 'clearinghouse_timeout'.tr());
@@ -88,6 +101,34 @@ class _CoalitionClearinghouseScreenState
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+
+    // Auto-select the first Silver coalition so its net balance is shown.
+    if (mounted &&
+        _filterType == 'silver' &&
+        _selectedCoalitionId == null &&
+        _silverCoalitions.isNotEmpty) {
+      setState(() {
+        _selectedCoalitionId =
+            (_silverCoalitions.first['id'] ?? '').toString();
+      });
+      await _load();
+    }
+  }
+
+  void _onFilterTypeChanged(String type) {
+    if (type == _filterType || _loading) return;
+    setState(() => _filterType = type);
+    _load();
+  }
+
+  void _onCoalitionChanged(String? coalitionId) {
+    if (coalitionId == null ||
+        coalitionId == _selectedCoalitionId ||
+        _loading) {
+      return;
+    }
+    setState(() => _selectedCoalitionId = coalitionId);
+    _load();
   }
 
   Map<String, dynamic> _map(dynamic value) => value is Map
@@ -239,25 +280,41 @@ class _CoalitionClearinghouseScreenState
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? ClearinghouseErrorState(message: _error!, onRetry: _load)
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ClearinghouseContent(
-                    summary: _summary,
-                    members: _members,
-                    ledger: _ledger,
-                    disputes: _disputes,
-                    settling: _settling,
-                    canSettle: _canSettle,
-                    onSettleAll: _confirmSettlement,
-                    onSettleRow: (row) => _confirmSettlement(row),
-                    onRespondToDispute: _respondToDispute,
-                    onDownloadReceipt: _downloadReceipt,
-                  ),
-                ),
+      body: Column(
+        children: [
+          ClearinghouseFilterBar(
+            filterType: _filterType,
+            selectedCoalitionId: _selectedCoalitionId,
+            silverCoalitions: _silverCoalitions,
+            enabled: !_loading && !_settling,
+            onFilterTypeChanged: _onFilterTypeChanged,
+            onCoalitionChanged: _onCoalitionChanged,
+          ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
+                    ? ClearinghouseErrorState(message: _error!, onRetry: _load)
+                    : RefreshIndicator(
+                        onRefresh: _load,
+                        child: ClearinghouseContent(
+                          goldMode: _filterType == 'gold',
+                          summary: _summary,
+                          members: _members,
+                          ledger: _ledger,
+                          disputes: _disputes,
+                          instantSettlements: _instantSettlements,
+                          settling: _settling,
+                          canSettle: _canSettle,
+                          onSettleAll: _confirmSettlement,
+                          onSettleRow: (row) => _confirmSettlement(row),
+                          onRespondToDispute: _respondToDispute,
+                          onDownloadReceipt: _downloadReceipt,
+                        ),
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }

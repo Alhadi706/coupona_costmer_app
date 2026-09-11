@@ -286,7 +286,7 @@ app.post('/api/reward-claims/create', auth, async (req, res) => {
     await client.query('UPDATE point_accounts SET available_points = available_points - $2, updated_at = NOW() WHERE owner_id = $1', [req.user.userId, pointsCost]);
     await client.query(
       `INSERT INTO ledger_entries (id, owner_id, type, amount, points, reference)
-       VALUES ($1, $2, 'rewardClaimCreated', 0, $3, $4)`,
+       VALUES ($1, $2, 'rewardRedeemed', 0, $3, $4)`,
       [id(), req.user.userId, -pointsCost, `reward_claim:${claimId}`]
     );
   }
@@ -517,7 +517,7 @@ app.post('/api/cashier/redeem-claim', auth, async (req, res) => {
       const points = Number(row.points_cost || 0);
       const wallet = await client.query(`
         INSERT INTO merchant_token_wallets (merchant_id, balance, currency, is_local_mode, last_updated_at)
-        VALUES ($1, $2, 'SAR', FALSE, NOW())
+        VALUES ($1, $2, 'LYD', FALSE, NOW())
         ON CONFLICT (merchant_id) DO UPDATE SET
           balance = merchant_token_wallets.balance + EXCLUDED.balance,
           is_local_mode = FALSE,

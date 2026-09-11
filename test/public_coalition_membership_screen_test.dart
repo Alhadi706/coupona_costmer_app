@@ -45,7 +45,7 @@ void main() {
     }
   });
 
-  testWidgets('pending application cannot open payment', (tester) async {
+  testWidgets('pending application shows review guidance and support contact, no payment action', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: PublicCoalitionMembershipScreen(
         applicantType: 'merchant',
@@ -56,24 +56,60 @@ void main() {
 
     expect(find.byKey(const Key('public-coalition-status-pending_admin_review')), findsOneWidget);
     expect(find.byKey(const Key('public-coalition-open-payment')), findsNothing);
+    expect(find.byKey(const Key('public-coalition-contact-support')), findsOneWidget);
+    expect(
+      find.text('سيقوم مسؤول المنصة بمراجعة طلبك وإرسال تفاصيل التفعيل وتعبئة رصيدك.'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('approved application shows private admin message and payment action', (tester) async {
+  testWidgets('approved application shows admin message without any payment action', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: PublicCoalitionMembershipScreen(
         applicantType: 'brand',
         requestLoader: (_) async => <String, dynamic>{
           'id': 'request-1',
           'status': 'approved_pending_payment',
-          'adminMessage': 'Complete payment using your private link.',
+          'adminMessage': 'Activation is handled via a platform-issued code.',
           'paymentUrl': 'https://payments.example/request-1',
         },
       ),
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('Complete payment using your private link.'), findsOneWidget);
-    expect(find.byKey(const Key('public-coalition-open-payment')), findsOneWidget);
+    expect(find.text('Activation is handled via a platform-issued code.'), findsOneWidget);
+    expect(find.byKey(const Key('public-coalition-open-payment')), findsNothing);
+    expect(find.byKey(const Key('public-coalition-contact-support')), findsOneWidget);
+  });
+
+  testWidgets('merchant can redeem an activation code; brand does not see the code card', (tester) async {
+    String? redeemedCode;
+    await tester.pumpWidget(MaterialApp(
+      home: PublicCoalitionMembershipScreen(
+        applicantType: 'merchant',
+        requestLoader: (_) async => null,
+        codeActivationAction: (code) async {
+          redeemedCode = code;
+          return <String, dynamic>{'ok': true, 'creditedPoints': 1000, 'balance': 1000};
+        },
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('public-coalition-activation-code-input')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('public-coalition-activation-code-input')), 'GOLD-1234');
+    await tester.tap(find.byKey(const Key('public-coalition-activate-code')));
+    await tester.pumpAndSettle();
+    expect(redeemedCode, 'GOLD-1234');
+
+    await tester.pumpWidget(MaterialApp(
+      home: PublicCoalitionMembershipScreen(
+        applicantType: 'brand',
+        requestLoader: (_) async => null,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('public-coalition-activation-code-input')), findsNothing);
   });
 
   testWidgets('admin actions follow the request lifecycle', (tester) async {

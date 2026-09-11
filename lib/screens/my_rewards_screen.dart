@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -7,7 +6,7 @@ import '../modules/redemption/redemption_math.dart';
 import '../services/company_server_service.dart';
 import '../theme/design_tokens.dart';
 import '../widgets/dynamic_voucher_sheet.dart';
-import 'customer_coalitions_screen.dart';
+import 'claim_reward_modal.dart';
 
 part 'my_rewards_helpers.dart';
 part 'my_rewards_ui_helpers.dart';
@@ -62,10 +61,8 @@ class MyRewardsScreen extends StatefulWidget {
 }
 
 class _MyRewardsScreenState extends State<MyRewardsScreen> {
-  final Map<String, String> _rewardClaimRequestIds = <String, String>{};
   bool _loading = true;
   bool _hasLoadedOnce = false;
-  bool _redeeming = false;
   Map<String, dynamic> _points = const <String, dynamic>{};
   Map<String, dynamic> _tiers = const <String, dynamic>{};
   Map<String, dynamic> _pending = const <String, dynamic>{};
@@ -310,76 +307,6 @@ class _MyRewardsScreenState extends State<MyRewardsScreen> {
         );
       },
     );
-  }
-
-  Future<void> _redeemReward(Map<String, dynamic> reward) async {
-    if (_redeeming) return;
-    final requiredPoints = _toInt(reward['value']);
-    final currentPoints = _toInt(_points['availablePoints']);
-    if (requiredPoints <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('reward_invalid_value'.tr())));
-      return;
-    }
-    if (currentPoints < requiredPoints) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('reward_insufficient_points'.tr())),
-      );
-      return;
-    }
-
-    setState(() => _redeeming = true);
-    final rewardId = (reward['id'] ?? '').toString();
-    final requestId = _rewardClaimRequestIds.putIfAbsent(
-      rewardId,
-      () => const Uuid().v4(),
-    );
-    try {
-      final rewardKind = (reward['kind'] ?? 'digital').toString();
-      final claim = await CompanyServerService.createRewardClaim(
-        pointsCost: requiredPoints,
-        rewardId: rewardId,
-        sourceType: (reward['sourceType'] ?? 'system').toString(),
-        sourceId: (reward['sourceId'] ?? reward['id'] ?? '').toString(),
-        rewardKind: rewardKind,
-        idempotencyKey: requestId,
-      );
-      _rewardClaimRequestIds.remove(rewardId);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'reward_redeemed_success'.tr(
-              namedArgs: {
-                'reward': '${reward['reward_name'] ?? 'reward_generic'.tr()}',
-              },
-            ),
-          ),
-        ),
-      );
-      await _loadData();
-      if (!mounted) return;
-      _showCouponDialog(
-        rewardName: (reward['reward_name'] ?? '').toString(),
-        rewardKind: rewardKind,
-        pickupQrCode: (claim['pickupQrCode'] ?? '').toString(),
-        digitalCode: (claim['digitalCode'] ?? '').toString(),
-        status: (claim['status'] ?? '').toString(),
-        expiresAt: (claim['expiresAt'] ?? '').toString(),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'reward_redeem_error'.tr(namedArgs: {'error': e.toString()}),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _redeeming = false);
-    }
   }
 
   @Deprecated('Use the extracted reward category helper.')

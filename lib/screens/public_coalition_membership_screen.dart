@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -6,17 +8,29 @@ import '../services/company_server_service.dart';
 
 typedef PublicCoalitionRequestLoader = Future<Map<String, dynamic>?> Function(String applicantType);
 typedef PublicCoalitionRequestAction = Future<Map<String, dynamic>> Function(String applicantType);
+typedef PublicCoalitionCodeActivationAction = Future<Map<String, dynamic>> Function(String code);
+
+/// Platform support WhatsApp number, provided at build time:
+/// `--dart-define=KUPUNA_SUPPORT_WHATSAPP=2189XXXXXXXX`.
+const String kPlatformSupportWhatsApp = String.fromEnvironment(
+  'KUPUNA_SUPPORT_WHATSAPP',
+  defaultValue: '',
+);
 
 class PublicCoalitionMembershipScreen extends StatefulWidget {
   final String applicantType;
   final PublicCoalitionRequestLoader? requestLoader;
   final PublicCoalitionRequestAction? requestAction;
+  final PublicCoalitionCodeActivationAction? codeActivationAction;
+  final String supportWhatsAppNumber;
 
   const PublicCoalitionMembershipScreen({
     super.key,
     required this.applicantType,
     this.requestLoader,
     this.requestAction,
+    this.codeActivationAction,
+    this.supportWhatsAppNumber = kPlatformSupportWhatsApp,
   });
 
   @override
@@ -24,8 +38,10 @@ class PublicCoalitionMembershipScreen extends StatefulWidget {
 }
 
 class _PublicCoalitionMembershipScreenState extends State<PublicCoalitionMembershipScreen> {
+  final TextEditingController _codeController = TextEditingController();
   bool _loading = true;
   bool _submitting = false;
+  bool _activatingCode = false;
   String? _error;
   Map<String, dynamic>? _request;
 
@@ -42,6 +58,12 @@ class _PublicCoalitionMembershipScreenState extends State<PublicCoalitionMembers
       _request = null;
       _load();
     }
+  }
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
   }
 
   String _tx(String key, String fallback) {
@@ -78,21 +100,56 @@ class _PublicCoalitionMembershipScreenState extends State<PublicCoalitionMembers
     }
   }
 
-  Future<void> _openPayment(String rawUrl) async {
-    final uri = Uri.tryParse(rawUrl);
-    if (uri == null || !const {'http', 'https'}.contains(uri.scheme) ||
-        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+  Future<void> _activateCode() async {
+    final code = _codeController.text.trim();
+    if (code.isEmpty || _activatingCode) return;
+    setState(() => _activatingCode = true);
+    try {
+      final result = await (widget.codeActivationAction ??
+          (value) => CompanyServerService.activateCoalitionCode(code: value))(code);
+      if (!mounted) return;
+      _codeController.clear();
+      final credited = result['creditedPoints'];
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_tx(
+            'public_coalition_code_activated',
+            'تم تفعيل الرصيد بنجاح${credited != null ? ' (+$credited)' : ''}',
+          )),
+        ),
+      );
+      await _load();
+    } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_tx('public_coalition_payment_open_failed', 'Could not open the payment link.'))),
+        SnackBar(content: Text(_tx('public_coalition_code_activation_failed', 'تعذر تفعيل الكود. تأكد من الكود وحاول مجدداً.'))),
+      );
+    } finally {
+      if (mounted) setState(() => _activatingCode = false);
+    }
+  }
+
+  Future<void> _contactSupport() async {
+    final rawNumber = widget.supportWhatsAppNumber.replaceAll(RegExp(r'[^0-9]'), '');
+    final message = _tx(
+      'public_coalition_support_message',
+      'مرحباً، أحتاج مساعدة بخصوص طلب تفعيل الائتلاف الذهبي.',
+    );
+    final uri = rawNumber.isEmpty
+        ? Uri.parse('https://wa.me/?text=${Uri.encodeComponent(message)}')
+        : Uri.parse('https://wa.me/$rawNumber?text=${Uri.encodeComponent(message)}');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_tx('public_coalition_support_open_failed', 'تعذر فتح قناة التواصل مع إدارة المنصة.'))),
       );
     }
   }
 
   String _statusLabel(String status) {
     return switch (status) {
-      'pending_admin_review' => _tx('public_coalition_status_pending', 'Pending admin review'),
-      'approved_pending_payment' => _tx('public_coalition_status_payment', 'Approved - payment required'),
+      'pending_admin_review' => _tx('public_coalition_status_pending', 'طلبك قيد المراجعة'),
+      'approved_pending_payment' => _tx('public_coalition_status_pending', 'طلبك قيد المراجعة'),
       'active' => _tx('public_coalition_status_active', 'Active'),
       'rejected' => _tx('public_coalition_status_rejected', 'Rejected'),
       _ => status,
@@ -117,13 +174,18 @@ class _PublicCoalitionMembershipScreenState extends State<PublicCoalitionMembers
                     const Icon(Icons.public, size: 36),
                     const SizedBox(height: 12),
                     Text(
-                      _tx('public_coalition_membership_description', 'Apply to join Coupona public network. Activation requires admin approval and payment confirmation.'),
+                      _tx('public_coalition_membership_description',
+                          'قدّم طلب الانضمام إلى شبكة كوبونا العامة. يتم التفعيل بعد مراجعة إدارة المنصة وتعبئة رصيدك عبر كود تفعيل.'),
                     ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 12),
+            if (widget.applicantType == 'merchant') ...[
+              _buildActivationCodeCard(),
+              const SizedBox(height: 12),
+            ],
             if (_loading)
               const Center(child: CircularProgressIndicator())
             else if (_error != null)
@@ -139,6 +201,82 @@ class _PublicCoalitionMembershipScreenState extends State<PublicCoalitionMembers
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildActivationCodeCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              _tx('public_coalition_activation_code_title', 'تفعيل الرصيد الذهبي'),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _tx('public_coalition_activation_code_hint',
+                  'إذا استلمت كود تفعيل من إدارة المنصة، أدخله هنا لتعبئة رصيدك الذهبي فوراً.'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('public-coalition-activation-code-input'),
+              controller: _codeController,
+              textDirection: ui.TextDirection.ltr,
+              decoration: InputDecoration(
+                labelText: _tx('public_coalition_activation_code_label', 'أدخل كود تفعيل الرصيد'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              key: const Key('public-coalition-activate-code'),
+              onPressed: _activatingCode ? null : _activateCode,
+              icon: const Icon(Icons.bolt_outlined),
+              label: Text(_activatingCode
+                  ? _tx('public_coalition_activating_code', 'جارٍ التفعيل...')
+                  : _tx('public_coalition_activate_code', 'تفعيل الرصيد')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPendingGuidance() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 10),
+        Card(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _tx('public_coalition_pending_guidance',
+                        'سيقوم مسؤول المنصة بمراجعة طلبك وإرسال تفاصيل التفعيل وتعبئة رصيدك.'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          key: const Key('public-coalition-contact-support'),
+          onPressed: _contactSupport,
+          icon: const Icon(Icons.chat_outlined, color: Colors.green),
+          label: Text(_tx('public_coalition_contact_support', 'التواصل مع إدارة المنصة')),
+        ),
+      ],
     );
   }
 
@@ -164,7 +302,7 @@ class _PublicCoalitionMembershipScreenState extends State<PublicCoalitionMembers
                 icon: const Icon(Icons.send_outlined),
                 label: Text(_submitting
                     ? _tx('public_coalition_submitting', 'Submitting...')
-                    : _tx('public_coalition_submit', 'Submit membership application')),
+                    : _tx('public_coalition_submit', 'تقديم طلب تفعيل الائتلاف الذهبي')),
               ),
             ],
           ),
@@ -174,7 +312,7 @@ class _PublicCoalitionMembershipScreenState extends State<PublicCoalitionMembers
 
     final status = request['status']?.toString() ?? '';
     final adminMessage = request['adminMessage']?.toString() ?? '';
-    final paymentUrl = request['paymentUrl']?.toString() ?? '';
+    final awaitingReview = status == 'pending_admin_review' || status == 'approved_pending_payment';
     return Card(
       key: Key('public-coalition-status-$status'),
       child: Padding(
@@ -189,15 +327,7 @@ class _PublicCoalitionMembershipScreenState extends State<PublicCoalitionMembers
               const SizedBox(height: 4),
               SelectableText(adminMessage),
             ],
-            if (status == 'approved_pending_payment' && paymentUrl.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                key: const Key('public-coalition-open-payment'),
-                onPressed: () => _openPayment(paymentUrl),
-                icon: const Icon(Icons.open_in_new),
-                label: Text(_tx('public_coalition_open_payment', 'Open secure payment page')),
-              ),
-            ],
+            if (awaitingReview) _buildPendingGuidance(),
           ],
         ),
       ),

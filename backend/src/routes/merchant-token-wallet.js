@@ -4,7 +4,7 @@ module.exports = function registerMerchantTokenWalletRoutes(app, deps) {
   async function getMerchantWallet(client, merchantId) {
     await client.query(
       `INSERT INTO merchant_token_wallets (merchant_id, balance, currency, is_local_mode, last_updated_at)
-       VALUES ($1, 0, 'SAR', FALSE, NOW())
+       VALUES ($1, 0, 'LYD', FALSE, NOW())
        ON CONFLICT (merchant_id) DO NOTHING`,
       [merchantId]
     );
@@ -30,7 +30,7 @@ module.exports = function registerMerchantTokenWalletRoutes(app, deps) {
     return res.json({
       merchantId: wallet.merchant_id,
       balance: Number(wallet.balance || 0),
-      currency: wallet.currency || 'SAR',
+      currency: wallet.currency || 'LYD',
       isLocalMode: wallet.is_local_mode === true,
       lastUpdatedAt: toIso(wallet.last_updated_at),
     });
@@ -46,7 +46,7 @@ module.exports = function registerMerchantTokenWalletRoutes(app, deps) {
     return res.json({
       merchantId,
       balance: Number(wallet.balance || 0),
-      currency: wallet.currency || 'SAR',
+      currency: wallet.currency || 'LYD',
       isPublicCoalitionActive: profile?.is_public_coalition_active === true,
       minimumActivationBalance: 1000,
     });

@@ -89,7 +89,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     _peerAdsFuture = widget.peerAdsLoader != null
         ? widget.peerAdsLoader!('pending_admin_review')
         : CompanyServerService.getAdminPeerAds(status: 'pending_admin_review');
-    _billboardAdsFuture = CompanyServerService.getAdminBillboardAds();
+    _billboardAdsFuture = CompanyServerService.getAdminBillboardAds(
+      status: 'pending_review',
+    );
     _summaryFuture =
         (widget.summaryLoader ??
         CompanyServerService.getAdminDashboardSummary)();
@@ -131,6 +133,96 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     await _runAction('role:$requestId', () async {
       await (widget.approveRoleRequest ??
           CompanyServerService.approveAdminRoleRequest)(requestId);
+    });
+  }
+
+  /// App Store compliant: manual B2B credit of the merchant's prepaid Gold
+  /// coalition balance. No purchase/payment wording anywhere.
+  Future<void> _showGoldTopUpDialog(Map<String, dynamic> row) async {
+    final merchantId = (row['roleProfileId'] ?? '').toString();
+    final businessName = (row['businessName'] ?? '-').toString();
+    if (merchantId.isEmpty) return;
+
+    final amountController = TextEditingController();
+    final confirmed = await showDialog<num>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(
+            _tx('gold_topup_title', 'تعبئة رصيد الائتلاف الذهبي'),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(businessName),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: _tx(
+                    'gold_topup_amount_label',
+                    'مبلغ الرصيد المضاف (د.ل / نقاط)',
+                  ),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(_tx('cancel', 'إلغاء')),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F766E),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                final amount = num.tryParse(amountController.text.trim());
+                if (amount == null || amount <= 0) return;
+                Navigator.of(dialogContext).pop(amount);
+              },
+              child: Text(_tx('gold_topup_confirm', 'تأكيد التعبئة')),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed == null || !mounted) return;
+
+    await _runAction('topup:$merchantId', () async {
+      final result = await CompanyServerService.topUpMerchantGoldWallet(
+        merchantId,
+        pointsAmount: confirmed,
+      );
+      if (!mounted) return;
+      final balance = result['balance'];
+      final goldActive = result['isPublicCoalitionActive'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _tx(
+              'gold_topup_success',
+              'تمت التعبئة بنجاح. الرصيد الجديد: {balance}{gold}',
+            )
+                .replaceAll('{balance}', '$balance')
+                .replaceAll(
+                  '{gold}',
+                  goldActive
+                      ? _tx(
+                          'gold_topup_tier_activated',
+                          ' — تم تفعيل الفئة الذهبية',
+                        )
+                      : '',
+                ),
+          ),
+        ),
+      );
     });
   }
 
@@ -362,6 +454,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                       ),
                     ],
                   ),
+                  if (roleType.toLowerCase() == 'merchant' &&
+                      (row['roleProfileId'] ?? '').toString().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF0F766E),
+                        side: const BorderSide(color: Color(0xFF0F766E)),
+                      ),
+                      onPressed: _pendingActions.contains(
+                        'topup:${row['roleProfileId']}',
+                      )
+                          ? null
+                          : () => _showGoldTopUpDialog(row),
+                      icon: const Icon(
+                        Icons.account_balance_wallet_outlined,
+                        size: 18,
+                      ),
+                      label: _pendingActions.contains(
+                        'topup:${row['roleProfileId']}',
+                      )
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              _tx(
+                                'gold_topup_title',
+                                'تعبئة رصيد الائتلاف الذهبي',
+                              ),
+                            ),
+                    ),
+                  ],
                 ],
               ),
             );
@@ -455,7 +579,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           return const Center(child: CircularProgressIndicator());
         }
         final rows = snapshot.data!
-            .where((row) => row['lifecycleStatus'] == 'pending_review')
+            .where(
+              (row) =>
+                  (row['lifecycleStatus'] ?? 'pending_review') ==
+                  'pending_review',
+            )
             .toList();
         if (rows.isEmpty) {
           return Text(
@@ -464,79 +592,118 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
         }
         return ListView.builder(
           itemCount: rows.length,
-          itemBuilder: (context, index) {
-            final row = rows[index];
-            final adId = (row['id'] ?? '').toString();
-            final imageUrl = (row['imageUrl'] ?? '').toString();
-            final actionKey = 'billboard:$adId';
-            final actionPending = _pendingActions.contains(actionKey);
-            return _sectionCard(
-              title: (row['description'] ?? '-').toString(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (imageUrl.isNotEmpty)
-                    Image.network(
-                      imageUrl,
-                      height: 120,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, progress) =>
-                          progress == null
-                          ? child
-                          : const SizedBox(
-                              height: 120,
-                              child: Center(child: CircularProgressIndicator()),
-                            ),
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        height: 120,
-                        width: double.infinity,
-                        color: Colors.grey.shade100,
-                        alignment: Alignment.center,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.broken_image_outlined),
-                            const SizedBox(height: 4),
-                            Text(
-                              _tx(
-                                'billboard_image_unavailable',
-                                'Image unavailable',
-                              ),
-                            ),
-                          ],
-                        ),
+          itemBuilder: (context, index) => _buildBannerAdApprovalCard(
+            rows[index],
+          ),
+        );
+      },
+    );
+  }
+
+  String _bannerDisplayRange(Map<String, dynamic> row) {
+    String fmt(dynamic raw) {
+      final parsed = DateTime.tryParse((raw ?? '').toString());
+      if (parsed == null) return '-';
+      return DateFormat('yyyy-MM-dd').format(parsed.toLocal());
+    }
+
+    return '${fmt(row['startDate'])} → ${fmt(row['endDate'])}';
+  }
+
+  Widget _buildBannerAdApprovalCard(Map<String, dynamic> row) {
+    final adId = (row['id'] ?? '').toString();
+    final imageUrl = (row['imageUrl'] ?? '').toString();
+    final merchantName = (row['businessName'] ?? '').toString().trim();
+    final description = (row['description'] ?? '-').toString();
+    final placementTier = (row['offerType'] ?? row['category'] ?? '-')
+        .toString();
+    final displayRange = _bannerDisplayRange(row);
+    final actionKey = 'billboard:$adId';
+    final actionPending = _pendingActions.contains(actionKey);
+
+    return _sectionCard(
+      title: merchantName.isNotEmpty ? merchantName : description,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (imageUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                imageUrl,
+                height: 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) => progress == null
+                    ? child
+                    : const SizedBox(
+                        height: 140,
+                        child: Center(child: CircularProgressIndicator()),
                       ),
-                    ),
-                  const SizedBox(height: 8),
-                  Text((row['category'] ?? '').toString()),
-                  const SizedBox(height: 8),
-                  Row(
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 140,
+                  width: double.infinity,
+                  color: Colors.grey.shade100,
+                  alignment: Alignment.center,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      ElevatedButton(
-                        onPressed: adId.isEmpty || actionPending
-                            ? null
-                            : () => _approveBillboardAd(adId),
-                        child: _actionLabel(
-                          actionKey,
-                          _tx('approve', 'Approve'),
+                      const Icon(Icons.broken_image_outlined),
+                      const SizedBox(height: 4),
+                      Text(
+                        _tx(
+                          'billboard_image_unavailable',
+                          'Image unavailable',
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: adId.isEmpty || actionPending
-                            ? null
-                            : () => _rejectBillboardAd(adId),
-                        child: _actionLabel(actionKey, _tx('reject', 'Reject')),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            );
-          },
-        );
-      },
+            ),
+          const SizedBox(height: 8),
+          if (merchantName.isNotEmpty)
+            Text(
+              _tx('billboard_ad_description_label', 'Description: {value}')
+                  .replaceAll('{value}', description),
+            ),
+          Text(
+            _tx('billboard_display_range', 'Display range: {value}')
+                .replaceAll('{value}', displayRange),
+          ),
+          Text(
+            _tx('billboard_placement_tier', 'Placement tier: {value}')
+                .replaceAll('{value}', placementTier),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0F766E),
+                  foregroundColor: Colors.white,
+                ),
+                onPressed: adId.isEmpty || actionPending
+                    ? null
+                    : () => _approveBillboardAd(adId),
+                icon: const Icon(Icons.visibility_outlined, size: 18),
+                label: _actionLabel(
+                  actionKey,
+                  _tx('billboard_approve_show', 'تفعيل وإظهار الإعلان'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: adId.isEmpty || actionPending
+                    ? null
+                    : () => _rejectBillboardAd(adId),
+                icon: const Icon(Icons.close, size: 18),
+                label: Text(_tx('billboard_reject_request', 'رفض الطلب')),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -1209,23 +1376,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   Widget _buildBody() {
+    const tabAccent = Color(0xFF0F766E);
     return Column(
       children: [
-        TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          indicatorColor: Colors.white,
-          tabs: [
-            Tab(text: _tx('admin_tab_analytics', 'Overview')),
-            Tab(text: _tx('admin_tab_operations', 'Operations')),
-            Tab(text: _tx('admin_tab_role_requests', 'Role Requests')),
-            Tab(text: _tx('admin_tab_peer_ads', 'Peer Ads')),
-            Tab(text: _tx('billboard_review_title', 'Home Billboard Ads')),
-            Tab(text: _tx('public_coalition_admin_tab', 'Public Coalition')),
-            Tab(text: _tx('admin_subscriptions_tab', 'Subscriptions')),
-          ],
+        Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFFF1EFE9),
+            border: Border(
+              bottom: BorderSide(color: Color(0xFFD6D2C4), width: 1),
+            ),
+          ),
+          child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            labelColor: tabAccent,
+            unselectedLabelColor: const Color(0xFF334155),
+            labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+            indicatorColor: tabAccent,
+            indicatorWeight: 3,
+            indicatorSize: TabBarIndicatorSize.label,
+            tabs: [
+              Tab(text: _tx('admin_tab_analytics', 'Overview')),
+              Tab(text: _tx('admin_tab_operations', 'Operations')),
+              Tab(text: _tx('admin_tab_role_requests', 'Role Requests')),
+              Tab(text: _tx('admin_tab_peer_ads', 'Peer Ads')),
+              Tab(text: _tx('billboard_review_title', 'Home Billboard Ads')),
+              Tab(text: _tx('public_coalition_admin_tab', 'Public Coalition')),
+              Tab(text: _tx('admin_subscriptions_tab', 'Subscriptions')),
+            ],
+          ),
         ),
         Expanded(
           child: TabBarView(

@@ -157,8 +157,19 @@ class _CompanyServerCoalitions {
   }
 
   static Future<Map<String, dynamic>>
-  getMerchantCoalitionClearinghouse() async {
-    final data = await _CompanyServerCore.get('/merchant/coalitions/clearinghouse', auth: true);
+  getMerchantCoalitionClearinghouse({
+    String? type,
+    String? coalitionId,
+  }) async {
+    final data = await _CompanyServerCore.get(
+      '/merchant/coalitions/clearinghouse',
+      query: <String, dynamic>{
+        if (type != null) 'type': type,
+        if (coalitionId != null && coalitionId.isNotEmpty)
+          'coalition_id': coalitionId,
+      },
+      auth: true,
+    );
     return (data as Map).cast<String, dynamic>();
   }
 

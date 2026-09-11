@@ -22,11 +22,68 @@ class ClearinghouseErrorState extends StatelessWidget {
       );
 }
 
+class ClearinghouseFilterBar extends StatelessWidget {
+  final String filterType; // 'gold' | 'silver'
+  final String? selectedCoalitionId;
+  final List<Map<String, dynamic>> silverCoalitions;
+  final bool enabled;
+  final ValueChanged<String> onFilterTypeChanged;
+  final ValueChanged<String?> onCoalitionChanged;
+
+  const ClearinghouseFilterBar({super.key, required this.filterType, required this.selectedCoalitionId, required this.silverCoalitions, required this.enabled, required this.onFilterTypeChanged, required this.onCoalitionChanged});
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: kMerchantCardBg,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SegmentedButton<String>(
+                key: const Key('clearinghouse-type-filter'),
+                segments: [
+                  ButtonSegment(value: 'gold', icon: const Icon(Icons.workspace_premium_outlined), label: Text('clearinghouse_tab_gold'.tr())),
+                  ButtonSegment(value: 'silver', icon: const Icon(Icons.groups_2_outlined), label: Text('clearinghouse_tab_silver'.tr())),
+                ],
+                selected: {filterType},
+                onSelectionChanged: enabled ? (selection) => onFilterTypeChanged(selection.first) : null,
+              ),
+            ),
+            if (filterType == 'silver') ...[
+              const SizedBox(height: 10),
+              if (silverCoalitions.isEmpty)
+                Text('clearinghouse_no_silver_coalitions'.tr(), style: const TextStyle(color: kMerchantMuted))
+              else
+                DropdownButtonFormField<String>(
+                  key: const Key('clearinghouse-silver-selector'),
+                  initialValue: selectedCoalitionId,
+                  decoration: InputDecoration(
+                    labelText: 'clearinghouse_select_silver'.tr(),
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: silverCoalitions
+                      .map((coalition) => DropdownMenuItem<String>(
+                            value: (coalition['id'] ?? '').toString(),
+                            child: Text((coalition['name'] ?? '-').toString()),
+                          ))
+                      .toList(growable: false),
+                  onChanged: enabled ? onCoalitionChanged : null,
+                ),
+            ],
+          ]),
+        ),
+      );
+}
+
 class ClearinghouseContent extends StatelessWidget {
+  final bool goldMode;
   final Map<String, dynamic> summary;
   final List<Map<String, dynamic>> members;
   final List<Map<String, dynamic>> ledger;
   final List<Map<String, dynamic>> disputes;
+  final List<Map<String, dynamic>> instantSettlements;
   final bool settling;
   final bool Function(Map<String, dynamic>) canSettle;
   final VoidCallback onSettleAll;
@@ -34,7 +91,7 @@ class ClearinghouseContent extends StatelessWidget {
   final void Function(Map<String, dynamic>, String) onRespondToDispute;
   final ValueChanged<Map<String, dynamic>> onDownloadReceipt;
 
-  const ClearinghouseContent({super.key, required this.summary, required this.members, required this.ledger, required this.disputes, required this.settling, required this.canSettle, required this.onSettleAll, required this.onSettleRow, required this.onRespondToDispute, required this.onDownloadReceipt});
+  const ClearinghouseContent({super.key, required this.goldMode, required this.summary, required this.members, required this.ledger, required this.disputes, required this.instantSettlements, required this.settling, required this.canSettle, required this.onSettleAll, required this.onSettleRow, required this.onRespondToDispute, required this.onDownloadReceipt});
 
   double _number(dynamic value) => double.tryParse('$value') ?? 0;
 
@@ -43,9 +100,42 @@ class ClearinghouseContent extends StatelessWidget {
     final issued = _number(summary['issuedPoints']);
     final redeemed = _number(summary['redeemedPoints']);
     final net = _number(summary['netBalance']) * _number(summary['pointValue'] ?? 1);
+    if (goldMode) {
+      return ListView(padding: const EdgeInsets.all(16), children: [
+        _KpiGrid(
+          issued: issued,
+          redeemed: redeemed,
+          net: net,
+          issuedLabel: 'clearinghouse_gold_issued'.tr(),
+          redeemedLabel: 'clearinghouse_gold_redeemed'.tr(),
+          netLabel: 'clearinghouse_gold_settled'.tr(),
+        ),
+        const SizedBox(height: 16),
+        _Section(
+          title: 'clearinghouse_instant_ledger'.tr(),
+          child: instantSettlements.isEmpty
+              ? _EmptyState(icon: Icons.bolt_outlined, label: 'clearinghouse_no_instant'.tr())
+              : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: instantSettlements.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, index) => _InstantSettlementTile(entry: instantSettlements[index]),
+                ),
+        ),
+      ]);
+    }
     final pendingCount = members.where(canSettle).length;
     return ListView(padding: const EdgeInsets.all(16), children: [
-      _KpiGrid(issued: issued, redeemed: redeemed, net: net),
+      _KpiGrid(
+        issued: issued,
+        redeemed: redeemed,
+        net: net,
+        issuedLabel: 'clearinghouse_summary_points_issued'.tr(),
+        redeemedLabel: 'clearinghouse_summary_cross_redemptions'.tr(),
+        netLabel: 'clearinghouse_summary_net_balance'.tr(),
+        netBadge: net >= 0 ? 'clearinghouse_owed_to_you'.tr() : 'clearinghouse_you_owe'.tr(),
+      ),
       const SizedBox(height: 16),
       _Section(
         title: 'clearinghouse_member_matrix'.tr(),
@@ -86,20 +176,48 @@ class ClearinghouseContent extends StatelessWidget {
   }
 }
 
+class _InstantSettlementTile extends StatelessWidget {
+  final Map<String, dynamic> entry;
+  const _InstantSettlementTile({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final type = (entry['type'] ?? '-').toString();
+    final isCredit = type == 'GOLD_REDEMPTION_SETTLED';
+    final amount = double.tryParse('${entry['amount']}') ?? 0;
+    final balanceAfter = double.tryParse('${entry['balance_after']}') ?? 0;
+    final color = isCredit ? kTeal : Colors.deepOrange.shade700;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(isCredit ? Icons.bolt_outlined : Icons.payments_outlined, color: kGold),
+      title: Text(type, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text('${entry['created_at'] ?? '-'}  •  ${'clearinghouse_balance_after'.tr()}: ${balanceAfter.toStringAsFixed(0)}'),
+      trailing: Text(
+        '${isCredit ? '+' : '-'}${amount.toStringAsFixed(0)} ${'currency_lyd'.tr()}',
+        style: TextStyle(color: color, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
 class _KpiGrid extends StatelessWidget {
   final double issued;
   final double redeemed;
   final double net;
-  const _KpiGrid({required this.issued, required this.redeemed, required this.net});
+  final String issuedLabel;
+  final String redeemedLabel;
+  final String netLabel;
+  final String? netBadge;
+  const _KpiGrid({required this.issued, required this.redeemed, required this.net, required this.issuedLabel, required this.redeemedLabel, required this.netLabel, this.netBadge});
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, constraints) {
         final columns = constraints.maxWidth >= 900 ? 3 : constraints.maxWidth >= 560 ? 2 : 1;
         final width = (constraints.maxWidth - ((columns - 1) * 12)) / columns;
         return Wrap(spacing: 12, runSpacing: 12, children: [
-          _MetricCard(width: width, icon: Icons.add_chart, label: 'clearinghouse_summary_points_issued'.tr(), value: issued.toStringAsFixed(0), color: kIndigo),
-          _MetricCard(width: width, icon: Icons.redeem_outlined, label: 'clearinghouse_summary_cross_redemptions'.tr(), value: redeemed.toStringAsFixed(0), color: kGold),
-          _MetricCard(width: width, icon: Icons.account_balance_wallet_outlined, label: 'clearinghouse_summary_net_balance'.tr(), value: '${net >= 0 ? '+' : ''}${net.toStringAsFixed(2)} ${'currency_lyd'.tr()}', color: net >= 0 ? kTeal : Colors.deepOrange.shade700, badge: net >= 0 ? 'clearinghouse_owed_to_you'.tr() : 'clearinghouse_you_owe'.tr()),
+          _MetricCard(width: width, icon: Icons.add_chart, label: issuedLabel, value: issued.toStringAsFixed(0), color: kIndigo),
+          _MetricCard(width: width, icon: Icons.redeem_outlined, label: redeemedLabel, value: redeemed.toStringAsFixed(0), color: kGold),
+          _MetricCard(width: width, icon: Icons.account_balance_wallet_outlined, label: netLabel, value: '${net >= 0 ? '+' : ''}${net.toStringAsFixed(2)} ${'currency_lyd'.tr()}', color: net >= 0 ? kTeal : Colors.deepOrange.shade700, badge: netBadge),
         ]);
       });
 }
